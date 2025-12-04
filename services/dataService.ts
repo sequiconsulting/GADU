@@ -1,27 +1,27 @@
 
-
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, runTransaction } from "firebase/firestore";
 import { Member, AppSettings } from "../types";
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "gadu-33492",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCz0_p2klHvYZJ5xXWJE_eSrKy4pAz4Poc",
+  authDomain: "gadu-staging.firebaseapp.com",
+  projectId: "gadu-staging",
+  storageBucket: "gadu-staging.firebasestorage.app",
+  messagingSenderId: "88758278794",
+  appId: "1:88758278794:web:ac41da27e151d31bbf6b73",
+  measurementId: "G-2FC590JYSL"
 };
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const MOCK_MEMBERS: Member[] = [
-  // ... (keep the same mock data array as before)
+  // ... (mock data remains available but won't be used if USE_FIREBASE is true)
 ];
 
 class DataService {
-  private USE_FIREBASE = true;
+  private USE_FIREBASE = true; // This is already set to true
   public APP_VERSION = '0.24';
   private membersCollection = collection(db, "members");
   private settingsDoc = doc(db, "settings", "appSettings");
@@ -31,7 +31,6 @@ class DataService {
   }
 
   private init() {
-    // Firebase is initialized outside, just a check
     if (this.USE_FIREBASE) {
       console.log("Firebase mode enabled.");
     } else {
@@ -46,25 +45,22 @@ class DataService {
     }
 
     console.log("Starting mock data upload to Firebase...");
-    const batch = runTransaction(db, async (transaction) => {
-      for (const member of MOCK_MEMBERS) {
-        const memberRef = doc(this.membersCollection, member.id);
-        transaction.set(memberRef, member);
-      }
-    });
-
     try {
-      await batch;
-      console.log("Mock data successfully uploaded to Firebase!");
+        await runTransaction(db, async (transaction) => {
+            for (const member of MOCK_MEMBERS) {
+                const memberRef = doc(this.membersCollection, member.id);
+                transaction.set(memberRef, member);
+            }
+        });
+        console.log("Mock data successfully uploaded to Firebase!");
     } catch (error) {
-      console.error("Error uploading mock data: ", error);
+        console.error("Error uploading mock data: ", error);
     }
   }
 
   async getMembers(): Promise<Member[]> {
     if (!this.USE_FIREBASE) {
-      // Local fallback
-      return new Promise(resolve => resolve([]));
+      return Promise.resolve([]);
     }
     const querySnapshot = await getDocs(this.membersCollection);
     const members: Member[] = [];
@@ -76,7 +72,7 @@ class DataService {
 
   async getMemberById(id: string): Promise<Member | undefined> {
     if (!this.USE_FIREBASE) {
-      return new Promise(resolve => resolve(undefined));
+        return Promise.resolve(undefined);
     }
     if (id === 'new') {
         return this.getEmptyMember();
@@ -88,20 +84,24 @@ class DataService {
 
   async saveMember(member: Member): Promise<Member> {
     if (!this.USE_FIREBASE) {
-      return new Promise(resolve => resolve(member));
+      return Promise.resolve(member);
     }
     let memberToSave = { ...member };
     if (!memberToSave.id) {
-        memberToSave.id = doc(this.membersCollection).id; // Generate new ID
+        // Firestore will auto-generate an ID if the ID is not provided.
+        // We will create a reference with a new ID, get the ID, and then set it to the object.
+        const newDocRef = doc(this.membersCollection);
+        memberToSave.id = newDocRef.id;
     }
     const memberRef = doc(this.membersCollection, memberToSave.id);
     await setDoc(memberRef, memberToSave, { merge: true });
     return memberToSave;
   }
 
+
   async deleteMember(id: string): Promise<void> {
     if (!this.USE_FIREBASE) {
-      return new Promise(resolve => resolve());
+      return Promise.resolve();
     }
     const memberRef = doc(this.membersCollection, id);
     await deleteDoc(memberRef);
@@ -109,7 +109,7 @@ class DataService {
 
   async getSettings(): Promise<AppSettings> {
     if (!this.USE_FIREBASE) {
-      return new Promise(resolve => resolve({ lodgeName: '', lodgeNumber: '', province: '' }));
+      return Promise.resolve({ lodgeName: '', lodgeNumber: '', province: '' });
     }
     const docSnap = await getDoc(this.settingsDoc);
     return docSnap.exists() ? docSnap.data() as AppSettings : { lodgeName: '', lodgeNumber: '', province: '' };
@@ -117,7 +117,7 @@ class DataService {
 
   async saveSettings(settings: AppSettings): Promise<AppSettings> {
     if (!this.USE_FIREBASE) {
-      return new Promise(resolve => resolve(settings));
+      return Promise.resolve(settings);
     }
     await setDoc(this.settingsDoc, settings);
     return settings;
@@ -149,4 +149,3 @@ class DataService {
 }
 
 export const dataService = new DataService();
-
