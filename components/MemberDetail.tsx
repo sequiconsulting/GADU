@@ -68,26 +68,35 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   const validateCareerStructure = (mem: Member): string | null => {
       for (const branch of BRANCHES) {
           const branchKey = branch.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
-          // @ts-ignore
-          const degrees = mem[branchKey].degrees;
+          const degrees = mem[branchKey]?.degrees;
           if (!degrees || degrees.length === 0) continue;
 
           // Get indices of user's degrees in the hierarchy
-          const userIndices = degrees.map((d: any) => branch.degreeLabels.indexOf(d.degreeName)).sort((a: number, b: number) => a - b);
+          const userIndices = degrees.map(d => branch.degreeLabels.indexOf(d.degreeName)).sort((a, b) => a - b);
           
           if (userIndices.length === 0) continue;
 
-          // Check for gaps. The user must have a continuous sequence from 0 to max index?
-          // Or simply: if they have index N, they must have index N-1?
-          // Let's check: if I have 2 (MM), I must have 1 (CdM) and 0 (AA).
-          const maxDegreeIndex = Math.max(...userIndices);
+          // Check for gaps. If a user has a degree at index `i`, they must also have a degree at index `i-1`.
+          for (let i = 1; i < userIndices.length; i++) {
+              const currentIndex = userIndices[i];
+              const prevIndex = userIndices[i-1];
+
+              // This condition is too strict. A member could be granted a higher degree without having all intermediate ones.
+              // A better check is to see if for any given degree, the PREVIOUS one is missing.
+              // Let's re-evaluate. The check should be: for each degree index > 0, is index-1 present?
+          }
           
-          for (let i = 0; i < maxDegreeIndex; i++) {
-              if (!userIndices.includes(i)) {
-                  // E.g. Missing index 1 (CdM) but has index 2 (MM)
-                  return `Errore in ${branch.label}: Manca il grado di "${branch.degreeLabels[i]}" necessario per i gradi successivi.`;
+          const allPossibleIndices = Array.from(branch.degreeLabels.keys());
+
+          for(const userIndex of userIndices) {
+              if (userIndex > 0) { // No prerequisite for the first degree
+                  const prerequisiteIndex = userIndex - 1;
+                  if(!userIndices.includes(prerequisiteIndex)){
+                      return `Errore in ${branch.label}: Manca il grado di "${branch.degreeLabels[prerequisiteIndex]}" necessario per ottenere "${branch.degreeLabels[userIndex]}".`;
+                  }
               }
           }
+
       }
       return null;
   };
@@ -145,7 +154,6 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
     const updatedMember = { ...member };
 
     // 1. Update the specific branch provenance
-    // @ts-ignore
     updatedMember[branchKey] = { ...updatedMember[branchKey], isMotherLodgeMember: isMotherLodge };
 
     // 2. Rule: If NOT mother lodge member -> Automaticaly deactivate Craft (Add INACTIVE event)
@@ -178,8 +186,8 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
       if (!member) return null;
 
       const hasDegree = (b: BranchType, nameOrNames: string | string[]) => {
-          // @ts-ignore
-          const events = member[b.toLowerCase()].degrees || [];
+          const branchData = member[b.toLowerCase() as keyof Member] as any;
+          const events = branchData.degrees || [];
           const names = Array.isArray(nameOrNames) ? nameOrNames : [nameOrNames];
           return events.some((d: any) => names.includes(d.degreeName));
       };
@@ -193,19 +201,16 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
 
       // --- MARCHIO (MARK) ---
       if (branch === 'MARK') {
-          // Uomo del Marchio (UM) -> CdM Craft
           if (degreeName === 'Uomo del Marchio') {
               if (!hasDegree('CRAFT', ['Compagno di Mestiere', 'Maestro Muratore', 'Maestro Installato'])) {
                   return 'Requisito: Compagno di Mestiere nel Craft.';
               }
           }
-          // Maestro del Marchio (MMM) -> MM Craft
           if (degreeName === 'Maestro del Marchio') {
               if (!hasDegree('CRAFT', ['Maestro Muratore', 'Maestro Installato'])) {
                   return 'Requisito: Maestro Muratore nel Craft.';
               }
           }
-          // Venerabile del Marchio -> MI Craft AND MMM
           if (degreeName === 'Venerabile della Loggia del Marchio') {
               if (!hasDegree('CRAFT', 'Maestro Installato')) return 'Requisito: Maestro Installato nel Craft.';
               if (!hasDegree('MARK', 'Maestro del Marchio')) return 'Requisito: Maestro del Marchio.';
@@ -214,13 +219,11 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
 
       // --- CAPITOLO (ARCO REALE) ---
       if (branch === 'CHAPTER') {
-          // Compagno dell'Arco Reale (CAR) -> MMM
           if (degreeName === 'Compagno dell\'Arco Reale') {
               if (!hasDegree('MARK', ['Maestro del Marchio', 'Venerabile della Loggia del Marchio'])) {
                   return 'Requisito: Maestro del Marchio (MMM).';
               }
           }
-          // Principale -> CAR AND MI Craft
           if (degreeName === 'Principale dell\'Arco Reale') {
               if (!hasDegree('CHAPTER', 'Compagno dell\'Arco Reale')) return 'Requisito: Compagno dell\'Arco Reale (CAR).';
               if (!hasDegree('CRAFT', 'Maestro Installato')) return 'Requisito: Maestro Installato nel Craft.';

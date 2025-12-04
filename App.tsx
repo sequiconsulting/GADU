@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings } from 'lucide-react';
 import { Member, AppSettings } from './types';
@@ -106,31 +105,23 @@ const App: React.FC = () => {
     const matchesSearch = (m.firstName + ' ' + m.lastName + ' ' + m.matricula).toLowerCase().includes(searchTerm.toLowerCase());
     if (!matchesSearch) return false;
 
-    // "Show All DB" override
     if (filterBranch === 'DB_ALL') return true;
     
-    // Logic for Inactive Members (List View)
     if (filterBranch === 'INACTIVE_YEAR_ALL') {
-        // Show only if inactive in ALL branches for the selected year
         const isActiveAnywhere = BRANCHES.some(b => {
              const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
              return isMemberActiveInYear(m[branchKey], selectedYear);
         });
         if (isActiveAnywhere) return false;
 
-        // But must have some history (degrees or status events) to be relevant
         const hasHistory = BRANCHES.some(b => {
             const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
-            // @ts-ignore
-            return (m[branchKey].degrees && m[branchKey].degrees.length > 0) || (m[branchKey].statusEvents && m[branchKey].statusEvents.length > 0);
+            return (m[branchKey]?.degrees?.length > 0) || (m[branchKey]?.statusEvents?.length > 0);
         });
         return hasHistory;
     }
 
     if (filterBranch === 'INACTIVE_TOTAL_ALL') {
-        // Show if inactive "Ad Oggi" (Today/Total)
-        // We check if they are active in the CURRENT real civil year, or simply if their last status is INACTIVE
-        // A robust check is: Are they active in the current real year?
         const currentRealYear = new Date().getFullYear();
         const isActiveNow = BRANCHES.some(b => {
              const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
@@ -138,16 +129,13 @@ const App: React.FC = () => {
         });
         if (isActiveNow) return false;
 
-        // Must have history
         const hasHistory = BRANCHES.some(b => {
              const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
-             // @ts-ignore
-             return (m[branchKey].degrees && m[branchKey].degrees.length > 0) || (m[branchKey].statusEvents && m[branchKey].statusEvents.length > 0);
+             return (m[branchKey]?.degrees?.length > 0) || (m[branchKey]?.statusEvents?.length > 0);
         });
         return hasHistory;
     }
 
-    // Logic for "Active in Craft BUT NOT in..." (Potential Candidates)
     if (filterBranch === 'CRAFT_ONLY_NO_MARK') {
         return isMemberActiveInYear(m.craft, selectedYear) && !isMemberActiveInYear(m.mark, selectedYear);
     }
@@ -158,9 +146,7 @@ const App: React.FC = () => {
         return isMemberActiveInYear(m.craft, selectedYear) && !isMemberActiveInYear(m.ram, selectedYear);
     }
 
-    // Standard Branch Filtering
     if (filterBranch === 'ALL') {
-        // Show if active in ANY branch for the selected year
         return BRANCHES.some(b => {
              const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
              return isMemberActiveInYear(m[branchKey], selectedYear);
@@ -169,7 +155,7 @@ const App: React.FC = () => {
     
     const branchKey = filterBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
     return isMemberActiveInYear(m[branchKey], selectedYear);
-  }).sort((a, b) => a.lastName.localeCompare(b.lastName)); // Sort by Last Name
+  }).sort((a, b) => a.lastName.localeCompare(b.lastName));
 
   const stats = {
     total: members.length,
@@ -182,7 +168,6 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden print:h-auto print:overflow-visible">
       
-      {/* Mobile Overlay */}
       {isMobileMenuOpen && (
         <div 
             className="fixed inset-0 bg-slate-900/50 z-30 md:hidden backdrop-blur-sm"
@@ -190,7 +175,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Sidebar Navigation */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-auto ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} print:hidden`}>
         <div className="p-6 border-b border-slate-800 flex justify-between items-center">
           <div>
@@ -208,7 +192,6 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        {/* Dynamic Lodge Name in Sidebar */}
         <div className="px-6 py-4 bg-slate-950/50 border-b border-slate-800">
             {appSettings.lodgeName ? (
                 <div>
@@ -221,10 +204,8 @@ const App: React.FC = () => {
         </div>
         
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {/* Dashboard */}
           <button onClick={() => handleViewChange('DASHBOARD')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${currentView === 'DASHBOARD' ? 'bg-slate-800 text-white shadow-md border-l-4 border-masonic-gold' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard size={20} /> <span className="font-medium">Dashboard</span></button>
           
-          {/* Submenu 1: Anagrafica & Liste */}
           <div>
             <button onClick={() => setIsMembersMenuOpen(!isMembersMenuOpen)} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isMembersMenuOpen || ['MEMBERS', 'PIEDILISTA', 'MEMBER_DETAIL', 'INACTIVE_MEMBERS'].includes(currentView) ? 'text-white' : ''}`}>
                <div className="flex items-center gap-3"><Users size={20} /> <span className="font-medium">Anagrafiche</span></div>
@@ -245,7 +226,6 @@ const App: React.FC = () => {
             )}
           </div>
 
-          {/* Submenu 2: Ufficiali & Ruoli */}
           <div>
             <button onClick={() => setIsRolesMenuOpen(!isRolesMenuOpen)} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isRolesMenuOpen || ['ROLE_ASSIGNMENT', 'REPORT'].includes(currentView) ? 'text-white' : ''}`}>
                <div className="flex items-center gap-3"><Shield size={20} /> <span className="font-medium">Ruoli</span></div>
@@ -275,7 +255,6 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden print:h-auto print:overflow-visible print:block">
-        {/* Top Header */}
         <header className="bg-white shadow-sm min-h-16 flex items-center px-4 md:px-8 justify-between sticky top-0 z-20 print:hidden flex-wrap py-2 md:py-0 gap-2">
           <div className="flex items-center gap-3">
              <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
@@ -307,7 +286,6 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 print:p-0 print:overflow-visible print:h-auto">
           {currentView === 'DASHBOARD' && (
             <div className="space-y-8 animate-fadeIn">
@@ -343,7 +321,6 @@ const App: React.FC = () => {
           {currentView === 'MEMBERS' && (
             <div className="space-y-6 animate-fadeIn">
               
-              {/* Filter and Actions Bar - Hidden on Print */}
               <div className="flex flex-col md:flex-row gap-4 bg-white p-4 rounded-lg shadow-sm border border-slate-200 print:hidden">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-2.5 text-slate-400" size={20} />
@@ -374,7 +351,6 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* Print Header */}
               <div className="hidden print:block text-center mb-6">
                 <h1 className="text-3xl font-serif font-bold">G.A.D.U.</h1>
                 <h2 className="text-xl font-bold mt-1">{appSettings.lodgeName} N. {appSettings.lodgeNumber}</h2>
@@ -382,7 +358,6 @@ const App: React.FC = () => {
                 <p className="text-sm text-slate-500">Anno {selectedYear}-{selectedYear+1}</p>
               </div>
 
-              {/* New Table Layout with Columns */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:shadow-none print:border-none">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
@@ -396,18 +371,15 @@ const App: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {filteredMembers.map(member => {
-                                // Calculate degrees text for active branches
                                 const degreeInfos = BRANCHES.map(b => {
                                      const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
                                      const branchData = member[branchKey];
-                                     // @ts-ignore
                                      const isActive = isMemberActiveInYear(branchData, selectedYear);
                                      
                                      if (!isActive && filterBranch !== 'DB_ALL') return null;
-                                     if (!isActive) return null; // Even in DB_ALL, only show degrees for active branches
+                                     if (!isActive) return null;
                                      
-                                     // @ts-ignore
-                                     const degrees = branchData.degrees;
+                                     const degrees = branchData?.degrees;
                                      const highestDegree = degrees && degrees.length > 0 ? degrees[degrees.length - 1].degreeName : '';
                                      
                                      if (!highestDegree) return null;
