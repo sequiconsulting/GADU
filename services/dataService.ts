@@ -1,5 +1,4 @@
 
-
 import { Member, BranchType, AppSettings } from "../types";
 
 // Helper for dates
@@ -230,46 +229,115 @@ const MOCK_MEMBERS: Member[] = [
   }
 ];
 
+// Definition of a Migration operation
+interface Migration {
+    version: number; // Target version
+    description: string;
+    // In local prototype, we mutate the array. 
+    // In Firebase, we would use a Batch or Transaction to update documents.
+    run: (members: Member[]) => Member[]; 
+}
+
 class DataService {
   private members: Member[] = [];
   private settings: AppSettings = { lodgeName: '', lodgeNumber: '', province: '' };
+  
+  // Configuration
+  private USE_FIREBASE = false; // Toggle for future switching
   private STORAGE_KEY = 'masonic_app_data';
   private SETTINGS_KEY = 'masonic_app_settings';
-  private VERSION_KEY = 'masonic_app_version';
-  private DATA_VERSION = '2.4'; // Incrementing this forces a data reset
-  public APP_VERSION = '0.14';
+  
+  // SCHEMA VERSIONING
+  // This is the Database Schema Version, separate from App Version.
+  // Increment this when the data structure (types.ts) changes.
+  private CURRENT_SCHEMA_VERSION = 1;
+  private SCHEMA_VERSION_KEY = 'masonic_db_schema_version';
+
+  public APP_VERSION = '0.15';
+
+  // Registry of Migrations
+  private migrations: Migration[] = [
+    {
+        version: 1,
+        description: "Initial Schema",
+        run: (data) => data // No-op, baseline
+    },
+    // EXAMPLE OF FUTURE MIGRATION:
+    // {
+    //     version: 2,
+    //     description: "Add middleName field",
+    //     run: (data) => data.map(m => ({ ...m, middleName: '' }))
+    // }
+  ];
 
   constructor() {
     this.init();
   }
 
   private init() {
-    const storedVersion = localStorage.getItem(this.VERSION_KEY);
+    if (this.USE_FIREBASE) {
+        // TODO: Initialize Firebase App here
+        // this.initFirebase();
+    } else {
+        this.initLocal();
+    }
+  }
+
+  private initLocal() {
+    // 1. Load Data
+    const storedData = localStorage.getItem(this.STORAGE_KEY);
+    const storedSchemaVersion = parseInt(localStorage.getItem(this.SCHEMA_VERSION_KEY) || '0');
     
-    // Deep copy helper to avoid mutating the const MOCK_MEMBERS
+    // Deep copy helper
     const loadMocks = () => JSON.parse(JSON.stringify(MOCK_MEMBERS));
 
-    // If version mismatch or no data, force reset to MOCK_MEMBERS
-    if (storedVersion !== this.DATA_VERSION) {
-        console.log("New data version detected. Resetting database with fresh mocks.");
+    if (!storedData) {
+        // FIRST RUN: Load Mocks
+        console.log("Database empty. Initializing with Mock Data.");
         this.members = loadMocks();
         this.persist();
-        localStorage.setItem(this.VERSION_KEY, this.DATA_VERSION);
+        localStorage.setItem(this.SCHEMA_VERSION_KEY, this.CURRENT_SCHEMA_VERSION.toString());
     } else {
-        const stored = localStorage.getItem(this.STORAGE_KEY);
-        if (stored) {
-            this.members = JSON.parse(stored);
-        } else {
-            this.members = loadMocks();
-            this.persist();
+        // LOAD EXISTING
+        this.members = JSON.parse(storedData);
+        
+        // CHECK FOR MIGRATIONS
+        if (storedSchemaVersion < this.CURRENT_SCHEMA_VERSION) {
+            console.log(`Schema mismatch. DB: v${storedSchemaVersion}, App: v${this.CURRENT_SCHEMA_VERSION}. Running Migrations...`);
+            this.runMigrations(storedSchemaVersion, this.CURRENT_SCHEMA_VERSION);
         }
     }
 
-    // Load Settings
+    // Load Settings (Separate from data schema for now)
     const storedSettings = localStorage.getItem(this.SETTINGS_KEY);
     if (storedSettings) {
         this.settings = JSON.parse(storedSettings);
     }
+  }
+
+  // Executes migrations sequentially
+  private runMigrations(fromVersion: number, toVersion: number) {
+      let migratedData = [...this.members];
+      
+      // Find all migrations that are higher than current DB version and <= target version
+      const pendingMigrations = this.migrations
+        .filter(m => m.version > fromVersion && m.version <= toVersion)
+        .sort((a, b) => a.version - b.version);
+
+      for (const migration of pendingMigrations) {
+          console.log(`Applying Migration v${migration.version}: ${migration.description}`);
+          try {
+              migratedData = migration.run(migratedData);
+          } catch (e) {
+              console.error(`Migration v${migration.version} failed!`, e);
+              // In production, we might halt here. In prototype, we try to continue.
+          }
+      }
+
+      this.members = migratedData;
+      this.persist();
+      localStorage.setItem(this.SCHEMA_VERSION_KEY, toVersion.toString());
+      console.log("Migrations complete. Database up to date.");
   }
 
   private persist() {
@@ -280,11 +348,11 @@ class DataService {
     localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(this.settings));
   }
 
-  // In a real Firebase app, these methods would be async calls to Firestore
+  // --- PUBLIC API (Promise-based for future Async/Firebase compatibility) ---
   
   async getMembers(): Promise<Member[]> {
     return new Promise((resolve) => {
-      // Return a copy to avoid reference issues
+      // Simulate network delay
       setTimeout(() => resolve(JSON.parse(JSON.stringify(this.members))), 100);
     });
   }
@@ -337,7 +405,7 @@ class DataService {
       statusEvents: [],
       degrees: [], 
       roles: [],
-      isMotherLodgeMember: true, // Default to true
+      isMotherLodgeMember: true, 
       isFounder: false
     };
 
@@ -349,7 +417,6 @@ class DataService {
       city: '',
       email: '',
       phone: '',
-      // Craft initialized as active for new member today
       craft: { ...defaultBranchData, statusEvents: [{ date: new Date().toISOString().split('T')[0], status: 'ACTIVE', note: 'Iniziazione' }] }, 
       mark: { ...defaultBranchData },
       chapter: { ...defaultBranchData },
