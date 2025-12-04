@@ -1,4 +1,5 @@
 
+
 import { Member, BranchType, AppSettings } from "../types";
 
 // Helper for dates
@@ -253,7 +254,7 @@ class DataService {
   private CURRENT_SCHEMA_VERSION = 1;
   private SCHEMA_VERSION_KEY = 'masonic_db_schema_version';
 
-  public APP_VERSION = '0.15';
+  public APP_VERSION = '0.16';
 
   // Registry of Migrations
   private migrations: Migration[] = [
