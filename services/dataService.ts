@@ -1,5 +1,4 @@
 
-
 import { Member, BranchType, AppSettings } from "../types";
 
 // Helper for dates
@@ -600,7 +599,7 @@ class DataService {
   private CURRENT_SCHEMA_VERSION = 1;
   private SCHEMA_VERSION_KEY = 'masonic_db_schema_version';
 
-  public APP_VERSION = '0.21';
+  public APP_VERSION = '0.24';
 
   // Registry of Migrations
   private migrations: Migration[] = [
@@ -748,13 +747,14 @@ class DataService {
   }
 
   getEmptyMember(): Member {
-    const defaultBranchData = { 
+    // Helper to create independent branch objects
+    const createBranchData = () => ({ 
       statusEvents: [],
       degrees: [], 
       roles: [],
       isMotherLodgeMember: true, 
       isFounder: false
-    };
+    });
 
     return {
       id: '',
@@ -764,10 +764,11 @@ class DataService {
       city: '',
       email: '',
       phone: '',
-      craft: { ...defaultBranchData, statusEvents: [{ date: new Date().toISOString().split('T')[0], status: 'ACTIVE', note: 'Iniziazione' }] }, 
-      mark: { ...defaultBranchData },
-      chapter: { ...defaultBranchData },
-      ram: { ...defaultBranchData }
+      // Craft is special, gets active status by default on creation
+      craft: { ...createBranchData(), statusEvents: [{ date: new Date().toISOString().split('T')[0], status: 'ACTIVE', note: 'Iniziazione' }] }, 
+      mark: createBranchData(),
+      chapter: createBranchData(),
+      ram: createBranchData()
     };
   }
 }

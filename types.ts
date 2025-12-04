@@ -16,6 +16,7 @@ export interface OfficerRole {
   branch: BranchType;
   startDate?: string; // ISO YYYY-MM-DD for mid-year start
   endDate?: string;   // ISO YYYY-MM-DD for mid-year end
+  installationMeeting?: string; // Number of the meeting where installed
 }
 
 export interface StatusEvent {

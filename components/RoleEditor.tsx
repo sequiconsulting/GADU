@@ -1,9 +1,9 @@
 
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { OfficerRole, BranchType } from '../types';
-import { COMMON_ROLES, calculateMasonicYearString } from '../constants';
-import { Plus, Trash2, ShieldCheck } from 'lucide-react';
+import { calculateMasonicYearString } from '../constants';
+import { ShieldCheck } from 'lucide-react';
 
 interface RoleEditorProps {
   roles: OfficerRole[];
@@ -14,41 +14,19 @@ interface RoleEditorProps {
 }
 
 export const RoleEditor: React.FC<RoleEditorProps> = ({ roles, branch, onChange, branchColor, defaultYear }) => {
-  const [newRole, setNewRole] = useState<OfficerRole>({
-    id: '',
-    yearStart: defaultYear,
-    roleName: COMMON_ROLES[branch][0],
-    branch: branch,
-    startDate: '',
-    endDate: ''
-  });
-
-  // Update internal state if defaultYear changes (e.g. user changes year in top bar)
-  useEffect(() => {
-    setNewRole(prev => ({ ...prev, yearStart: defaultYear }));
-  }, [defaultYear]);
-
-  const handleAdd = () => {
-    if (newRole.roleName) {
-      // Add new role allowing duplicates of year (multi-role support)
-      onChange([...roles, { ...newRole, id: Date.now().toString() }]);
-      // Reset logic, keeping year but clearing dates
-      setNewRole(prev => ({ ...prev, startDate: '', endDate: '' }));
-    }
-  };
-
-  const handleDelete = (id: string) => {
-    onChange(roles.filter(r => r.id !== id));
+  
+  const handleUpdate = (id: string, field: keyof OfficerRole, value: string) => {
+    const updatedRoles = roles.map(r => {
+      if (r.id === id) {
+        return { ...r, [field]: value };
+      }
+      return r;
+    });
+    onChange(updatedRoles);
   };
 
   // Sort roles by year descending
   const sortedRoles = [...roles].sort((a, b) => b.yearStart - a.yearStart);
-
-  const formatDate = (date?: string) => {
-    if (!date) return '';
-    const [y, m, d] = date.split('-');
-    return `${d}/${m}/${y}`;
-  }
 
   return (
     <div className="space-y-4 bg-white p-4 rounded-lg shadow-sm border border-slate-200 mt-4">
@@ -57,83 +35,54 @@ export const RoleEditor: React.FC<RoleEditorProps> = ({ roles, branch, onChange,
         <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Ruoli e Incarichi</h3>
       </div>
       
-      {/* Existing Roles */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
-        {sortedRoles.map((role, idx) => (
-          <div key={role.id} className={`flex items-center justify-between p-2 rounded-md border ${role.yearStart === defaultYear ? 'bg-yellow-50 border-yellow-200' : 'bg-slate-50 border-slate-100'}`}>
-            <div className="flex-1">
-              <div className="font-bold text-slate-800 text-xs">{role.roleName}</div>
-              <div className="text-[10px] text-slate-500">
-                Anno {role.yearStart}-{role.yearStart + 1} ({calculateMasonicYearString(role.yearStart)})
+      <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+        {sortedRoles.length === 0 && <p className="text-xs text-slate-400 italic">Nessun incarico assegnato.</p>}
+        {sortedRoles.map((role) => (
+          <div key={role.id} className={`p-3 rounded-md border ${role.yearStart === defaultYear ? 'bg-yellow-50/50 border-yellow-200' : 'bg-slate-50 border-slate-100'}`}>
+            <div className="flex justify-between items-start mb-2">
+              <div>
+                 <div className="font-bold text-slate-800 text-xs">{role.roleName}</div>
+                 <div className="text-[10px] text-slate-500">
+                    Anno {role.yearStart}-{role.yearStart + 1} ({calculateMasonicYearString(role.yearStart)})
+                 </div>
               </div>
-              {(role.startDate || role.endDate) && (
-                <div className="text-[10px] text-slate-400 mt-1 italic flex gap-2">
-                   {role.startDate && <span>Dal: {formatDate(role.startDate)}</span>}
-                   {role.endDate && <span>Al: {formatDate(role.endDate)}</span>}
-                </div>
-              )}
             </div>
-            <button 
-              onClick={() => handleDelete(role.id)}
-              className="text-slate-400 hover:text-red-500 transition-colors ml-2 p-1"
-            >
-              <Trash2 size={14} />
-            </button>
+            
+            <div className="grid grid-cols-3 gap-2">
+                <div>
+                    <label className="block text-[9px] text-slate-400 uppercase font-semibold mb-0.5">Data Inizio</label>
+                    <input 
+                        type="date" 
+                        value={role.startDate || ''} 
+                        onChange={(e) => handleUpdate(role.id, 'startDate', e.target.value)}
+                        className="w-full text-[10px] md:text-xs border-slate-300 rounded border p-1 h-7 bg-white focus:ring-1 focus:ring-slate-400 outline-none"
+                    />
+                </div>
+                <div>
+                    <label className="block text-[9px] text-slate-400 uppercase font-semibold mb-0.5">N. Tornata</label>
+                    <input 
+                        type="text" 
+                        placeholder="N."
+                        value={role.installationMeeting || ''} 
+                        onChange={(e) => handleUpdate(role.id, 'installationMeeting', e.target.value)}
+                        className="w-full text-[10px] md:text-xs border-slate-300 rounded border p-1 h-7 bg-white focus:ring-1 focus:ring-slate-400 outline-none"
+                    />
+                </div>
+                <div>
+                    <label className="block text-[9px] text-slate-400 uppercase font-semibold mb-0.5">Data Fine</label>
+                    <input 
+                        type="date" 
+                        value={role.endDate || ''} 
+                        onChange={(e) => handleUpdate(role.id, 'endDate', e.target.value)}
+                        className="w-full text-[10px] md:text-xs border-slate-300 rounded border p-1 h-7 bg-white focus:ring-1 focus:ring-slate-400 outline-none"
+                    />
+                </div>
+            </div>
           </div>
         ))}
-        {roles.length === 0 && <p className="text-xs text-slate-400 italic md:col-span-2">Nessun incarico registrato.</p>}
       </div>
-
-      {/* Add New Role */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end pt-4 border-t border-slate-100">
-        <div className="md:col-span-2">
-          <label className="block text-[10px] font-medium text-slate-500 mb-1">Anno</label>
-          <input 
-            type="number" 
-            value={newRole.yearStart}
-            onChange={(e) => setNewRole({...newRole, yearStart: parseInt(e.target.value)})}
-            className="w-full text-xs border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 p-1.5 border h-8"
-          />
-        </div>
-        <div className="md:col-span-4">
-          <label className="block text-[10px] font-medium text-slate-500 mb-1">Ruolo</label>
-          <select
-            value={newRole.roleName}
-            onChange={(e) => setNewRole({...newRole, roleName: e.target.value})}
-            className="w-full text-xs border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 p-1.5 border h-8"
-          >
-             {COMMON_ROLES[branch].map(r => (
-                 <option key={r} value={r}>{r}</option>
-             ))}
-          </select>
-        </div>
-        <div className="md:col-span-3">
-             <label className="block text-[10px] font-medium text-slate-500 mb-1">Dal (Opz.)</label>
-             <input 
-                type="date"
-                value={newRole.startDate || ''}
-                onChange={(e) => setNewRole({...newRole, startDate: e.target.value})}
-                className="w-full text-xs border-slate-300 rounded-md p-1.5 border text-slate-600 h-8"
-             />
-        </div>
-        <div className="md:col-span-2">
-             <label className="block text-[10px] font-medium text-slate-500 mb-1">Al (Opz.)</label>
-             <input 
-                type="date"
-                value={newRole.endDate || ''}
-                onChange={(e) => setNewRole({...newRole, endDate: e.target.value})}
-                className="w-full text-xs border-slate-300 rounded-md p-1.5 border text-slate-600 h-8"
-             />
-        </div>
-        <div className="md:col-span-1">
-          <button 
-            onClick={handleAdd}
-            className={`w-full h-8 flex justify-center items-center rounded-md text-white transition-colors bg-slate-600 hover:bg-slate-700`}
-            title="Aggiungi Incarico"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
+      <div className="text-[10px] text-slate-400 italic pt-2 border-t border-slate-100">
+        * L'assegnazione e rimozione dei ruoli si effettua dalla schermata "Gestione Ufficiali". Qui puoi modificare i dettagli (date e tornata).
       </div>
     </div>
   );

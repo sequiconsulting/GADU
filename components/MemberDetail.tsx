@@ -226,6 +226,15 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
               if (!hasDegree('CRAFT', 'Maestro Installato')) return 'Requisito: Maestro Installato nel Craft.';
           }
       }
+      
+      // --- RAM ---
+      if (branch === 'RAM') {
+          if (degreeName === 'Marinaio dell\'Arca Reale') {
+              if (!hasDegree('MARK', ['Maestro del Marchio', 'Venerabile della Loggia del Marchio'])) {
+                  return 'Requisito: Maestro del Marchio (MMM).';
+              }
+          }
+      }
 
       return null;
   };

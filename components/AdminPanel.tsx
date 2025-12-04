@@ -115,9 +115,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
             );
         case 'RAM':
             return (
-                <div className="p-4 text-center text-xs text-slate-400 italic">
-                    Configurazione RAM attualmente non disponibile (il RAM lo vediamo dopo).
-                </div>
+                <table className="w-full text-left text-xs text-slate-600">
+                    <thead className="bg-slate-100 text-slate-800 uppercase font-bold border-b border-slate-200">
+                        <tr>
+                            <th className="p-2">Grado</th>
+                            <th className="p-2 w-16">Abbr.</th>
+                            <th className="p-2">Requisito</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        <tr>
+                            <td className="p-2 font-medium">Marinaio dell'Arca Reale</td>
+                            <td className="p-2 font-mono text-slate-500">MAR</td>
+                            <td className="p-2">- MMM (Marchio)</td>
+                        </tr>
+                    </tbody>
+                </table>
             );
         default:
             return null;
