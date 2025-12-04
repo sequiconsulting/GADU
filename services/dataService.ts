@@ -1,5 +1,5 @@
 
-import { Member, BranchType } from "../types";
+import { Member, BranchType, AppSettings } from "../types";
 
 // Helper for dates
 const d = (year: number, month: number, day: number) => `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
@@ -231,9 +231,12 @@ const MOCK_MEMBERS: Member[] = [
 
 class DataService {
   private members: Member[] = [];
+  private settings: AppSettings = { lodgeName: '', lodgeNumber: '', province: '' };
   private STORAGE_KEY = 'masonic_app_data';
+  private SETTINGS_KEY = 'masonic_app_settings';
   private VERSION_KEY = 'masonic_app_version';
   private DATA_VERSION = '2.4'; // Incrementing this forces a data reset
+  public APP_VERSION = '0.13';
 
   constructor() {
     this.init();
@@ -260,10 +263,20 @@ class DataService {
             this.persist();
         }
     }
+
+    // Load Settings
+    const storedSettings = localStorage.getItem(this.SETTINGS_KEY);
+    if (storedSettings) {
+        this.settings = JSON.parse(storedSettings);
+    }
   }
 
   private persist() {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.members));
+  }
+
+  private persistSettings() {
+    localStorage.setItem(this.SETTINGS_KEY, JSON.stringify(this.settings));
   }
 
   // In a real Firebase app, these methods would be async calls to Firestore
@@ -302,6 +315,20 @@ class DataService {
       this.persist();
       setTimeout(() => resolve(), 100);
     });
+  }
+
+  async getSettings(): Promise<AppSettings> {
+      return new Promise((resolve) => {
+          setTimeout(() => resolve({ ...this.settings }), 50);
+      });
+  }
+
+  async saveSettings(settings: AppSettings): Promise<AppSettings> {
+      return new Promise((resolve) => {
+          this.settings = settings;
+          this.persistSettings();
+          setTimeout(() => resolve(settings), 100);
+      });
   }
 
   getEmptyMember(): Member {

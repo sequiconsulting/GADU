@@ -1,20 +1,23 @@
+
 import React, { useState, useEffect } from 'react';
-import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX } from 'lucide-react';
-import { Member } from './types';
+import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings } from 'lucide-react';
+import { Member, AppSettings } from './types';
 import { dataService } from './services/dataService';
 import { MemberDetail } from './components/MemberDetail';
 import { RolesReport } from './components/RolesReport';
 import { RoleAssignment } from './components/RoleAssignment';
 import { Piedilista } from './components/Piedilista';
 import { InactiveMembers } from './components/InactiveMembers';
+import { AdminPanel } from './components/AdminPanel';
 import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation } from './constants';
 
-type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'PIEDILISTA' | 'INACTIVE_MEMBERS';
+type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('DASHBOARD');
   const [returnView, setReturnView] = useState<View>('MEMBERS');
   const [members, setMembers] = useState<Member[]>([]);
+  const [appSettings, setAppSettings] = useState<AppSettings>({ lodgeName: '', lodgeNumber: '', province: '' });
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBranch, setFilterBranch] = useState<string>('ALL');
@@ -29,9 +32,23 @@ const App: React.FC = () => {
   // Mobile Menu State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  useEffect(() => { loadMembers(); }, []);
+  useEffect(() => { 
+      loadData(); 
+  }, []);
 
-  const loadMembers = async () => { setMembers(await dataService.getMembers()); };
+  // Effect to update document title
+  useEffect(() => {
+    let title = `G.A.D.U. (${dataService.APP_VERSION})`;
+    if (appSettings.lodgeName) {
+        title = `G.A.D.U. - ${appSettings.lodgeName} ${appSettings.lodgeNumber} (${dataService.APP_VERSION})`;
+    }
+    document.title = title;
+  }, [appSettings]);
+
+  const loadData = async () => { 
+      setMembers(await dataService.getMembers()); 
+      setAppSettings(await dataService.getSettings());
+  };
 
   const handleMemberClick = (id: string, origin: View = 'MEMBERS') => {
     setSelectedMemberId(id);
@@ -48,8 +65,13 @@ const App: React.FC = () => {
   };
 
   const handleSaveMember = async () => {
-    await loadMembers();
+    await loadData();
     setCurrentView(returnView);
+  };
+
+  const handleSaveSettings = async (settings: AppSettings) => {
+      await dataService.saveSettings(settings);
+      setAppSettings(settings);
   };
 
   const handleAddFutureYear = () => {
@@ -173,13 +195,28 @@ const App: React.FC = () => {
           <div>
             <div className="flex items-center gap-3 text-masonic-gold">
                 <Layout size={28} />
-                <h1 className="text-xl font-serif font-bold tracking-widest text-white">G.A.D.U.</h1>
+                <div className="flex items-baseline gap-2">
+                    <h1 className="text-xl font-serif font-bold tracking-widest text-white">G.A.D.U.</h1>
+                    <span className="text-[10px] text-slate-400 font-sans tracking-normal">v{dataService.APP_VERSION}</span>
+                </div>
             </div>
             <p className="text-xs text-slate-500 mt-2 uppercase tracking-wide">Gestione Associazioni Decisamente User-friendly</p>
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-slate-400 hover:text-white">
             <X size={24} />
           </button>
+        </div>
+
+        {/* Dynamic Lodge Name in Sidebar */}
+        <div className="px-6 py-4 bg-slate-950/50 border-b border-slate-800">
+            {appSettings.lodgeName ? (
+                <div>
+                    <h3 className="text-white font-serif font-bold">{appSettings.lodgeName} N. {appSettings.lodgeNumber}</h3>
+                    <p className="text-xs text-slate-500">{appSettings.province}</p>
+                </div>
+            ) : (
+                <div className="text-xs text-slate-600 italic">Nessuna loggia configurata</div>
+            )}
         </div>
         
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -226,7 +263,14 @@ const App: React.FC = () => {
           </div>
           
         </nav>
-        <div className="p-4 border-t border-slate-800"><button className="flex items-center gap-2 text-sm hover:text-white transition-colors"><LogOut size={16} /> Logout</button></div>
+        <div className="p-4 border-t border-slate-800 space-y-2">
+            <button onClick={() => handleViewChange('ADMIN')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'ADMIN' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
+                <Settings size={16} /> Admin
+            </button>
+            <button className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors w-full px-4 py-2">
+                <LogOut size={16} /> Logout
+            </button>
+        </div>
       </aside>
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden print:h-auto print:overflow-visible print:block">
@@ -244,6 +288,7 @@ const App: React.FC = () => {
                 {currentView === 'REPORT' && 'Report Ruoli'}
                 {currentView === 'PIEDILISTA' && 'Piedilista'}
                 {currentView === 'INACTIVE_MEMBERS' && 'Archivio Fratelli Inattivi'}
+                {currentView === 'ADMIN' && 'Amministrazione'}
             </h2>
           </div>
 
@@ -418,9 +463,13 @@ const App: React.FC = () => {
                 mode="TOTAL" 
              />
           )}
+          
+          {currentView === 'ADMIN' && (
+            <AdminPanel currentSettings={appSettings} onSave={handleSaveSettings} />
+          )}
 
           {currentView === 'MEMBER_DETAIL' && selectedMemberId && <MemberDetail memberId={selectedMemberId} onBack={() => setCurrentView(returnView)} onSave={handleSaveMember} defaultYear={selectedYear}/>}
-          {currentView === 'ROLE_ASSIGNMENT' && <RoleAssignment members={members} selectedYear={selectedYear} onUpdate={loadMembers}/>}
+          {currentView === 'ROLE_ASSIGNMENT' && <RoleAssignment members={members} selectedYear={selectedYear} onUpdate={loadData}/>}
           {currentView === 'PIEDILISTA' && <Piedilista members={members} selectedYear={selectedYear} onMemberClick={(id) => handleMemberClick(id, 'PIEDILISTA')}/>}
           {currentView === 'REPORT' && <RolesReport members={members} selectedYear={selectedYear} />}
         </div>

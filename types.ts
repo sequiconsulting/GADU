@@ -55,6 +55,12 @@ export interface Member {
   ram: MasonicBranchData;
 }
 
+export interface AppSettings {
+  lodgeName: string;
+  lodgeNumber: string;
+  province: string;
+}
+
 export interface DashboardStats {
   totalMembers: number;
   craftMembers: number;
