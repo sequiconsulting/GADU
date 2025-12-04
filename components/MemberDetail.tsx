@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Member, BranchType, StatusType } from '../types';
 import { BRANCHES, isMemberActiveInYear, calculateMasonicYearString } from '../constants';
@@ -39,17 +40,56 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
 
   const validate = async (mem: Member): Promise<boolean> => {
     setError(null);
+    
+    // 1. Basic format
     if (!/^\d+$/.test(mem.matricula)) {
       setError("La matricola deve contenere solo numeri.");
       return false;
     }
+
+    // 2. Duplicate Matricula
     const allMembers = await dataService.getMembers();
     const duplicate = allMembers.find(m => m.matricula === mem.matricula && m.id !== mem.id);
     if (duplicate) {
       setError(`Matricola ${mem.matricula} già assegnata a ${duplicate.lastName} ${duplicate.firstName}.`);
       return false;
     }
+
+    // 3. Career Structure Gaps (e.g. Master without Apprentice)
+    const careerError = validateCareerStructure(mem);
+    if (careerError) {
+        setError(careerError);
+        return false;
+    }
+
     return true;
+  };
+
+  const validateCareerStructure = (mem: Member): string | null => {
+      for (const branch of BRANCHES) {
+          const branchKey = branch.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+          // @ts-ignore
+          const degrees = mem[branchKey].degrees;
+          if (!degrees || degrees.length === 0) continue;
+
+          // Get indices of user's degrees in the hierarchy
+          const userIndices = degrees.map((d: any) => branch.degreeLabels.indexOf(d.degreeName)).sort((a: number, b: number) => a - b);
+          
+          if (userIndices.length === 0) continue;
+
+          // Check for gaps. The user must have a continuous sequence from 0 to max index?
+          // Or simply: if they have index N, they must have index N-1?
+          // Let's check: if I have 2 (MM), I must have 1 (CdM) and 0 (AA).
+          const maxDegreeIndex = Math.max(...userIndices);
+          
+          for (let i = 0; i < maxDegreeIndex; i++) {
+              if (!userIndices.includes(i)) {
+                  // E.g. Missing index 1 (CdM) but has index 2 (MM)
+                  return `Errore in ${branch.label}: Manca il grado di "${branch.degreeLabels[i]}" necessario per i gradi successivi.`;
+              }
+          }
+      }
+      return null;
   };
 
   const handleSave = async () => {
@@ -137,30 +177,53 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   const validateDegreePrerequisites = (branch: BranchType, degreeName: string): string | null => {
       if (!member) return null;
 
-      const hasDegree = (b: BranchType, names: string[]) => {
+      const hasDegree = (b: BranchType, nameOrNames: string | string[]) => {
           // @ts-ignore
           const events = member[b.toLowerCase()].degrees || [];
+          const names = Array.isArray(nameOrNames) ? nameOrNames : [nameOrNames];
           return events.some((d: any) => names.includes(d.degreeName));
       };
 
+      // --- LOGGIA (CRAFT) ---
+      if (branch === 'CRAFT') {
+        if (degreeName === 'Compagno di Mestiere' && !hasDegree('CRAFT', 'Apprendista')) return 'Requisito: Apprendista Ammesso.';
+        if (degreeName === 'Maestro Muratore' && !hasDegree('CRAFT', 'Compagno di Mestiere')) return 'Requisito: Compagno di Mestiere.';
+        if (degreeName === 'Maestro Installato' && !hasDegree('CRAFT', 'Maestro Muratore')) return 'Requisito: Maestro Muratore.';
+      }
+
+      // --- MARCHIO (MARK) ---
       if (branch === 'MARK') {
-          if (degreeName === 'Venerabile della Loggia del Marchio') {
-              if (!hasDegree('CRAFT', ['Maestro Installato'])) {
-                  return 'Requisito: Maestro Installato nel Craft.';
+          // Uomo del Marchio (UM) -> CdM Craft
+          if (degreeName === 'Uomo del Marchio') {
+              if (!hasDegree('CRAFT', ['Compagno di Mestiere', 'Maestro Muratore', 'Maestro Installato'])) {
+                  return 'Requisito: Compagno di Mestiere nel Craft.';
               }
+          }
+          // Maestro del Marchio (MMM) -> MM Craft
+          if (degreeName === 'Maestro del Marchio') {
+              if (!hasDegree('CRAFT', ['Maestro Muratore', 'Maestro Installato'])) {
+                  return 'Requisito: Maestro Muratore nel Craft.';
+              }
+          }
+          // Venerabile del Marchio -> MI Craft AND MMM
+          if (degreeName === 'Venerabile della Loggia del Marchio') {
+              if (!hasDegree('CRAFT', 'Maestro Installato')) return 'Requisito: Maestro Installato nel Craft.';
+              if (!hasDegree('MARK', 'Maestro del Marchio')) return 'Requisito: Maestro del Marchio.';
           }
       }
 
+      // --- CAPITOLO (ARCO REALE) ---
       if (branch === 'CHAPTER') {
+          // Compagno dell'Arco Reale (CAR) -> MMM
           if (degreeName === 'Compagno dell\'Arco Reale') {
               if (!hasDegree('MARK', ['Maestro del Marchio', 'Venerabile della Loggia del Marchio'])) {
-                  return 'Requisito: Maestro del Marchio (o Venerabile del Marchio).';
+                  return 'Requisito: Maestro del Marchio (MMM).';
               }
           }
+          // Principale -> CAR AND MI Craft
           if (degreeName === 'Principale dell\'Arco Reale') {
-              if (!hasDegree('CRAFT', ['Maestro Installato'])) {
-                   return 'Requisito: Maestro Installato nel Craft.';
-              }
+              if (!hasDegree('CHAPTER', 'Compagno dell\'Arco Reale')) return 'Requisito: Compagno dell\'Arco Reale (CAR).';
+              if (!hasDegree('CRAFT', 'Maestro Installato')) return 'Requisito: Maestro Installato nel Craft.';
           }
       }
 

@@ -140,7 +140,7 @@ export const getDegreeAbbreviation = (degreeName: string): string => {
     // Mark
     case 'Uomo del Marchio': return 'UdM';
     case 'Maestro del Marchio': return 'MdM';
-    case 'Venerabile della Loggia del Marchio': return 'VLM';
+    case 'Venerabile della Loggia del Marchio': return 'MVM';
     
     // Chapter
     case 'Compagno dell\'Arco Reale': return 'CAR';

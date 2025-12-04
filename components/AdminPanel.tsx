@@ -31,6 +31,99 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
 
   const currentBranch = BRANCHES.find(b => b.type === activeTab);
 
+  const renderDegreeTable = () => {
+    switch (activeTab) {
+        case 'CRAFT':
+            return (
+                <table className="w-full text-left text-xs text-slate-600">
+                    <thead className="bg-slate-100 text-slate-800 uppercase font-bold border-b border-slate-200">
+                        <tr>
+                            <th className="p-2">Grado</th>
+                            <th className="p-2 w-16">Abbr.</th>
+                            <th className="p-2">Requisito</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        <tr><td className="p-2 font-medium">Apprendista Ammesso</td><td className="p-2 font-mono text-slate-500">AA</td><td className="p-2 italic">- Nessuno</td></tr>
+                        <tr><td className="p-2 font-medium">Compagno di Mestiere</td><td className="p-2 font-mono text-slate-500">CdM</td><td className="p-2">- AA (Craft)</td></tr>
+                        <tr><td className="p-2 font-medium">Maestro Muratore</td><td className="p-2 font-mono text-slate-500">MM</td><td className="p-2">- CdM (Craft)</td></tr>
+                        <tr><td className="p-2 font-medium">Maestro Installato</td><td className="p-2 font-mono text-slate-500">MI</td><td className="p-2">- MM (Craft)</td></tr>
+                    </tbody>
+                </table>
+            );
+        case 'MARK':
+            return (
+                <table className="w-full text-left text-xs text-slate-600">
+                    <thead className="bg-slate-100 text-slate-800 uppercase font-bold border-b border-slate-200">
+                        <tr>
+                            <th className="p-2">Grado</th>
+                            <th className="p-2 w-16">Abbr.</th>
+                            <th className="p-2">Requisito</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        <tr>
+                            <td className="p-2 font-medium">Uomo del Marchio</td>
+                            <td className="p-2 font-mono text-slate-500">UdM</td>
+                            <td className="p-2">
+                                <div>- CdM (Craft)</div>
+                                <div className="text-red-500 italic mt-1">(Attualmente non Attivo)</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td className="p-2 font-medium">Maestro del Marchio</td>
+                            <td className="p-2 font-mono text-slate-500">MMM</td>
+                            <td className="p-2">- MM (Craft)</td>
+                        </tr>
+                        <tr>
+                            <td className="p-2 font-medium">Venerabile della Loggia del Marchio</td>
+                            <td className="p-2 font-mono text-slate-500">MVM</td>
+                            <td className="p-2">
+                                <div>- MI (Craft)</div>
+                                <div>- MMM (Marchio)</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            );
+        case 'CHAPTER':
+            return (
+                <table className="w-full text-left text-xs text-slate-600">
+                    <thead className="bg-slate-100 text-slate-800 uppercase font-bold border-b border-slate-200">
+                        <tr>
+                            <th className="p-2">Grado</th>
+                            <th className="p-2 w-16">Abbr.</th>
+                            <th className="p-2">Requisito</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        <tr>
+                            <td className="p-2 font-medium">Compagno dell'Arco Reale</td>
+                            <td className="p-2 font-mono text-slate-500">CAR</td>
+                            <td className="p-2">- MMM (Marchio)</td>
+                        </tr>
+                        <tr>
+                            <td className="p-2 font-medium">Principale dell'Arco Reale</td>
+                            <td className="p-2 font-mono text-slate-500">PAR</td>
+                            <td className="p-2">
+                                <div>- MI (Craft)</div>
+                                <div>- CAR (Arco Reale)</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            );
+        case 'RAM':
+            return (
+                <div className="p-4 text-center text-xs text-slate-400 italic">
+                    Configurazione RAM attualmente non disponibile (il RAM lo vediamo dopo).
+                </div>
+            );
+        default:
+            return null;
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden animate-fadeIn pb-8">
       {/* Header */}
@@ -100,14 +193,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
             </div>
 
             {/* Content Area */}
-            <div className="border-x border-b border-slate-200 rounded-b-lg p-6 bg-white min-h-[250px]">
-                 <div className="flex items-center gap-3 mb-4">
-                     <Shield className={currentBranch?.color.replace('bg-', 'text-')} size={24} />
-                     <h4 className="text-lg font-bold text-slate-700">Configurazione {currentBranch?.label}</h4>
+            <div className="border-x border-b border-slate-200 rounded-b-lg p-6 bg-white min-h-[200px] flex gap-8">
+                 <div className="w-full md:w-1/2">
+                    <div className="flex items-center gap-3 mb-4">
+                        <Shield className={currentBranch?.color.replace('bg-', 'text-')} size={20} />
+                        <h4 className="text-base font-bold text-slate-700">Requisiti Gradi {currentBranch?.label}</h4>
+                    </div>
+                    
+                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                        {renderDegreeTable()}
+                    </div>
                  </div>
-                 
-                 <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg text-slate-500 italic">
-                     Opzioni di configurazione avanzate per {currentBranch?.label} (gradi, quote, requisiti) saranno disponibili qui.
+
+                 <div className="hidden md:block w-1/2 border-l border-slate-100 pl-8">
+                     <h4 className="text-sm font-bold text-slate-400 mb-2 uppercase">Note e Parametri</h4>
+                     <p className="text-xs text-slate-500 italic">
+                        Le regole di propedeuticità mostrate a sinistra sono implementate attivamente nei controlli dell'anagrafica.
+                        <br/><br/>
+                        Eventuali modifiche a questi parametri strutturali richiedono un aggiornamento dell'applicazione.
+                     </p>
                  </div>
             </div>
         </div>
