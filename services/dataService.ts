@@ -254,7 +254,7 @@ class DataService {
   private CURRENT_SCHEMA_VERSION = 1;
   private SCHEMA_VERSION_KEY = 'masonic_db_schema_version';
 
-  public APP_VERSION = '0.16';
+  public APP_VERSION = '0.17';
 
   // Registry of Migrations
   private migrations: Migration[] = [

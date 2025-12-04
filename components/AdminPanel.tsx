@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppSettings } from '../types';
 import { Save, Settings, Shield } from 'lucide-react';
-import { ITALIAN_PROVINCES } from '../constants';
+import { ITALIAN_PROVINCES, BRANCHES } from '../constants';
 
 interface AdminPanelProps {
   currentSettings: AppSettings;
@@ -12,6 +12,7 @@ interface AdminPanelProps {
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave }) => {
   const [settings, setSettings] = useState<AppSettings>(currentSettings);
+  const [activeTab, setActiveTab] = useState<string>(BRANCHES[0].type);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,8 +29,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
     setSettings(prev => ({ ...prev, [field]: value }));
   };
 
+  const currentBranch = BRANCHES.find(b => b.type === activeTab);
+
   return (
     <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden animate-fadeIn pb-8">
+      {/* Header */}
       <div className="bg-slate-900 p-6 text-white flex justify-between items-center">
         <div className="flex items-center gap-3">
             <Settings size={24} className="text-masonic-gold"/>
@@ -78,47 +82,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
             </div>
         </div>
 
-        {/* Blocchi Parametri */}
-        <h3 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">Parametri Rami</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {/* Block 1: Craft */}
-            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-masonic-blue"></div>
-                <div className="flex items-center gap-2 mb-3">
-                    <Shield className="text-masonic-blue" size={20} />
-                    <h4 className="font-bold text-slate-700">Parametri Craft</h4>
-                </div>
-                <div className="text-sm text-slate-400 italic">Opzioni di configurazione future per il Craft...</div>
+        {/* Tabbed Interface for Branch Parameters */}
+        <div className="mb-6">
+            <h3 className="text-lg font-bold text-slate-800 mb-4">Parametri Rami</h3>
+            
+            {/* Tabs */}
+            <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto rounded-t-lg">
+                {BRANCHES.map(b => (
+                    <button 
+                        key={b.type} 
+                        onClick={() => setActiveTab(b.type)}
+                        className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 flex items-center gap-2 outline-none ${activeTab === b.type ? `${b.color.replace('bg-', 'border-')} ${b.color.replace('bg-', 'text-')} bg-white` : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+                    >
+                        <div className={`w-2 h-2 rounded-full ${b.color}`} /> {b.label}
+                    </button>
+                ))}
             </div>
 
-            {/* Block 2: Mark */}
-            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-masonic-mark"></div>
-                <div className="flex items-center gap-2 mb-3">
-                    <Shield className="text-masonic-mark" size={20} />
-                    <h4 className="font-bold text-slate-700">Parametri Marchio</h4>
-                </div>
-                <div className="text-sm text-slate-400 italic">Opzioni di configurazione future per il Marchio...</div>
-            </div>
-
-            {/* Block 3: Chapter */}
-            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-masonic-red"></div>
-                <div className="flex items-center gap-2 mb-3">
-                    <Shield className="text-masonic-red" size={20} />
-                    <h4 className="font-bold text-slate-700">Parametri Arco Reale</h4>
-                </div>
-                <div className="text-sm text-slate-400 italic">Opzioni di configurazione future per l'Arco Reale...</div>
-            </div>
-
-            {/* Block 4: RAM */}
-            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 h-full bg-masonic-ram"></div>
-                <div className="flex items-center gap-2 mb-3">
-                    <Shield className="text-masonic-ram" size={20} />
-                    <h4 className="font-bold text-slate-700">Parametri RAM</h4>
-                </div>
-                <div className="text-sm text-slate-400 italic">Opzioni di configurazione future per i RAM...</div>
+            {/* Content Area */}
+            <div className="border-x border-b border-slate-200 rounded-b-lg p-6 bg-white min-h-[250px]">
+                 <div className="flex items-center gap-3 mb-4">
+                     <Shield className={currentBranch?.color.replace('bg-', 'text-')} size={24} />
+                     <h4 className="text-lg font-bold text-slate-700">Configurazione {currentBranch?.label}</h4>
+                 </div>
+                 
+                 <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg text-slate-500 italic">
+                     Opzioni di configurazione avanzate per {currentBranch?.label} (gradi, quote, requisiti) saranno disponibili qui.
+                 </div>
             </div>
         </div>
 
