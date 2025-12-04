@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings } from 'lucide-react';
+import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings, UploadCloud } from 'lucide-react';
 import { Member, AppSettings } from './types';
 import { dataService } from './services/dataService';
 import { MemberDetail } from './components/MemberDetail';
@@ -25,18 +25,14 @@ const App: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(currentCivilYear);
   const [yearOptions, setYearOptions] = useState<number[]>(Array.from({length: 8}, (_, i) => currentCivilYear - 5 + i));
   
-  // Sidebar state
   const [isMembersMenuOpen, setIsMembersMenuOpen] = useState(true);
   const [isRolesMenuOpen, setIsRolesMenuOpen] = useState(false);
-  
-  // Mobile Menu State
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => { 
       loadData(); 
   }, []);
 
-  // Effect to update document title
   useEffect(() => {
     let title = `G.A.D.U. (${dataService.APP_VERSION})`;
     if (appSettings.lodgeName) {
@@ -54,7 +50,7 @@ const App: React.FC = () => {
     setSelectedMemberId(id);
     setReturnView(origin);
     setCurrentView('MEMBER_DETAIL');
-    setIsMobileMenuOpen(false); // Close mobile menu on navigation
+    setIsMobileMenuOpen(false);
   };
 
   const handleCreateMember = () => {
@@ -90,9 +86,8 @@ const App: React.FC = () => {
 
   const handleViewChange = (view: View) => {
     setCurrentView(view);
-    setIsMobileMenuOpen(false); // Close sidebar on mobile when item selected
+    setIsMobileMenuOpen(false);
     
-    // Auto-expand menus based on selection
     if (['MEMBERS', 'PIEDILISTA', 'INACTIVE_MEMBERS'].includes(view) || (view === 'MEMBER_DETAIL' && ['MEMBERS', 'PIEDILISTA', 'INACTIVE_MEMBERS'].includes(returnView))) {
         setIsMembersMenuOpen(true);
     }
@@ -100,6 +95,13 @@ const App: React.FC = () => {
         setIsRolesMenuOpen(true);
     }
   };
+
+  const handleUploadMockData = async () => {
+      if(window.confirm('Sei sicuro di voler caricare i dati di mock? Questo potrebbe sovrascrivere i dati esistenti.')){
+          await dataService.uploadMockData();
+          await loadData(); // Reload data after upload
+      }
+  }
 
   const filteredMembers = members.filter(m => {
     const matchesSearch = (m.firstName + ' ' + m.lastName + ' ' + m.matricula).toLowerCase().includes(searchTerm.toLowerCase());
@@ -313,6 +315,7 @@ const App: React.FC = () => {
                   <button onClick={handleCreateMember} className="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"><PlusCircle size={18} /> Nuova Anagrafica</button>
                   <button onClick={() => setCurrentView('ROLE_ASSIGNMENT')} className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"><UserCog size={18} /> Assegna Ruoli</button>
                   <button onClick={() => setCurrentView('PIEDILISTA')} className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"><BookOpen size={18} /> Vai al Piedilista</button>
+                  <button onClick={handleUploadMockData} className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"><UploadCloud size={18} /> Carica Dati Mock</button>
                 </div>
               </div>
             </div>
