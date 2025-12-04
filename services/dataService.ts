@@ -1,4 +1,5 @@
 
+
 import { Member, BranchType, AppSettings } from "../types";
 
 // Helper for dates
@@ -236,7 +237,7 @@ class DataService {
   private SETTINGS_KEY = 'masonic_app_settings';
   private VERSION_KEY = 'masonic_app_version';
   private DATA_VERSION = '2.4'; // Incrementing this forces a data reset
-  public APP_VERSION = '0.13';
+  public APP_VERSION = '0.14';
 
   constructor() {
     this.init();

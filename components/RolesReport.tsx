@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Member, BranchType } from '../types';
 import { BRANCHES, COMMON_ROLES, calculateMasonicYearString } from '../constants';
@@ -6,9 +7,11 @@ import { ShieldCheck, Printer } from 'lucide-react';
 interface RolesReportProps {
   members: Member[];
   selectedYear: number;
+  lodgeName?: string;
+  lodgeNumber?: string;
 }
 
-export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear }) => {
+export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear, lodgeName, lodgeNumber }) => {
   
   // Helper to find roles for a specific branch in the selected year
   // Supports Multi-Role: A member can appear multiple times if they have multiple roles
@@ -57,16 +60,18 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear 
       {/* Print Header only visible when printing */}
       <div className="hidden print:block mb-8 text-center">
           <h1 className="text-3xl font-serif font-bold">G.A.D.U.</h1>
-          <h2 className="text-xl mt-2">Organigramma - Anno {selectedYear}-{selectedYear+1}</h2>
+          {lodgeName && <h2 className="text-2xl font-bold mt-1">{lodgeName} N. {lodgeNumber}</h2>}
+          <h3 className="text-xl mt-2 font-serif text-slate-700">Organigramma - Anno {selectedYear}-{selectedYear+1}</h3>
+          <p className="text-sm text-slate-500">A.L. {calculateMasonicYearString(selectedYear)}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-8 print:block print:space-y-8">
         {BRANCHES.map(branch => {
           const roles = getRolesForBranch(branch.type);
           
           return (
-            <div key={branch.type} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col break-inside-avoid">
-              <div className={`${branch.color} text-white p-4 flex items-center gap-3`}>
+            <div key={branch.type} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col break-inside-avoid print:shadow-none print:border print:border-slate-300 print:mb-6">
+              <div className={`${branch.color} text-white p-4 flex items-center gap-3 print:bg-slate-100 print:text-slate-900 print:border-b print:border-slate-300`}>
                 <ShieldCheck size={24} />
                 <h3 className="font-serif font-bold text-lg">{branch.label}</h3>
               </div>
@@ -80,11 +85,11 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear 
                         <th className="pb-2 text-right pr-2">Fratello</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
+                    <tbody className="divide-y divide-slate-50 print:divide-slate-200">
                       {roles.map((item, idx) => (
                         <tr key={idx} className="hover:bg-slate-50 transition-colors">
                           <td className="py-3 pl-2 font-medium text-slate-700">{item.roleName}</td>
-                          <td className="py-3 text-right pr-2 font-serif text-slate-900">{item.memberName}</td>
+                          <td className="py-3 text-right pr-2 font-serif text-slate-900 font-bold">{item.memberName}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -95,7 +100,7 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear 
                   </div>
                 )}
               </div>
-              <div className="bg-slate-50 p-2 text-center text-xs text-slate-400 border-t border-slate-100">
+              <div className="bg-slate-50 p-2 text-center text-xs text-slate-400 border-t border-slate-100 print:hidden">
                 {roles.length} Incarichi assegnati
               </div>
             </div>

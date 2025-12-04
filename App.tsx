@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings } from 'lucide-react';
 import { Member, AppSettings } from './types';
@@ -375,8 +376,10 @@ const App: React.FC = () => {
 
               {/* Print Header */}
               <div className="hidden print:block text-center mb-6">
-                <h1 className="text-2xl font-serif font-bold">Registro Fratelli</h1>
-                <p>Anno {selectedYear}-{selectedYear+1}</p>
+                <h1 className="text-3xl font-serif font-bold">G.A.D.U.</h1>
+                <h2 className="text-xl font-bold mt-1">{appSettings.lodgeName} N. {appSettings.lodgeNumber}</h2>
+                <h3 className="text-lg mt-2 font-serif text-slate-700">Registro Fratelli</h3>
+                <p className="text-sm text-slate-500">Anno {selectedYear}-{selectedYear+1}</p>
               </div>
 
               {/* New Table Layout with Columns */}
@@ -427,8 +430,8 @@ const App: React.FC = () => {
                                             <div className="flex flex-wrap gap-2">
                                                 {degreeInfos.length > 0 ? (
                                                     degreeInfos.map((info, i) => (
-                                                        <span key={i} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-50 border border-slate-200 text-xs font-medium text-slate-700 whitespace-nowrap">
-                                                            <span className={`w-2 h-2 rounded-full ${info?.color}`}></span>
+                                                        <span key={i} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-50 border border-slate-200 text-xs font-medium text-slate-700 whitespace-nowrap print:border-slate-400">
+                                                            <span className={`w-2 h-2 rounded-full ${info?.color} print:border print:border-slate-600`}></span>
                                                             <span className="text-slate-500">{info?.label}:</span>
                                                             <span className="font-bold">{info?.val}</span>
                                                         </span>
@@ -461,6 +464,8 @@ const App: React.FC = () => {
                 onMemberClick={(id) => handleMemberClick(id, 'INACTIVE_MEMBERS')} 
                 selectedYear={selectedYear} 
                 mode="TOTAL" 
+                lodgeName={appSettings.lodgeName}
+                lodgeNumber={appSettings.lodgeNumber}
              />
           )}
           
@@ -470,8 +475,8 @@ const App: React.FC = () => {
 
           {currentView === 'MEMBER_DETAIL' && selectedMemberId && <MemberDetail memberId={selectedMemberId} onBack={() => setCurrentView(returnView)} onSave={handleSaveMember} defaultYear={selectedYear}/>}
           {currentView === 'ROLE_ASSIGNMENT' && <RoleAssignment members={members} selectedYear={selectedYear} onUpdate={loadData}/>}
-          {currentView === 'PIEDILISTA' && <Piedilista members={members} selectedYear={selectedYear} onMemberClick={(id) => handleMemberClick(id, 'PIEDILISTA')}/>}
-          {currentView === 'REPORT' && <RolesReport members={members} selectedYear={selectedYear} />}
+          {currentView === 'PIEDILISTA' && <Piedilista members={members} selectedYear={selectedYear} onMemberClick={(id) => handleMemberClick(id, 'PIEDILISTA')} lodgeName={appSettings.lodgeName} lodgeNumber={appSettings.lodgeNumber} />}
+          {currentView === 'REPORT' && <RolesReport members={members} selectedYear={selectedYear} lodgeName={appSettings.lodgeName} lodgeNumber={appSettings.lodgeNumber} />}
         </div>
       </main>
     </div>

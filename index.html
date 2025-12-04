@@ -28,6 +28,30 @@
         },
       }
     </script>
+    <style>
+      @media print {
+        @page {
+          size: A4 portrait;
+          margin: 1cm;
+        }
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+          background-color: white;
+        }
+        /* Hide scrollbars in print to prevent ugly bars on PDF */
+        ::-webkit-scrollbar {
+          display: none;
+        }
+        /* Ensure inputs look like text */
+        input, select, textarea {
+          border: none !important;
+          box-shadow: none !important;
+          background: transparent !important;
+          appearance: none;
+        }
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
