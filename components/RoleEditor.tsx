@@ -1,8 +1,9 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { OfficerRole, BranchType } from '../types';
 import { COMMON_ROLES, calculateMasonicYearString } from '../constants';
-import { Plus, Trash2, ShieldCheck, Calendar } from 'lucide-react';
+import { Plus, Trash2, ShieldCheck } from 'lucide-react';
 
 interface RoleEditorProps {
   roles: OfficerRole[];
@@ -59,14 +60,14 @@ export const RoleEditor: React.FC<RoleEditorProps> = ({ roles, branch, onChange,
       {/* Existing Roles */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1">
         {sortedRoles.map((role, idx) => (
-          <div key={role.id} className={`flex items-center justify-between p-3 rounded-md border ${role.yearStart === defaultYear ? 'bg-yellow-50 border-yellow-200' : 'bg-slate-50 border-slate-100'}`}>
+          <div key={role.id} className={`flex items-center justify-between p-2 rounded-md border ${role.yearStart === defaultYear ? 'bg-yellow-50 border-yellow-200' : 'bg-slate-50 border-slate-100'}`}>
             <div className="flex-1">
-              <div className="font-bold text-slate-800 text-sm">{role.roleName}</div>
-              <div className="text-xs text-slate-500">
+              <div className="font-bold text-slate-800 text-xs">{role.roleName}</div>
+              <div className="text-[10px] text-slate-500">
                 Anno {role.yearStart}-{role.yearStart + 1} ({calculateMasonicYearString(role.yearStart)})
               </div>
               {(role.startDate || role.endDate) && (
-                <div className="text-xs text-slate-400 mt-1 italic flex gap-2">
+                <div className="text-[10px] text-slate-400 mt-1 italic flex gap-2">
                    {role.startDate && <span>Dal: {formatDate(role.startDate)}</span>}
                    {role.endDate && <span>Al: {formatDate(role.endDate)}</span>}
                 </div>
@@ -74,67 +75,63 @@ export const RoleEditor: React.FC<RoleEditorProps> = ({ roles, branch, onChange,
             </div>
             <button 
               onClick={() => handleDelete(role.id)}
-              className="text-slate-400 hover:text-red-500 transition-colors ml-2"
+              className="text-slate-400 hover:text-red-500 transition-colors ml-2 p-1"
             >
-              <Trash2 size={16} />
+              <Trash2 size={14} />
             </button>
           </div>
         ))}
-        {roles.length === 0 && <p className="text-sm text-slate-400 italic md:col-span-2">Nessun incarico registrato.</p>}
+        {roles.length === 0 && <p className="text-xs text-slate-400 italic md:col-span-2">Nessun incarico registrato.</p>}
       </div>
 
       {/* Add New Role */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end pt-4 border-t border-slate-100">
         <div className="md:col-span-2">
-          <label className="block text-xs font-medium text-slate-500 mb-1">Anno</label>
+          <label className="block text-[10px] font-medium text-slate-500 mb-1">Anno</label>
           <input 
             type="number" 
             value={newRole.yearStart}
             onChange={(e) => setNewRole({...newRole, yearStart: parseInt(e.target.value)})}
-            className="w-full text-sm border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 p-2 border"
+            className="w-full text-xs border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 p-1.5 border h-8"
           />
         </div>
         <div className="md:col-span-4">
-          <label className="block text-xs font-medium text-slate-500 mb-1">Ruolo</label>
-          <div className="relative">
-            <input 
-                type="text" 
-                list={`roles-${branch}`}
-                value={newRole.roleName}
-                onChange={(e) => setNewRole({...newRole, roleName: e.target.value})}
-                className="w-full text-sm border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 p-2 border"
-                placeholder="Seleziona..."
-            />
-            <datalist id={`roles-${branch}`}>
-                {COMMON_ROLES[branch].map(r => <option key={r} value={r} />)}
-            </datalist>
-          </div>
+          <label className="block text-[10px] font-medium text-slate-500 mb-1">Ruolo</label>
+          <select
+            value={newRole.roleName}
+            onChange={(e) => setNewRole({...newRole, roleName: e.target.value})}
+            className="w-full text-xs border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 p-1.5 border h-8"
+          >
+             {COMMON_ROLES[branch].map(r => (
+                 <option key={r} value={r}>{r}</option>
+             ))}
+          </select>
         </div>
         <div className="md:col-span-3">
-             <label className="block text-xs font-medium text-slate-500 mb-1">Dal (Opz.)</label>
+             <label className="block text-[10px] font-medium text-slate-500 mb-1">Dal (Opz.)</label>
              <input 
                 type="date"
                 value={newRole.startDate || ''}
                 onChange={(e) => setNewRole({...newRole, startDate: e.target.value})}
-                className="w-full text-sm border-slate-300 rounded-md p-2 border text-slate-600"
+                className="w-full text-xs border-slate-300 rounded-md p-1.5 border text-slate-600 h-8"
              />
         </div>
         <div className="md:col-span-2">
-             <label className="block text-xs font-medium text-slate-500 mb-1">Al (Opz.)</label>
+             <label className="block text-[10px] font-medium text-slate-500 mb-1">Al (Opz.)</label>
              <input 
                 type="date"
                 value={newRole.endDate || ''}
                 onChange={(e) => setNewRole({...newRole, endDate: e.target.value})}
-                className="w-full text-sm border-slate-300 rounded-md p-2 border text-slate-600"
+                className="w-full text-xs border-slate-300 rounded-md p-1.5 border text-slate-600 h-8"
              />
         </div>
         <div className="md:col-span-1">
           <button 
             onClick={handleAdd}
-            className={`w-full p-2 flex justify-center items-center rounded-md text-white transition-colors bg-slate-600 hover:bg-slate-700 h-[38px]`}
+            className={`w-full h-8 flex justify-center items-center rounded-md text-white transition-colors bg-slate-600 hover:bg-slate-700`}
             title="Aggiungi Incarico"
           >
-            <Plus size={20} />
+            <Plus size={16} />
           </button>
         </div>
       </div>

@@ -30,6 +30,7 @@ const MOCK_MEMBERS: Member[] = [
         isMotherLodgeMember: true, 
         isFounder: true, 
         degrees: [
+            {degreeName: 'Uomo del Marchio', date: '1849-11-01', meetingNumber: '0'}, // Backfill
             {degreeName: 'Maestro del Marchio', date: '1850-01-01', meetingNumber: '1'}
         ], 
         roles: [{id: 'm1a', yearStart: Y25, roleName: 'Maestro Venerabile', branch: 'MARK'}] 
@@ -83,6 +84,7 @@ const MOCK_MEMBERS: Member[] = [
         otherLodgeName: 'Loggia Propaganda', 
         isDualMember: true, 
         degrees: [
+            {degreeName: 'Uomo del Marchio', date: '1841-12-01', meetingNumber: '1'}, // Backfill
             {degreeName: 'Maestro del Marchio', date: '1842-01-01', meetingNumber: '2'}
         ], 
         roles: [] 
@@ -114,6 +116,7 @@ const MOCK_MEMBERS: Member[] = [
         statusEvents: [{date: '1495-01-01', status: 'ACTIVE'}], 
         isMotherLodgeMember: true, 
         degrees: [
+            {degreeName: 'Uomo del Marchio', date: '1494-01-01', meetingNumber: '52'}, // Backfill
             {degreeName: 'Maestro del Marchio', date: '1495-01-01', meetingNumber: '55'}
         ], 
         roles: [{id: 'm4a', yearStart: Y25, roleName: 'Primo Sorvegliante', branch: 'MARK'}] 
@@ -174,6 +177,7 @@ const MOCK_MEMBERS: Member[] = [
         statusEvents: [{date: '1926-01-01', status: 'ACTIVE'}], 
         isMotherLodgeMember: true, 
         degrees: [
+            {degreeName: 'Uomo del Marchio', date: '1925-12-20', meetingNumber: '100'}, // Backfill
             {degreeName: 'Maestro del Marchio', date: '1926-01-01', meetingNumber: '102'}
         ], 
         roles: [{id: 'm7a', yearStart: Y25, roleName: 'Tesoriere', branch: 'MARK'}] 
@@ -226,6 +230,7 @@ const MOCK_MEMBERS: Member[] = [
         statusEvents: [{date: '1305-01-01', status: 'ACTIVE'}], 
         isMotherLodgeMember: true, 
         degrees: [
+            {degreeName: 'Uomo del Marchio', date: '1304-12-01', meetingNumber: '38'}, // Backfill
             {degreeName: 'Maestro del Marchio', date: '1305-01-01', meetingNumber: '40'}
         ], 
         roles: [{id: 'm9a', yearStart: Y25, roleName: 'Cappellano', branch: 'MARK'}] 
@@ -313,6 +318,7 @@ const MOCK_MEMBERS: Member[] = [
         statusEvents: [{date: '1905-01-01', status: 'ACTIVE'}], 
         isMotherLodgeMember: true, 
         degrees: [
+            {degreeName: 'Uomo del Marchio', date: '1904-06-01', meetingNumber: '162'}, // Backfill
             {degreeName: 'Maestro del Marchio', date: '1905-01-01', meetingNumber: '165'}
         ], 
         roles: [{id: 'm14a', yearStart: Y25, roleName: 'Copritore', branch: 'MARK'}] 
@@ -373,6 +379,7 @@ const MOCK_MEMBERS: Member[] = [
         statusEvents: [{date: '1955-01-01', status: 'ACTIVE'}], 
         isMotherLodgeMember: true, 
         degrees: [
+            {degreeName: 'Uomo del Marchio', date: '1954-06-01', meetingNumber: '202'}, // Backfill
             {degreeName: 'Maestro del Marchio', date: '1955-01-01', meetingNumber: '205'}
         ], 
         roles: [] 
@@ -456,6 +463,7 @@ const MOCK_MEMBERS: Member[] = [
         statusEvents: [{date: '1615-01-01', status: 'ACTIVE'}], 
         isMotherLodgeMember: true, 
         degrees: [
+            {degreeName: 'Uomo del Marchio', date: '1614-06-01', meetingNumber: '92'}, // Backfill
             {degreeName: 'Maestro del Marchio', date: '1615-01-01', meetingNumber: '95'}
         ], 
         roles: [{id: 'm22a', yearStart: Y24, roleName: 'Maestro Venerabile', branch: 'MARK'}] 
@@ -592,7 +600,7 @@ class DataService {
   private CURRENT_SCHEMA_VERSION = 1;
   private SCHEMA_VERSION_KEY = 'masonic_db_schema_version';
 
-  public APP_VERSION = '0.20';
+  public APP_VERSION = '0.21';
 
   // Registry of Migrations
   private migrations: Migration[] = [
