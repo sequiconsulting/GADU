@@ -211,30 +211,22 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                   return 'Requisito: Maestro Muratore nel Craft.';
               }
           }
-          if (degreeName === 'Venerabile della Loggia del Marchio') {
-              if (!hasDegree('CRAFT', 'Maestro Installato')) return 'Requisito: Maestro Installato nel Craft.';
-              if (!hasDegree('MARK', 'Maestro del Marchio')) return 'Requisito: Maestro del Marchio.';
-          }
       }
 
       // --- CAPITOLO (ARCO REALE) ---
       if (branch === 'CHAPTER') {
           if (degreeName === 'Compagno dell\'Arco Reale') {
-              if (!hasDegree('MARK', ['Maestro del Marchio', 'Venerabile della Loggia del Marchio'])) {
-                  return 'Requisito: Maestro del Marchio (MMM).';
+              if (!hasDegree('MARK', 'Maestro del Marchio')) {
+                  return 'Requisito: Maestro del Marchio.';
               }
-          }
-          if (degreeName === 'Principale dell\'Arco Reale') {
-              if (!hasDegree('CHAPTER', 'Compagno dell\'Arco Reale')) return 'Requisito: Compagno dell\'Arco Reale (CAR).';
-              if (!hasDegree('CRAFT', 'Maestro Installato')) return 'Requisito: Maestro Installato nel Craft.';
           }
       }
       
       // --- RAM ---
       if (branch === 'RAM') {
           if (degreeName === 'Marinaio dell\'Arca Reale') {
-              if (!hasDegree('MARK', ['Maestro del Marchio', 'Venerabile della Loggia del Marchio'])) {
-                  return 'Requisito: Maestro del Marchio (MMM).';
+              if (!hasDegree('MARK', 'Maestro del Marchio')) {
+                  return 'Requisito: Maestro del Marchio.';
               }
           }
       }

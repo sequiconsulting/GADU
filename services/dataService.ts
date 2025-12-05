@@ -17,10 +17,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.25';
+  public APP_VERSION = '0.26'; // Incremented version
   private membersCollection = collection(db, "members");
   private settingsDoc = doc(db, "settings", "appSettings");
 

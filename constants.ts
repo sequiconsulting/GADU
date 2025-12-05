@@ -1,5 +1,4 @@
 
-
 import { BranchType, MasonicBranchData } from "./types";
 
 export const BRANCHES: { type: BranchType; label: string; shortLabel: string; color: string; degreeLabels: string[] }[] = [
@@ -15,14 +14,14 @@ export const BRANCHES: { type: BranchType; label: string; shortLabel: string; co
     label: 'Loggia del Marchio', 
     shortLabel: 'MMM',
     color: 'bg-masonic-mark', 
-    degreeLabels: ['Uomo del Marchio', 'Maestro del Marchio', 'Venerabile della Loggia del Marchio'] 
+    degreeLabels: ['Uomo del Marchio', 'Maestro del Marchio'] // "Venerabile" is a role, not a degree
   },
   { 
     type: 'CHAPTER', 
     label: 'Capitolo (Arco Reale)', 
     shortLabel: 'Arco',
     color: 'bg-masonic-red', 
-    degreeLabels: ['Compagno dell\'Arco Reale', 'Principale dell\'Arco Reale'] 
+    degreeLabels: ['Compagno dell\'Arco Reale']
   },
   { 
     type: 'RAM', 
@@ -33,6 +32,7 @@ export const BRANCHES: { type: BranchType; label: string; shortLabel: string; co
   }
 ];
 
+// Based on the Irish system, in Italian
 export const COMMON_ROLES: Record<BranchType, string[]> = {
   CRAFT: [
     'Maestro Venerabile', 
@@ -53,39 +53,45 @@ export const COMMON_ROLES: Record<BranchType, string[]> = {
     'Copritore Esterno'
   ],
   MARK: [
-    'Maestro Venerabile', 
-    'Primo Sorvegliante', 
-    'Secondo Sorvegliante', 
-    'Maestro Sovrintendente', 
-    'Primo Sovrintendente', 
-    'Secondo Sovrintendente', 
-    'Reggente', 
-    'Segretario', 
-    'Tesoriere', 
+    'Maestro Venerabile',
+    'Primo Sorvegliante',
+    'Secondo Sorvegliante',
+    'Maestro Ispettore',
+    'Primo Ispettore',
+    'Secondo Ispettore',
+    'Cappellano',
+    'Tesoriere',
+    'Segretario',
     'Direttore delle Cerimonie',
-    'Copritore'
+    'Primo Diacono',
+    'Secondo Diacono',
+    'Copritore Interno',
+    'Tegolatore'
   ],
   CHAPTER: [
-    'Il Re', 
-    'Il Sommo Sacerdote', 
-    'Lo Scriba Capo', 
-    'Tesoriere', 
-    'Registrar', 
-    'Capitano dell\'Ostia', 
-    'Soprintendente del Tabernacolo', 
-    'Capitano del Velo Scarlatto',
-    'Capitano del Velo Porpora',
-    'Capitano del Velo Blu',
+    'Re Eccellente',
+    'Sommo Sacerdote',
+    'Primo Scriba',
+    'Scriba E.',
+    'Scriba N.',
+    'Tesoriere',
+    'Direttore delle Cerimonie',
+    'Capitano dell\'Ospite',
+    'Soprintendente Principale',
+    'Primo Assistente Soprintendente',
+    'Secondo Assistente Soprintendente',
     'Janitor'
   ],
   RAM: [
-    'Comandante Noachita', 
-    'Primo Generale', 
-    'Secondo Generale', 
-    'Scriba', 
-    'Tesoriere', 
-    'Direttore delle Cerimonie', 
-    'Guardiano'
+    'Venerabile Comandante Noè',
+    'Iafet (Primo Sorvegliante)',
+    'Sem (Secondo Sorvegliante)',
+    'Scriba',
+    'Tesoriere',
+    'Direttore delle Cerimonie',
+    'Conduttore',
+    'Guardiano',
+    'Tegolatore'
   ]
 };
 
@@ -107,22 +113,14 @@ export const calculateMasonicYearString = (startYear: number): string => {
  */
 export const isMemberActiveInYear = (branchData: MasonicBranchData, year: number): boolean => {
   if (!branchData.statusEvents || branchData.statusEvents.length === 0) {
-    // If no events but has degrees, assume active (backward compatibility or default)
-    // If no degrees, assume inactive (never joined)
     return branchData.degrees && branchData.degrees.length > 0;
   }
 
   const targetDate = `${year}-12-31`;
-  
-  // Sort events by date ascending
   const sortedEvents = [...branchData.statusEvents].sort((a, b) => a.date.localeCompare(b.date));
-  
-  // Find the last event that happened on or before the end of the target year
   const lastEvent = sortedEvents.filter(e => e.date <= targetDate).pop();
   
   if (!lastEvent) {
-    // If no event before target date, but events exist later?
-    // It means they hadn't joined yet.
     return false;
   }
 
@@ -140,11 +138,9 @@ export const getDegreeAbbreviation = (degreeName: string): string => {
     // Mark
     case 'Uomo del Marchio': return 'UdM';
     case 'Maestro del Marchio': return 'MdM';
-    case 'Venerabile della Loggia del Marchio': return 'MVM';
     
     // Chapter
     case 'Compagno dell\'Arco Reale': return 'CAR';
-    case 'Principale dell\'Arco Reale': return 'PAR';
     
     // RAM
     case 'Marinaio dell\'Arca Reale': return 'MAR';
