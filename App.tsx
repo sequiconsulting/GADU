@@ -9,9 +9,10 @@ import { RoleAssignment } from './components/RoleAssignment';
 import { Piedilista } from './components/Piedilista';
 import { InactiveMembers } from './components/InactiveMembers';
 import { AdminPanel } from './components/AdminPanel';
+import { Legend } from './components/Legend';
 import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation } from './constants';
 
-type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN';
+type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN' | 'LEGEND';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('DASHBOARD');
@@ -240,6 +241,9 @@ const App: React.FC = () => {
           
         </nav>
         <div className="p-4 border-t border-slate-800 space-y-2">
+            <button onClick={() => handleViewChange('LEGEND')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'LEGEND' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
+                <BookOpen size={16} /> Legenda
+            </button>
             <button onClick={() => handleViewChange('ADMIN')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'ADMIN' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
                 <Settings size={16} /> Admin
             </button>
@@ -264,6 +268,7 @@ const App: React.FC = () => {
                 {currentView === 'PIEDILISTA' && 'Piedilista'}
                 {currentView === 'INACTIVE_MEMBERS' && 'Archivio Fratelli Inattivi'}
                 {currentView === 'ADMIN' && 'Amministrazione'}
+                {currentView === 'LEGEND' && 'Legenda e Requisiti'}
             </h2>
           </div>
 
@@ -439,6 +444,8 @@ const App: React.FC = () => {
           {currentView === 'ADMIN' && (
             <AdminPanel currentSettings={appSettings} onSave={handleSaveSettings} />
           )}
+
+          {currentView === 'LEGEND' && <Legend />}
 
           {currentView === 'MEMBER_DETAIL' && selectedMemberId && <MemberDetail memberId={selectedMemberId} onBack={() => setCurrentView(returnView)} onSave={handleSaveMember} defaultYear={selectedYear}/>}
           {currentView === 'ROLE_ASSIGNMENT' && <RoleAssignment members={members} selectedYear={selectedYear} onUpdate={loadData}/>}

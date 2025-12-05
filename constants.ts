@@ -32,6 +32,40 @@ export const BRANCHES: { type: BranchType; label: string; shortLabel: string; co
   }
 ];
 
+export const DEGREE_REQUIREMENTS = {
+    craft: [
+        { degree: 'Apprendista Ammesso', requirement: '' },
+        { degree: 'Compagno di Mestiere', requirement: 'AA (Craft)' },
+        { degree: 'Maestro Muratore', requirement: 'CdM (Craft)' },
+        { degree: 'Maestro Installato', requirement: 'MM (Craft)' },
+    ],
+    mark: [
+        { degree: 'Uomo del Marchio', requirement: 'CdM (Craft)' },
+        { degree: 'Maestro del Marchio', requirement: 'MM (Craft)' },
+        { degree: 'Venerabile della Loggia del Marchio', requirement: 'MI (Craft), MMM (Marchio)' },
+    ],
+    chapter: [
+        { degree: 'Compagno dell\'Arco Reale', requirement: 'MMM (Marchio)' },
+        { degree: 'Principale dell\'Arco Reale', requirement: 'MI (Craft), CAR (Arco Reale)' },
+    ],
+    ram: [
+        { degree: 'Marinaio dell\'Arca Reale', requirement: 'MMM (Marchio)' },
+    ],
+};
+
+export const ABBREVIATIONS = [
+    { degree: 'Apprendista Ammesso', abbreviation: 'AA' },
+    { degree: 'Compagno di Mestiere', abbreviation: 'CdM' },
+    { degree: 'Maestro Muratore', abbreviation: 'MM' },
+    { degree: 'Maestro Installato', abbreviation: 'MI' },
+    { degree: 'Uomo del Marchio', abbreviation: 'UdM' },
+    { degree: 'Maestro del Marchio', abbreviation: 'MMM' },
+    { degree: 'Venerabile della Loggia del Marchio', abbreviation: 'MVM' },
+    { degree: 'Compagno dell\'Arco Reale', abbreviation: 'CAR' },
+    { degree: 'Principale dell\'Arco Reale', abbreviation: 'PAR' },
+    { degree: 'Marinaio dell\'Arca Reale', abbreviation: 'MAR' },
+];
+
 // Based on the Irish system, in Italian
 export const COMMON_ROLES: Record<BranchType, string[]> = {
   CRAFT: [
@@ -128,25 +162,8 @@ export const isMemberActiveInYear = (branchData: MasonicBranchData, year: number
 };
 
 export const getDegreeAbbreviation = (degreeName: string): string => {
-  switch (degreeName) {
-    // Craft
-    case 'Apprendista': return 'AA';
-    case 'Compagno di Mestiere': return 'CdM';
-    case 'Maestro Muratore': return 'MM';
-    case 'Maestro Installato': return 'MI';
-    
-    // Mark
-    case 'Uomo del Marchio': return 'UdM';
-    case 'Maestro del Marchio': return 'MdM';
-    
-    // Chapter
-    case 'Compagno dell\'Arco Reale': return 'CAR';
-    
-    // RAM
-    case 'Marinaio dell\'Arca Reale': return 'MAR';
-    
-    default: return degreeName;
-  }
+    const abbr = ABBREVIATIONS.find(a => a.degree === degreeName);
+    return abbr ? abbr.abbreviation : degreeName;
 };
 
 export const ITALIAN_PROVINCES = [
