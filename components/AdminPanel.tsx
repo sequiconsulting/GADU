@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { AppSettings } from '../types';
 import { Save, Settings, Shield } from 'lucide-react';

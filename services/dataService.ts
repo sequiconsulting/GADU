@@ -1,7 +1,8 @@
 
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
-import { Member, AppSettings } from "../types";
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
+import { Member, AppSettings, BranchType, OfficerRole } from "../types";
+import { isMemberActiveInYear, COMMON_ROLES } from "../constants";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCz0_p2klHvYZJ5xXWJE_eSrKy4pAz4Poc",
@@ -15,6 +16,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
 
 class DataService {
   private USE_FIREBASE = true;
