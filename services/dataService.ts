@@ -1,6 +1,6 @@
 
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, runTransaction } from "firebase/firestore";
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { Member, AppSettings } from "../types";
 
 const firebaseConfig = {
@@ -16,102 +16,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const MOCK_MEMBERS: Member[] = [
-  {
-    id: '1',
-    matricula: '101',
-    firstName: 'Mario',
-    lastName: 'Rossi',
-    city: 'Roma',
-    email: 'mario.rossi@email.com',
-    phone: '3331234567',
-    craft: {
-      statusEvents: [{ date: '2020-01-15', status: 'ACTIVE', note: 'Iniziazione' }],
-      degrees: [
-        { degreeName: 'Apprendista', date: '2020-01-15' },
-        { degreeName: 'Compagno di Mestiere', date: '2021-02-20' },
-        { degreeName: 'Maestro Muratore', date: '2022-03-25' },
-      ],
-      roles: [
-        { roleName: 'Tesoriere', yearStart: 2023 },
-      ],
-      isMotherLodgeMember: true,
-      isFounder: false,
-    },
-    mark: {
-      statusEvents: [{ date: '2022-05-10', status: 'ACTIVE', note: 'Avanzamento' }],
-      degrees: [
-        { degreeName: 'Uomo del Marchio', date: '2022-05-10' },
-        { degreeName: 'Maestro del Marchio', date: '2023-06-15' },
-      ],
-      roles: [],
-      isMotherLodgeMember: true,
-      isFounder: false,
-    },
-    chapter: {
-      statusEvents: [],
-      degrees: [],
-      roles: [],
-      isMotherLodgeMember: true,
-    },
-    ram: {
-      statusEvents: [],
-      degrees: [],
-      roles: [],
-      isMotherLodgeMember: true,
-    },
-  },
-  {
-    id: '2',
-    matricula: '102',
-    firstName: 'Luigi',
-    lastName: 'Verdi',
-    city: 'Milano',
-    email: 'luigi.verdi@email.com',
-    phone: '3357654321',
-    craft: {
-      statusEvents: [{ date: '2023-09-10', status: 'ACTIVE', note: 'Iniziazione' }],
-      degrees: [
-        { degreeName: 'Apprendista', date: '2023-09-10' },
-      ],
-      roles: [],
-      isMotherLodgeMember: true,
-      isFounder: false,
-    },
-    mark: { statusEvents: [], degrees: [], roles: [], isMotherLodgeMember: true },
-    chapter: { statusEvents: [], degrees: [], roles: [], isMotherLodgeMember: true },
-    ram: { statusEvents: [], degrees: [], roles: [], isMotherLodgeMember: true },
-  },
-    {
-    id: '3',
-    matricula: '103',
-    firstName: 'Giuseppe',
-    lastName: 'Bianchi',
-    city: 'Napoli',
-    email: 'giuseppe.bianchi@email.com',
-    phone: '3471122334',
-    craft: {
-      statusEvents: [
-        { date: '2019-03-01', status: 'ACTIVE', note: 'Iniziazione' },
-        { date: '2022-11-20', status: 'INACTIVE', note: 'Dimissioni' },
-    ],
-      degrees: [
-        { degreeName: 'Apprendista', date: '2019-03-01' },
-        { degreeName: 'Compagno di Mestiere', date: '2020-04-05' },
-      ],
-      roles: [],
-      isMotherLodgeMember: true,
-      isFounder: false,
-    },
-    mark: { statusEvents: [], degrees: [], roles: [], isMotherLodgeMember: true },
-    chapter: { statusEvents: [], degrees: [], roles: [], isMotherLodgeMember: true },
-    ram: { statusEvents: [], degrees: [], roles: [], isMotherLodgeMember: true },
-  }
-];
-
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.24';
+  public APP_VERSION = '0.25';
   private membersCollection = collection(db, "members");
   private settingsDoc = doc(db, "settings", "appSettings");
 
@@ -124,28 +31,6 @@ class DataService {
       console.log("Firebase mode enabled.");
     } else {
       console.log("Local mode enabled. Firebase is not in use.");
-    }
-  }
-
-  async uploadMockData() {
-    if (!this.USE_FIREBASE) {
-      console.log("Cannot upload mock data in local mode.");
-      return;
-    }
-
-    console.log("Starting mock data upload to Firebase...");
-    try {
-        await runTransaction(db, async (transaction) => {
-            for (const member of MOCK_MEMBERS) {
-                const memberRef = doc(this.membersCollection, member.id);
-                transaction.set(memberRef, member);
-            }
-        });
-        console.log("Mock data successfully uploaded to Firebase!");
-        alert("Mock data successfully uploaded to Firebase!");
-    } catch (error) {
-        console.error("Error uploading mock data: ", error);
-        alert("Error uploading mock data. Check the console for details.");
     }
   }
 
