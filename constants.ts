@@ -14,7 +14,7 @@ export const BRANCHES: { type: BranchType; label: string; shortLabel: string; co
     label: 'Loggia del Marchio', 
     shortLabel: 'MMM',
     color: 'bg-masonic-mark', 
-    degreeLabels: ['Uomo del Marchio', 'Maestro del Marchio'] // "Venerabile" is a role, not a degree
+    degreeLabels: ['Uomo del Marchio', 'Maestro del Marchio', 'Maestro Installato del Marchio']
   },
   { 
     type: 'CHAPTER', 
@@ -28,7 +28,7 @@ export const BRANCHES: { type: BranchType; label: string; shortLabel: string; co
     label: 'Royal Ark Mariner', 
     shortLabel: 'RAM',
     color: 'bg-masonic-ram', 
-    degreeLabels: ['Marinaio dell\'Arca Reale'] 
+    degreeLabels: ['Marinaio dell\'Arca Reale', 'Comandante del RAM'] 
   }
 ];
 
@@ -42,14 +42,15 @@ export const DEGREE_REQUIREMENTS = {
     mark: [
         { degree: 'Uomo del Marchio', requirement: 'CdM (Craft)' },
         { degree: 'Maestro del Marchio', requirement: 'MM (Craft)' },
-        { degree: 'Venerabile della Loggia del Marchio', requirement: 'MI (Craft), MMM (Marchio)' },
+        { degree: 'Maestro Installato del Marchio', requirement: 'MI (Craft), MMM (Marchio)' },
     ],
     chapter: [
         { degree: 'Compagno dell\'Arco Reale', requirement: 'MMM (Marchio)' },
         { degree: 'Principale dell\'Arco Reale', requirement: 'MI (Craft), CAR (Arco Reale)' },
     ],
     ram: [
-        { degree: 'Marinaio dell\'Arca Reale', requirement: 'MMM (Marchio)' },
+        { degree: 'Marinaio dell\'Arca Reale', requirement: 'MM (Craft)' },
+        { degree: 'Comandante del RAM', requirement: 'MAR (RAM)' },
     ],
 };
 
@@ -60,10 +61,11 @@ export const ABBREVIATIONS = [
     { degree: 'Maestro Installato', abbreviation: 'MI' },
     { degree: 'Uomo del Marchio', abbreviation: 'UdM' },
     { degree: 'Maestro del Marchio', abbreviation: 'MMM' },
-    { degree: 'Venerabile della Loggia del Marchio', abbreviation: 'MVM' },
+    { degree: 'Maestro Installato del Marchio', abbreviation: 'MIM' },
     { degree: 'Compagno dell\'Arco Reale', abbreviation: 'CAR' },
     { degree: 'Principale dell\'Arco Reale', abbreviation: 'PAR' },
     { degree: 'Marinaio dell\'Arca Reale', abbreviation: 'MAR' },
+    { degree: 'Comandante del RAM', abbreviation: 'CdR' },
 ];
 
 // Based on the Irish system, in Italian
@@ -145,21 +147,29 @@ export const calculateMasonicYearString = (startYear: number): string => {
  * Determines if a member was active in a specific year based on their status history.
  * Logic: Finds the last status event on or before Dec 31st of the given year.
  */
-export const isMemberActiveInYear = (branchData: MasonicBranchData, year: number): boolean => {
+export const isMemberActiveInYear = (branchData: MasonicBranchData | undefined, year: number): boolean => {
+  if (!branchData) return false;
+
   if (!branchData.statusEvents || branchData.statusEvents.length === 0) {
+    // If no status events, consider active if they have any degree
     return branchData.degrees && branchData.degrees.length > 0;
   }
 
   const targetDate = `${year}-12-31`;
   const sortedEvents = [...branchData.statusEvents].sort((a, b) => a.date.localeCompare(b.date));
-  const lastEvent = sortedEvents.filter(e => e.date <= targetDate).pop();
   
-  if (!lastEvent) {
+  // Find the last event that is on or before the target date
+  const lastEventBeforeOrOnTargetDate = sortedEvents.filter(e => e.date <= targetDate).pop();
+
+  if (!lastEventBeforeOrOnTargetDate) {
+    // No events happened in or before this year.
+    // This logic assumes a member is not active before their first recorded event.
     return false;
   }
 
-  return lastEvent.status === 'ACTIVE';
+  return lastEventBeforeOrOnTargetDate.status === 'ACTIVE';
 };
+
 
 export const getDegreeAbbreviation = (degreeName: string): string => {
     const abbr = ABBREVIATIONS.find(a => a.degree === degreeName);

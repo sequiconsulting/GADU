@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Member, BranchType } from '../types';
-import { BRANCHES, isMemberActiveInYear } from '../constants';
+import { BRANCHES, getDegreeAbbreviation, isMemberActiveInYear } from '../constants';
 import { Printer, Layout, AlertTriangle } from 'lucide-react';
 
 interface PiedilistaProps {
@@ -30,13 +30,6 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
     const [y, m, d] = isoString.split('-');
     return `${d}/${m}/${y}`;
   }
-
-  const getDegreeText = (member: Member, branch: BranchType) => {
-    // @ts-ignore
-    const degrees = member[branch.toLowerCase()].degrees;
-    if (!degrees || degrees.length === 0) return '-';
-    return degrees[degrees.length - 1].degreeName;
-  };
 
   const getActiveRoleObj = (member: Member, branch: BranchType) => {
     // @ts-ignore
@@ -105,6 +98,8 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
                                 if (branchData.isDualMember) provenance += ' (Doppia App.)';
                             } else { provenance = m.city; }
 
+                            const highestDegree = branchData?.degrees?.[branchData.degrees.length - 1];
+
                             return (
                                 <tr key={m.id} className={`hover:bg-slate-50 transition-colors ${isDuplicate ? 'bg-red-50/50' : ''} break-inside-avoid`}>
                                     {isCraft && <td className="py-2.5 pl-4 font-mono text-slate-600">{m.matricula}</td>}
@@ -113,7 +108,12 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
                                             {m.lastName} {m.firstName}
                                         </button>
                                     </td>
-                                    <td className="py-2.5 text-slate-600">{getDegreeText(m, branch.type)}</td>
+                                    <td className="py-2.5 text-slate-600">
+                                        {highestDegree ? 
+                                            <span title={highestDegree.degreeName}>{getDegreeAbbreviation(highestDegree.degreeName)}</span> : 
+                                            '-'
+                                        }
+                                    </td>
                                     <td className="py-2.5">{getRoleText(roleObj, !!isDuplicate)}</td>
                                     <td className="py-2.5 text-slate-500">{provenance}</td>
                                 </tr>
