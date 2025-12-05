@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Member, BranchType, StatusType } from '../types';
-import { BRANCHES, isMemberActiveInYear, calculateMasonicYearString } from '../constants';
+import { BRANCHES, DEGREES, isMemberActiveInYear, calculateMasonicYearString } from '../constants';
 import { HistoryEditor } from './HistoryEditor';
 import { RoleEditor } from './RoleEditor';
 import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, History } from 'lucide-react';
@@ -20,7 +20,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   const [activeTab, setActiveTab] = useState<BranchType | 'PROFILE'>('PROFILE');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // State for status change modal/input
   const [changingStatusFor, setChangingStatusFor] = useState<BranchType | null>(null);
   const [statusDate, setStatusDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -40,7 +40,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
 
   const validate = async (mem: Member): Promise<boolean> => {
     setError(null);
-    
+
     // 1. Basic format
     if (!/^\d+$/.test(mem.matricula)) {
       setError("La matricola deve contenere solo numeri.");
@@ -55,50 +55,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
       return false;
     }
 
-    // 3. Career Structure Gaps (e.g. Master without Apprentice)
-    const careerError = validateCareerStructure(mem);
-    if (careerError) {
-        setError(careerError);
-        return false;
-    }
-
     return true;
-  };
-
-  const validateCareerStructure = (mem: Member): string | null => {
-      for (const branch of BRANCHES) {
-          const branchKey = branch.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
-          const degrees = mem[branchKey]?.degrees;
-          if (!degrees || degrees.length === 0) continue;
-
-          // Get indices of user's degrees in the hierarchy
-          const userIndices = degrees.map(d => branch.degreeLabels.indexOf(d.degreeName)).sort((a, b) => a - b);
-          
-          if (userIndices.length === 0) continue;
-
-          // Check for gaps. If a user has a degree at index `i`, they must also have a degree at index `i-1`.
-          for (let i = 1; i < userIndices.length; i++) {
-              const currentIndex = userIndices[i];
-              const prevIndex = userIndices[i-1];
-
-              // This condition is too strict. A member could be granted a higher degree without having all intermediate ones.
-              // A better check is to see if for any given degree, the PREVIOUS one is missing.
-              // Let's re-evaluate. The check should be: for each degree index > 0, is index-1 present?
-          }
-          
-          const allPossibleIndices = Array.from(branch.degreeLabels.keys());
-
-          for(const userIndex of userIndices) {
-              if (userIndex > 0) { // No prerequisite for the first degree
-                  const prerequisiteIndex = userIndex - 1;
-                  if(!userIndices.includes(prerequisiteIndex)){
-                      return `Errore in ${branch.label}: Manca il grado di "${branch.degreeLabels[prerequisiteIndex]}" necessario per ottenere "${branch.degreeLabels[userIndex]}".`;
-                  }
-              }
-          }
-
-      }
-      return null;
   };
 
   const handleSave = async () => {
@@ -123,7 +80,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
      if (!member) return;
      const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
      const currentData = member[branchKey];
-     
+
      // Add status event
      const newEvent = { date: statusDate, status: newStatus };
      const updatedEvents = [...currentData.statusEvents, newEvent];
@@ -149,7 +106,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   const handleMotherLodgeChange = (branch: BranchType, isMotherLodge: boolean) => {
     if (!member) return;
     const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
-    
+
     // Create a copy of member
     const updatedMember = { ...member };
 
@@ -175,9 +132,9 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
     const today = new Date().toISOString().split('T')[0];
     setMember({
         ...member,
-        craft: { 
-            ...member.craft, 
-            statusEvents: [...member.craft.statusEvents, { date: today, status: 'ACTIVE', note: 'Attivazione Manuale' }] 
+        craft: {
+            ...member.craft,
+            statusEvents: [...member.craft.statusEvents, { date: today, status: 'ACTIVE', note: 'Attivazione Manuale' }]
         }
     });
   };
@@ -185,49 +142,38 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   const validateDegreePrerequisites = (branch: BranchType, degreeName: string): string | null => {
       if (!member) return null;
 
-      const hasDegree = (b: BranchType, nameOrNames: string | string[]) => {
+      const hasDegree = (b: BranchType, degreeNameToFind: string) => {
           const branchData = member[b.toLowerCase() as keyof Member] as any;
-          const events = branchData.degrees || [];
-          const names = Array.isArray(nameOrNames) ? nameOrNames : [nameOrNames];
-          return events.some((d: any) => names.includes(d.degreeName));
+          if (!branchData || !branchData.degrees) return false;
+          return branchData.degrees.some((d: any) => d.degreeName === degreeNameToFind);
       };
 
-      // --- LOGGIA (CRAFT) ---
-      if (branch === 'CRAFT') {
-        if (degreeName === 'Compagno di Mestiere' && !hasDegree('CRAFT', 'Apprendista')) return 'Requisito: Apprendista Ammesso.';
-        if (degreeName === 'Maestro Muratore' && !hasDegree('CRAFT', 'Compagno di Mestiere')) return 'Requisito: Compagno di Mestiere.';
-        if (degreeName === 'Maestro Installato' && !hasDegree('CRAFT', 'Maestro Muratore')) return 'Requisito: Maestro Muratore.';
-      }
+      const branchDegrees = DEGREES[branch];
+      const degreeInfo = branchDegrees.find(d => d.name === degreeName);
+      if (!degreeInfo) return null;
 
-      // --- MARCHIO (MARK) ---
-      if (branch === 'MARK') {
-          if (degreeName === 'Uomo del Marchio') {
-              if (!hasDegree('CRAFT', ['Compagno di Mestiere', 'Maestro Muratore', 'Maestro Installato'])) {
-                  return 'Requisito: Compagno di Mestiere nel Craft.';
-              }
-          }
-          if (degreeName === 'Maestro del Marchio') {
-              if (!hasDegree('CRAFT', ['Maestro Muratore', 'Maestro Installato'])) {
-                  return 'Requisito: Maestro Muratore nel Craft.';
-              }
+      const degreeIndex = branchDegrees.indexOf(degreeInfo);
+      if (degreeIndex > 0) {
+          const prerequisite = branchDegrees[degreeIndex - 1];
+          if (!hasDegree(branch, prerequisite.name)) {
+              return `Requisito: ${prerequisite.name}`;
           }
       }
 
-      // --- CAPITOLO (ARCO REALE) ---
-      if (branch === 'CHAPTER') {
-          if (degreeName === 'Compagno dell\'Arco Reale') {
-              if (!hasDegree('MARK', 'Maestro del Marchio')) {
-                  return 'Requisito: Maestro del Marchio.';
-              }
+      // Cross-branch prerequisites
+      if (branch === 'MARK' && degreeName === 'Uomo del Marchio') {
+          if (!hasDegree('CRAFT', 'Maestro Muratore')) {
+              return 'Requisito: Maestro Muratore nel Craft.';
           }
       }
-      
-      // --- RAM ---
-      if (branch === 'RAM') {
-          if (degreeName === 'Marinaio dell\'Arca Reale') {
-              if (!hasDegree('MARK', 'Maestro del Marchio')) {
-                  return 'Requisito: Maestro del Marchio.';
-              }
+      if (branch === 'CHAPTER' && degreeName === 'Compagno dell\'Arco Reale') {
+          if (!hasDegree('MARK', 'Maestro del Marchio')) {
+              return 'Requisito: Maestro del Marchio.';
+          }
+      }
+       if (branch === 'RAM' && degreeName === 'Marinaio dell\'Arca Reale') {
+          if (!hasDegree('MARK', 'Maestro del Marchio')) {
+              return 'Requisito: Maestro del Marchio.';
           }
       }
 
@@ -242,8 +188,8 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
         <button onClick={onBack} className="flex items-center text-slate-500 hover:text-slate-800 transition-colors">
           <ArrowLeft className="mr-2" size={20} /> <span className="hidden sm:inline">Torna alla lista</span><span className="sm:hidden">Indietro</span>
         </button>
-        <button 
-          onClick={handleSave} 
+        <button
+          onClick={handleSave}
           className="bg-masonic-gold hover:bg-yellow-600 text-white px-4 md:px-6 py-2 rounded-md font-semibold shadow-md flex items-center transition-colors text-sm md:text-base"
         >
           <Save className="mr-2" size={18} /> Salva
@@ -321,18 +267,18 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                     <span className="text-xs text-slate-500 font-sans mt-1 block">Riferimento: Anno {defaultYear}-{defaultYear + 1} - A.L. {calculateMasonicYearString(defaultYear)}</span>
                                 </div>
                              </div>
-                             
+
                              <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200 w-full md:w-auto justify-between md:justify-start">
                                 {isChanging ? (
                                     <div className="flex flex-col sm:flex-row items-center gap-2 animate-fadeIn w-full">
-                                        <input 
-                                            type="date" 
-                                            value={statusDate} 
+                                        <input
+                                            type="date"
+                                            value={statusDate}
                                             onChange={(e) => setStatusDate(e.target.value)}
                                             className="text-sm border border-slate-300 rounded p-1 w-full sm:w-auto"
                                         />
                                         <div className="flex gap-2 w-full sm:w-auto">
-                                            <button 
+                                            <button
                                                 onClick={() => handleStatusChange(branch.type, isActiveCurrentYear ? 'INACTIVE' : 'ACTIVE')}
                                                 className="text-xs bg-slate-800 text-white px-2 py-1 rounded flex-1 sm:flex-none whitespace-nowrap"
                                             >
@@ -347,7 +293,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                             {isActiveCurrentYear ? <CheckCircle2 size={16}/> : <AlertCircle size={16}/>}
                                             {isActiveCurrentYear ? 'Attivo' : 'Non Attivo'}
                                         </div>
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 setChangingStatusFor(branch.type);
                                                 setStatusDate(new Date().toISOString().split('T')[0]);
@@ -419,7 +365,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                         )}
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div><HistoryEditor branchColor={branch.color} degrees={branchData.degrees} degreeOptions={branch.degreeLabels} onChange={(degrees) => updateBranchData(branch.type, { degrees })} onValidate={(deg) => validateDegreePrerequisites(branch.type, deg)} /></div>
+                            <div><HistoryEditor branchColor={branch.color} degrees={branchData.degrees} degreeOptions={DEGREES[branch.type]} onChange={(degrees) => updateBranchData(branch.type, { degrees })} onValidate={(deg) => validateDegreePrerequisites(branch.type, deg)} /></div>
                             <div><RoleEditor branchColor={branch.color} branch={branch.type} roles={branchData.roles} onChange={(roles) => updateBranchData(branch.type, { roles })} defaultYear={defaultYear} /></div>
                         </div>
                     </div>

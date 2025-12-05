@@ -1,91 +1,77 @@
 
 import { BranchType, MasonicBranchData } from "./types";
 
-export const BRANCHES: { type: BranchType; label: string; shortLabel: string; color: string; degreeLabels: string[] }[] = [
-  { 
-    type: 'CRAFT', 
-    label: 'Loggia (Craft)', 
-    shortLabel: 'Craft',
-    color: 'bg-masonic-blue', 
-    degreeLabels: ['Apprendista', 'Compagno di Mestiere', 'Maestro Muratore', 'Maestro Installato'] 
-  },
-  { 
-    type: 'MARK', 
-    label: 'Loggia del Marchio', 
-    shortLabel: 'MMM',
-    color: 'bg-masonic-mark', 
-    degreeLabels: ['Uomo del Marchio', 'Maestro del Marchio', 'Maestro Installato del Marchio']
-  },
-  { 
-    type: 'CHAPTER', 
-    label: 'Capitolo (Arco Reale)', 
-    shortLabel: 'Arco',
-    color: 'bg-masonic-red', 
-    degreeLabels: ['Compagno dell\'Arco Reale']
-  },
-  { 
-    type: 'RAM', 
-    label: 'Royal Ark Mariner', 
-    shortLabel: 'RAM',
-    color: 'bg-masonic-ram', 
-    degreeLabels: ['Marinaio dell\'Arca Reale', 'Comandante del RAM'] 
-  }
-];
-
-export const DEGREE_REQUIREMENTS = {
-    craft: [
-        { degree: 'Apprendista Ammesso', requirement: '' },
-        { degree: 'Compagno di Mestiere', requirement: 'AA (Craft)' },
-        { degree: 'Maestro Muratore', requirement: 'CdM (Craft)' },
-        { degree: 'Maestro Installato', requirement: 'MM (Craft)' },
-    ],
-    mark: [
-        { degree: 'Uomo del Marchio', requirement: 'CdM (Craft)' },
-        { degree: 'Maestro del Marchio', requirement: 'MM (Craft)' },
-        { degree: 'Maestro Installato del Marchio', requirement: 'MI (Craft), MMM (Marchio)' },
-    ],
-    chapter: [
-        { degree: 'Compagno dell\'Arco Reale', requirement: 'MMM (Marchio)' },
-        { degree: 'Principale dell\'Arco Reale', requirement: 'MI (Craft), CAR (Arco Reale)' },
-    ],
-    ram: [
-        { degree: 'Marinaio dell\'Arca Reale', requirement: 'MM (Craft)' },
-        { degree: 'Comandante del RAM', requirement: 'MAR (RAM)' },
-    ],
+export const DEGREES = {
+  CRAFT: [
+    { name: 'Apprendista Ammesso', abbreviation: 'AA' },
+    { name: 'Compagno di Mestiere', abbreviation: 'CdM' },
+    { name: 'Maestro Muratore', abbreviation: 'MM' },
+    { name: 'Maestro Installato', abbreviation: 'MI' },
+  ],
+  MARK: [
+    { name: 'Uomo del Marchio', abbreviation: 'UdM' },
+    { name: 'Maestro del Marchio', abbreviation: 'MMM' },
+    { name: 'Maestro Installato del Marchio', abbreviation: 'MIM' },
+  ],
+  CHAPTER: [
+    { name: "Compagno dell'Arco Reale", abbreviation: 'CAR' },
+    { name: "Principale dell'Arco Reale", abbreviation: 'PAR' },
+  ],
+  RAM: [
+    { name: "Marinaio dell'Arca Reale", abbreviation: 'MAR' },
+    { name: 'Comandante del RAM', abbreviation: 'CdR' },
+  ],
 };
 
-export const ABBREVIATIONS = [
-    { degree: 'Apprendista Ammesso', abbreviation: 'AA' },
-    { degree: 'Compagno di Mestiere', abbreviation: 'CdM' },
-    { degree: 'Maestro Muratore', abbreviation: 'MM' },
-    { degree: 'Maestro Installato', abbreviation: 'MI' },
-    { degree: 'Uomo del Marchio', abbreviation: 'UdM' },
-    { degree: 'Maestro del Marchio', abbreviation: 'MMM' },
-    { degree: 'Maestro Installato del Marchio', abbreviation: 'MIM' },
-    { degree: 'Compagno dell\'Arco Reale', abbreviation: 'CAR' },
-    { degree: 'Principale dell\'Arco Reale', abbreviation: 'PAR' },
-    { degree: 'Marinaio dell\'Arca Reale', abbreviation: 'MAR' },
-    { degree: 'Comandante del RAM', abbreviation: 'CdR' },
+export const BRANCHES: { type: BranchType; label: string; shortLabel: string; color: string; degreeLabels: string[] }[] = [
+  {
+    type: 'CRAFT',
+    label: 'Loggia (Craft)',
+    shortLabel: 'Craft',
+    color: 'bg-masonic-blue',
+    degreeLabels: DEGREES.CRAFT.map(d => d.name)
+  },
+  {
+    type: 'MARK',
+    label: 'Loggia del Marchio',
+    shortLabel: 'MMM',
+    color: 'bg-masonic-mark',
+    degreeLabels: DEGREES.MARK.map(d => d.name)
+  },
+  {
+    type: 'CHAPTER',
+    label: 'Capitolo (Arco Reale)',
+    shortLabel: 'Arco',
+    color: 'bg-masonic-red',
+    degreeLabels: DEGREES.CHAPTER.map(d => d.name)
+  },
+  {
+    type: 'RAM',
+    label: 'Royal Ark Mariner',
+    shortLabel: 'RAM',
+    color: 'bg-masonic-ram',
+    degreeLabels: DEGREES.RAM.map(d => d.name)
+  }
 ];
 
 // Based on the Irish system, in Italian
 export const COMMON_ROLES: Record<BranchType, string[]> = {
   CRAFT: [
-    'Maestro Venerabile', 
-    'IEM', 
-    'Primo Sorvegliante', 
-    'Secondo Sorvegliante', 
-    'Cappellano', 
-    'Tesoriere', 
-    'Segretario', 
+    'Maestro Venerabile',
+    'IEM',
+    'Primo Sorvegliante',
+    'Secondo Sorvegliante',
+    'Cappellano',
+    'Tesoriere',
+    'Segretario',
     'Assistente Segretario',
-    'Direttore delle Cerimonie', 
-    'Elemosiniere', 
-    'Primo Diacono', 
-    'Secondo Diacono', 
-    'Direttore delle Cerimonie Agg.', 
-    'Organista', 
-    'Copritore Interno', 
+    'Direttore delle Cerimonie',
+    'Elemosiniere',
+    'Primo Diacono',
+    'Secondo Diacono',
+    'Direttore delle Cerimonie Agg.',
+    'Organista',
+    'Copritore Interno',
     'Copritore Esterno'
   ],
   MARK: [
@@ -157,7 +143,7 @@ export const isMemberActiveInYear = (branchData: MasonicBranchData | undefined, 
 
   const targetDate = `${year}-12-31`;
   const sortedEvents = [...branchData.statusEvents].sort((a, b) => a.date.localeCompare(b.date));
-  
+
   // Find the last event that is on or before the target date
   const lastEventBeforeOrOnTargetDate = sortedEvents.filter(e => e.date <= targetDate).pop();
 
@@ -170,10 +156,15 @@ export const isMemberActiveInYear = (branchData: MasonicBranchData | undefined, 
   return lastEventBeforeOrOnTargetDate.status === 'ACTIVE';
 };
 
-
 export const getDegreeAbbreviation = (degreeName: string): string => {
-    const abbr = ABBREVIATIONS.find(a => a.degree === degreeName);
-    return abbr ? abbr.abbreviation : degreeName;
+    for (const branch in DEGREES) {
+        const degrees = DEGREES[branch as BranchType];
+        const degree = degrees.find(d => d.name === degreeName);
+        if (degree) {
+            return degree.abbreviation;
+        }
+    }
+    return degreeName;
 };
 
 export const ITALIAN_PROVINCES = [
@@ -230,7 +221,7 @@ export const ITALIAN_PROVINCES = [
   { code: 'MC', name: 'Macerata' },
   { code: 'ME', name: 'Messina' },
   { code: 'MI', name: 'Milano' },
-  { code: 'MN', name: 'Mantova' },
+  { code. MN', name: 'Mantova' },
   { code: 'MO', name: 'Modena' },
   { code: 'MS', name: 'Massa-Carrara' },
   { code: 'MT', name: 'Matera' },

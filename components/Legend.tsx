@@ -1,9 +1,11 @@
 
 import React from 'react';
 import { Shield, BookOpen } from 'lucide-react';
-import { DEGREE_REQUIREMENTS, ABBREVIATIONS, BRANCHES } from '../constants';
+import { DEGREES, BRANCHES } from '../constants';
 
 export const Legend: React.FC = () => {
+    const allDegrees = Object.values(DEGREES).flat();
+
     return (
         <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden animate-fadeIn pb-8">
           <div className="bg-slate-900 p-6 text-white flex justify-between items-center">
@@ -32,12 +34,18 @@ export const Legend: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {DEGREE_REQUIREMENTS[branch.type.toLowerCase() as keyof typeof DEGREE_REQUIREMENTS].map(req => (
-                                                <tr key={req.degree} className="border-b last:border-0">
-                                                    <td className="p-2 font-medium">{req.degree}</td>
-                                                    <td className="p-2">{req.requirement || <span className="text-slate-400 italic">Nessuno</span>}</td>
-                                                </tr>
-                                            ))}
+                                            {DEGREES[branch.type].map((degree, index) => {
+                                                let prerequisite = <span className="text-slate-400 italic">Nessuno</span>;
+                                                if (index > 0) {
+                                                    prerequisite = <span>{DEGREES[branch.type][index - 1].name}</span>;
+                                                }
+                                                return (
+                                                    <tr key={degree.name} className="border-b last:border-0">
+                                                        <td className="p-2 font-medium">{degree.name}</td>
+                                                        <td className="p-2">{prerequisite}</td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -56,10 +64,10 @@ export const Legend: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {ABBREVIATIONS.map(abbr => (
-                                    <tr key={abbr.degree} className="border-b last:border-0">
-                                        <td className="p-2 font-medium">{abbr.degree}</td>
-                                        <td className="p-2 font-mono text-slate-500">{abbr.abbreviation}</td>
+                                {allDegrees.map(degree => (
+                                    <tr key={degree.name} className="border-b last:border-0">
+                                        <td className="p-2 font-medium">{degree.name}</td>
+                                        <td className="p-2 font-mono text-slate-500">{degree.abbreviation}</td>
                                     </tr>
                                 ))}
                             </tbody>

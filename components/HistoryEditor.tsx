@@ -6,7 +6,7 @@ import { Plus, Trash2, AlertTriangle, Pencil } from 'lucide-react';
 
 interface HistoryEditorProps {
   degrees: DegreeEvent[];
-  degreeOptions: string[];
+  degreeOptions: { name: string; abbreviation: string; }[];
   onChange: (degrees: DegreeEvent[]) => void;
   branchColor: string;
   onValidate?: (degreeName: string) => string | null;
@@ -14,7 +14,7 @@ interface HistoryEditorProps {
 
 export const HistoryEditor: React.FC<HistoryEditorProps> = ({ degrees, degreeOptions, onChange, branchColor, onValidate }) => {
   const [newDegree, setNewDegree] = useState<DegreeEvent>({
-    degreeName: degreeOptions[0] || '',
+    degreeName: degreeOptions[0]?.name || '',
     date: '',
     meetingNumber: ''
   });
@@ -22,7 +22,9 @@ export const HistoryEditor: React.FC<HistoryEditorProps> = ({ degrees, degreeOpt
 
   // Sort degrees based on hierarchy defined in degreeOptions
   const sortedDegrees = [...degrees].sort((a, b) => {
-    return degreeOptions.indexOf(a.degreeName) - degreeOptions.indexOf(b.degreeName);
+    const indexA = degreeOptions.findIndex(d => d.name === a.degreeName);
+    const indexB = degreeOptions.findIndex(d => d.name === b.degreeName);
+    return indexA - indexB;
   });
 
   useEffect(() => {
@@ -50,15 +52,15 @@ export const HistoryEditor: React.FC<HistoryEditorProps> = ({ degrees, degreeOpt
     // Date and Meeting Number are now optional
     if (newDegree.degreeName && !validationError) {
       onChange([...degrees, newDegree]);
-      setNewDegree({ degreeName: degreeOptions[0] || '', date: '', meetingNumber: '' });
+      setNewDegree({ degreeName: degreeOptions[0]?.name || '', date: '', meetingNumber: '' });
     }
   };
 
   const handleDelete = (degreeToDelete: string) => {
-    const idx = degreeOptions.indexOf(degreeToDelete);
+    const idx = degreeOptions.findIndex(d => d.name === degreeToDelete);
     // Check if a higher degree exists
-    const hasHigherDegree = degrees.some(d => degreeOptions.indexOf(d.degreeName) > idx);
-    
+    const hasHigherDegree = degrees.some(d => degreeOptions.findIndex(opt => opt.name === d.degreeName) > idx);
+
     if (hasHigherDegree) {
         alert("Impossibile eliminare questo grado perché esistono gradi superiori registrati. Eliminare prima i gradi successivi.");
         return;
@@ -77,14 +79,14 @@ export const HistoryEditor: React.FC<HistoryEditorProps> = ({ degrees, degreeOpt
   };
 
   const isDeleteDisabled = (degreeName: string) => {
-     const idx = degreeOptions.indexOf(degreeName);
-     return degrees.some(d => degreeOptions.indexOf(d.degreeName) > idx);
+     const idx = degreeOptions.findIndex(d => d.name === degreeName);
+     return degrees.some(d => degreeOptions.findIndex(opt => opt.name === d.degreeName) > idx);
   };
 
   return (
     <div className="space-y-4 bg-white p-4 rounded-lg shadow-sm border border-slate-200">
       <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Carriera Massonica</h3>
-      
+
       {/* Existing Degrees */}
       <div className="space-y-2">
         {sortedDegrees.length === 0 && <p className="text-xs text-slate-400 italic">Nessun grado registrato.</p>}
@@ -98,14 +100,14 @@ export const HistoryEditor: React.FC<HistoryEditorProps> = ({ degrees, degreeOpt
               </div>
             </div>
             <div className="flex items-center gap-1">
-                <button 
+                <button
                   onClick={() => handleEdit(deg)}
                   className="text-slate-400 hover:text-blue-500 transition-colors p-1"
                   title="Modifica"
                 >
                   <Pencil size={14} />
                 </button>
-                <button 
+                <button
                   onClick={() => handleDelete(deg.degreeName)}
                   className={`transition-colors p-1 ${isDeleteDisabled(deg.degreeName) ? 'text-slate-200 cursor-not-allowed' : 'text-slate-400 hover:text-red-500'}`}
                   disabled={isDeleteDisabled(deg.degreeName)}
@@ -122,18 +124,18 @@ export const HistoryEditor: React.FC<HistoryEditorProps> = ({ degrees, degreeOpt
       <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end pt-4 border-t border-slate-100">
         <div className="md:col-span-5">
           <label className="block text-[10px] font-medium text-slate-500 mb-1">Grado</label>
-          <select 
+          <select
             value={newDegree.degreeName}
             onChange={(e) => setNewDegree({...newDegree, degreeName: e.target.value})}
             className="w-full text-xs border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 p-1.5 border h-8"
           >
-            {degreeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            {degreeOptions.map(opt => <option key={opt.name} value={opt.name}>{opt.name}</option>)}
           </select>
         </div>
         <div className="md:col-span-3">
           <label className="block text-[10px] font-medium text-slate-500 mb-1">Data (Opz.)</label>
-          <input 
-            type="date" 
+          <input
+            type="date"
             value={newDegree.date}
             onChange={(e) => setNewDegree({...newDegree, date: e.target.value})}
             className="w-full text-xs border-slate-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 p-1.5 border h-8"
@@ -141,8 +143,8 @@ export const HistoryEditor: React.FC<HistoryEditorProps> = ({ degrees, degreeOpt
         </div>
         <div className="md:col-span-3">
           <label className="block text-[10px] font-medium text-slate-500 mb-1">N. Tornata (Opz.)</label>
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder="N."
             value={newDegree.meetingNumber}
             onChange={(e) => setNewDegree({...newDegree, meetingNumber: e.target.value})}
@@ -150,10 +152,10 @@ export const HistoryEditor: React.FC<HistoryEditorProps> = ({ degrees, degreeOpt
           />
         </div>
         <div className="md:col-span-1">
-          <button 
+          <button
             onClick={handleAdd}
             disabled={!!validationError}
-            className={`w-full h-8 flex justify-center items-center rounded-md text-white transition-colors ${!!validationError ? 'bg-slate-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
+            className={`w-full h-8 flex justify-center items-center rounded-md text-white transition-colors ${!!validationError ? 'bg-slate-300 cursor-not-allowed' : 'bg-slate-300'}`}
           >
             <Plus size={16} />
           </button>
