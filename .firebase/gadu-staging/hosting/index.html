@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>G.A.D.U. - Gestione Associazioni Decisamente User-friendly</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              serif: ['Cinzel', 'serif'],
+            },
+            colors: {
+              masonic: {
+                blue: '#1e3a8a', // Craft
+                red: '#991b1b',   // Chapter
+                mark: '#b45309',  // Mark
+                ram: '#0f766e',   // RAM
+                gold: '#cca300',
+                dark: '#0f172a',
+              }
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      @media print {
+        @page {
+          size: A4 portrait;
+          margin: 1cm;
+        }
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+          background-color: white;
+        }
+        /* Hide scrollbars in print to prevent ugly bars on PDF */
+        ::-webkit-scrollbar {
+          display: none;
+        }
+        /* Ensure inputs look like text */
+        input, select, textarea {
+          border: none !important;
+          box-shadow: none !important;
+          background: transparent !important;
+          appearance: none;
+        }
+      }
+    </style>
+
+<link rel="stylesheet" href="/index.css">
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0/client",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0"
+  }
+}
+</script>
+  <script type="module" crossorigin src="/assets/index-DV1Sbqpu.js"></script>
+</head>
+  <body>
+    <div id="root"></div>
+</body>
+</html>
