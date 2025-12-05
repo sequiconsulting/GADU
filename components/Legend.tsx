@@ -11,7 +11,7 @@ export const Legend: React.FC = () => {
       'Maestro del Marchio': 'Maestro Muratore (Craft) + Uomo del Marchio',
       'Maestro Installato del Marchio': 'Maestro Installato (Craft) + Maestro del Marchio',
       'Compagno dell\'Arco Reale': 'Maestro del Marchio',
-      'Principale dell\'Arco Reale': 'Maestro Muratore (Craft) + Compagno dell\'Arco Reale',
+      'Principale dell\'Arco Reale': 'Maestro Installato (Craft) + Compagno dell\'Arco Reale',
       'Marinaio dell\'Arca Reale': 'Maestro Muratore (Craft)',
       'Comandante del RAM': 'Maestro Installato (Craft) + Marinaio dell\'Arca Reale',
     };
