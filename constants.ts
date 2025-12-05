@@ -221,7 +221,7 @@ export const ITALIAN_PROVINCES = [
   { code: 'MC', name: 'Macerata' },
   { code: 'ME', name: 'Messina' },
   { code: 'MI', name: 'Milano' },
-  { code. MN', name: 'Mantova' },
+  { code: 'MN', name: 'Mantova' },
   { code: 'MO', name: 'Modena' },
   { code: 'MS', name: 'Massa-Carrara' },
   { code: 'MT', name: 'Matera' },

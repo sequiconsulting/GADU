@@ -6,6 +6,16 @@ import { DEGREES, BRANCHES } from '../constants';
 export const Legend: React.FC = () => {
     const allDegrees = Object.values(DEGREES).flat();
 
+    const prerequisites: { [key: string]: string } = {
+      'Uomo del Marchio': 'Compagno di Mestiere (Craft)',
+      'Maestro del Marchio': 'Maestro Muratore (Craft) + Uomo del Marchio',
+      'Maestro Installato del Marchio': 'Maestro Installato (Craft) + Maestro del Marchio',
+      'Compagno dell\'Arco Reale': 'Maestro del Marchio',
+      'Principale dell\'Arco Reale': 'Maestro Muratore (Craft) + Compagno dell\'Arco Reale',
+      'Marinaio dell\'Arca Reale': 'Maestro Muratore (Craft)',
+      'Comandante del RAM': 'Maestro Installato (Craft) + Marinaio dell\'Arca Reale',
+    };
+
     return (
         <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden animate-fadeIn pb-8">
           <div className="bg-slate-900 p-6 text-white flex justify-between items-center">
@@ -35,14 +45,20 @@ export const Legend: React.FC = () => {
                                         </thead>
                                         <tbody>
                                             {DEGREES[branch.type].map((degree, index) => {
-                                                let prerequisite = <span className="text-slate-400 italic">Nessuno</span>;
-                                                if (index > 0) {
-                                                    prerequisite = <span>{DEGREES[branch.type][index - 1].name}</span>;
+                                                let prerequisiteDisplay = <span className="text-slate-400 italic">Nessuno</span>;
+                                                const specificPrereq = prerequisites[degree.name];
+
+                                                if (specificPrereq) {
+                                                    prerequisiteDisplay = <span>{specificPrereq}</span>;
+                                                } else if (index > 0) {
+                                                    // Default to previous degree in the same branch if no specific rule applies
+                                                    prerequisiteDisplay = <span>{DEGREES[branch.type][index - 1].name}</span>;
                                                 }
+
                                                 return (
                                                     <tr key={degree.name} className="border-b last:border-0">
                                                         <td className="p-2 font-medium">{degree.name}</td>
-                                                        <td className="p-2">{prerequisite}</td>
+                                                        <td className="p-2">{prerequisiteDisplay}</td>
                                                     </tr>
                                                 );
                                             })}
