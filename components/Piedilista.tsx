@@ -110,7 +110,7 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
                                     </td>
                                     <td className="py-2.5 text-slate-600">
                                         {highestDegree ? 
-                                            <span title={highestDegree.degreeName}>{getDegreeAbbreviation(highestDegree.degreeName)}</span> : 
+                                            getDegreeAbbreviation(highestDegree.degreeName) : 
                                             '-'
                                         }
                                     </td>

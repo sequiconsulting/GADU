@@ -387,7 +387,8 @@ const App: React.FC = () => {
                                      return { 
                                          label: b.shortLabel, 
                                          val: getDegreeAbbreviation(highestDegree),
-                                         color: b.color 
+                                         color: b.color,
+                                         fullName: highestDegree
                                      };
                                 }).filter(Boolean);
 
@@ -402,7 +403,7 @@ const App: React.FC = () => {
                                             <div className="flex flex-wrap gap-2">
                                                 {degreeInfos.length > 0 ? (
                                                     degreeInfos.map((info, i) => (
-                                                        <span key={i} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-50 border border-slate-200 text-xs font-medium text-slate-700 whitespace-nowrap print:border-slate-400">
+                                                        <span key={i} title={info.fullName} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-50 border border-slate-200 text-xs font-medium text-slate-700 whitespace-nowrap print:border-slate-400">
                                                             <span className={`w-2 h-2 rounded-full ${info?.color} print:border print:border-slate-600`}></span>
                                                             <span className="text-slate-500">{info?.label}:</span>
                                                             <span className="font-bold">{info?.val}</span>
