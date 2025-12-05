@@ -60,6 +60,11 @@ export interface AppSettings {
   lodgeName: string;
   lodgeNumber: string;
   province: string;
+  preferences: {
+    craft: 'Emulation' | 'Giustinianeo';
+    markAndArch: 'Irlandese' | 'Aldersgate';
+    ram: 'Irlandese' | 'Aldersgate';
+  };
 }
 
 export interface DashboardStats {
