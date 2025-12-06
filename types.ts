@@ -2,6 +2,11 @@
 export type BranchType = 'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM';
 export type StatusType = 'ACTIVE' | 'INACTIVE';
 
+export interface ChangeLogEntry {
+  timestamp: string; // ISO 8601 UTC timestamp
+  description: string;
+}
+
 export interface DegreeEvent {
   degreeName: string;
   date: string; // ISO string YYYY-MM-DD
@@ -54,6 +59,9 @@ export interface Member {
   mark: MasonicBranchData;
   chapter: MasonicBranchData;
   ram: MasonicBranchData;
+  
+  // Changelog
+  changelog?: ChangeLogEntry[];
 }
 
 export interface AppSettings {

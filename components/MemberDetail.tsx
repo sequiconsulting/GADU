@@ -4,7 +4,7 @@ import { Member, BranchType, StatusType } from '../types';
 import { BRANCHES, DEGREES, isMemberActiveInYear, calculateMasonicYearString } from '../constants';
 import { HistoryEditor } from './HistoryEditor';
 import { RoleEditor } from './RoleEditor';
-import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, History } from 'lucide-react';
+import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 const PROFILE = 'PROFILE';
@@ -18,9 +18,11 @@ interface MemberDetailProps {
 
 export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, onSave, defaultYear }) => {
   const [member, setMember] = useState<Member | null>(null);
+  const [originalMember, setOriginalMember] = useState<Member | null>(null);
   const [activeTab, setActiveTab] = useState<BranchType | 'PROFILE'>(PROFILE);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [changelogPage, setChangelogPage] = useState<number>(0);
 
   // State for status change modal/input
   const [changingStatusFor, setChangingStatusFor] = useState<BranchType | null>(null);
@@ -29,10 +31,15 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   useEffect(() => {
     const load = async () => {
       if (memberId === 'new') {
-        setMember(dataService.getEmptyMember());
+        const emptyMember = dataService.getEmptyMember();
+        setMember(emptyMember);
+        setOriginalMember(emptyMember);
       } else {
         const data = await dataService.getMemberById(memberId);
-        if (data) setMember(data);
+        if (data) {
+          setMember(data);
+          setOriginalMember(JSON.parse(JSON.stringify(data)));
+        }
       }
       setIsLoading(false);
     };
@@ -60,10 +67,90 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   };
 
   const handleSave = async () => {
-    if (member) {
+    if (member && originalMember) {
       const isValid = await validate(member);
       if (!isValid) return;
+      
+      // Traccia le modifiche
+      const changes: string[] = [];
+      
+      // Dati personali
+      if (originalMember.firstName !== member.firstName) changes.push(`Nome: ${originalMember.firstName} → ${member.firstName}`);
+      if (originalMember.lastName !== member.lastName) changes.push(`Cognome: ${originalMember.lastName} → ${member.lastName}`);
+      if (originalMember.matricula !== member.matricula) changes.push(`Matricola: ${originalMember.matricula} → ${member.matricula}`);
+      if (originalMember.city !== member.city) changes.push(`Città: ${originalMember.city} → ${member.city}`);
+      if (originalMember.email !== member.email) changes.push(`Email: ${originalMember.email} → ${member.email}`);
+      if (originalMember.phone !== member.phone) changes.push(`Telefono: ${originalMember.phone} → ${member.phone}`);
+      
+      // Verificare cambiamenti nei rami
+      const branchNames: { [key: string]: string } = { craft: 'Craft', mark: 'Mark', chapter: 'Chapter', ram: 'RAM' };
+      
+      (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+        const origBranch = originalMember[branchKey];
+        const newBranch = member[branchKey];
+        const branchLabel = branchNames[branchKey];
+        
+        // Gradi
+        if (JSON.stringify(origBranch.degrees) !== JSON.stringify(newBranch.degrees)) {
+          const addedDegrees = newBranch.degrees.filter(d => !origBranch.degrees.some(od => od.degreeName === d.degreeName && od.date === d.date));
+          const removedDegrees = origBranch.degrees.filter(d => !newBranch.degrees.some(nd => nd.degreeName === d.degreeName && nd.date === d.date));
+          
+          addedDegrees.forEach(d => changes.push(`${branchLabel}: Aggiunto grado "${d.degreeName}" (${d.date})`));
+          removedDegrees.forEach(d => changes.push(`${branchLabel}: Rimosso grado "${d.degreeName}" (${d.date})`));
+        }
+        
+        // Ruoli
+        if (JSON.stringify(origBranch.roles) !== JSON.stringify(newBranch.roles)) {
+          const addedRoles = newBranch.roles.filter(r => !origBranch.roles.some(or => or.id === r.id));
+          const removedRoles = origBranch.roles.filter(r => !newBranch.roles.some(nr => nr.id === r.id));
+          const modifiedRoles = newBranch.roles.filter(r => {
+            const orig = origBranch.roles.find(or => or.id === r.id);
+            return orig && JSON.stringify(orig) !== JSON.stringify(r);
+          });
+          
+          addedRoles.forEach(r => changes.push(`${branchLabel}: Assegnato ruolo "${r.roleName}" (${r.yearStart})`));
+          removedRoles.forEach(r => changes.push(`${branchLabel}: Rimosso ruolo "${r.roleName}" (${r.yearStart})`));
+          modifiedRoles.forEach(r => changes.push(`${branchLabel}: Modificato ruolo "${r.roleName}" (${r.yearStart})`));
+        }
+        
+        // Stati
+        if (JSON.stringify(origBranch.statusEvents) !== JSON.stringify(newBranch.statusEvents)) {
+          const addedEvents = newBranch.statusEvents.filter(e => !origBranch.statusEvents.some(oe => oe.date === e.date && oe.status === e.status));
+          addedEvents.forEach(e => changes.push(`${branchLabel}: ${e.status === 'ACTIVE' ? 'Attivato' : 'Disattivato'} (${e.date})`));
+        }
+        
+        // Dati di appartenenza
+        if (origBranch.isMotherLodgeMember !== newBranch.isMotherLodgeMember) 
+          changes.push(`${branchLabel}: Loggia Madre: ${origBranch.isMotherLodgeMember} → ${newBranch.isMotherLodgeMember}`);
+        if (origBranch.isFounder !== newBranch.isFounder) 
+          changes.push(`${branchLabel}: Socio Fondatore: ${origBranch.isFounder} → ${newBranch.isFounder}`);
+        if (origBranch.isDualMember !== newBranch.isDualMember) 
+          changes.push(`${branchLabel}: Doppia App.: ${origBranch.isDualMember} → ${newBranch.isDualMember}`);
+        if (origBranch.otherLodgeName !== newBranch.otherLodgeName) 
+          changes.push(`${branchLabel}: Loggia Provenienza: ${origBranch.otherLodgeName} → ${newBranch.otherLodgeName}`);
+        if (origBranch.initiationDate !== newBranch.initiationDate) 
+          changes.push(`${branchLabel}: Data Iniziazione: ${origBranch.initiationDate} → ${newBranch.initiationDate}`);
+      });
+      
+      if (changes.length > 0) {
+        const timestamp = new Date().toISOString();
+        const description = changes.join('; ');
+        
+        if (!member.changelog) {
+          member.changelog = [];
+        }
+        
+        member.changelog.push({
+          timestamp,
+          description
+        });
+      }
+      
       await dataService.saveMember(member);
+      // Aggiorna il membro originale per futture comparazioni
+      setOriginalMember(JSON.parse(JSON.stringify(member)));
+      // Resetta la pagina del changelog
+      setChangelogPage(0);
       onSave();
     }
   };
@@ -252,6 +339,56 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                         <div><label className="block text-sm font-medium text-slate-600 mb-1">Email</label><input type="email" value={member.email} onChange={e => setMember({...member, email: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold" /></div>
                         <div><label className="block text-sm font-medium text-slate-600 mb-1">Telefono</label><input type="tel" value={member.phone} onChange={e => setMember({...member, phone: e.target.value})} className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold" /></div>
                     </div>
+                    
+                    {/* Changelog Table */}
+                    {member.changelog && member.changelog.length > 0 && (
+                        <div className="col-span-1 md:col-span-2 mt-6 pt-4 border-t border-slate-200">
+                            <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Log Modifiche</h4>
+                            <div className="overflow-x-auto border border-slate-200 rounded-md bg-slate-50">
+                                <table className="w-full text-[10px] leading-tight">
+                                    <thead className="bg-slate-200">
+                                        <tr>
+                                            <th className="text-left px-2 py-1 font-semibold text-slate-700 w-32">Timestamp UTC</th>
+                                            <th className="text-left px-2 py-1 font-semibold text-slate-700">Descrizione</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(() => {
+                                            const sorted = [...member.changelog].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                                            const start = changelogPage * 5;
+                                            const end = start + 5;
+                                            const pageItems = sorted.slice(start, end);
+                                            return pageItems.map((entry, idx) => (
+                                                <tr key={idx} className={`border-t border-slate-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-100'}`}>
+                                                    <td className="px-2 py-1 text-slate-600 font-mono whitespace-nowrap">{entry.timestamp}</td>
+                                                    <td className="px-2 py-1 text-slate-700">{entry.description}</td>
+                                                </tr>
+                                            ));
+                                        })()}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {member.changelog.length > 5 && (
+                                <div className="flex justify-between items-center mt-2 text-[10px] text-slate-600">
+                                    <button 
+                                        onClick={() => setChangelogPage(p => Math.max(0, p - 1))}
+                                        disabled={changelogPage === 0}
+                                        className="px-2 py-1 rounded border border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-200 transition-colors"
+                                    >
+                                        ← Precedente
+                                    </button>
+                                    <span>Pagina {changelogPage + 1} di {Math.ceil(member.changelog.length / 5)}</span>
+                                    <button 
+                                        onClick={() => setChangelogPage(p => p + 1)}
+                                        disabled={(changelogPage + 1) * 5 >= member.changelog.length}
+                                        className="px-2 py-1 rounded border border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-200 transition-colors"
+                                    >
+                                        Successivo →
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -268,7 +405,14 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                              <div className="flex items-center gap-3">
                                 <div className={`w-3 h-3 rounded-full ${branch.color}`}></div>
                                 <div>
-                                    <h2 className="text-xl font-serif font-bold text-slate-800 leading-none">Scheda {branch.label}</h2>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <h2 className="text-xl font-serif font-bold text-slate-800 leading-none">Scheda {branch.label}</h2>
+                                        <label className="flex items-center gap-1.5 p-1.5 bg-yellow-50 border border-yellow-200 rounded cursor-pointer hover:bg-yellow-100/50">
+                                            <input type="checkbox" checked={branchData.isFounder || false} onChange={(e) => updateBranchData(branch.type, { isFounder: e.target.checked })} className="w-3 h-3 shrink-0" />
+                                            <Crown size={13} className="text-yellow-600"/>
+                                            <span className="text-xs text-slate-700 font-medium">Fondatore</span>
+                                        </label>
+                                    </div>
                                     <span className="text-xs text-slate-500 font-sans mt-1 block">Riferimento: Anno {defaultYear}-{defaultYear + 1} - A.L. {calculateMasonicYearString(defaultYear)}</span>
                                 </div>
                              </div>
@@ -312,38 +456,13 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                              </div>
                         </div>
 
-                        {/* Status History */}
-                        <div className="mb-6">
-                            <details className="group">
-                                <summary className="flex items-center gap-2 text-xs font-semibold text-slate-500 cursor-pointer hover:text-slate-800 w-fit">
-                                    <History size={14}/> Visualizza Storico Stati
-                                </summary>
-                                <div className="mt-2 text-sm bg-slate-50 p-3 rounded-md border border-slate-100">
-                                    {branchData.statusEvents.length === 0 && <span className="text-slate-400 italic">Nessun evento registrato.</span>}
-                                    <ul className="space-y-1">
-                                        {branchData.statusEvents.map((e: any, idx: number) => (
-                                            <li key={idx} className="flex gap-2">
-                                                <span className="font-mono text-slate-600">{e.date}</span>
-                                                <span className={`font-bold ${e.status === 'ACTIVE' ? 'text-green-600' : 'text-red-600'}`}>{e.status === 'ACTIVE' ? 'ATTIVO' : 'INATTIVO'}</span>
-                                                {e.note && <span className="text-slate-400 italic">- {e.note}</span>}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            </details>
-                        </div>
-
                         {!isCraft && (
                              <div className="bg-slate-50 p-4 rounded-lg mb-6 border border-slate-200">
                                 <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><Landmark size={16} /> Dettagli Appartenenza</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                                     <label className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-md cursor-pointer hover:border-slate-300 h-auto min-h-[40px] w-full">
                                         <input type="checkbox" checked={branchData.isMotherLodgeMember ?? true} onChange={(e) => handleMotherLodgeChange(branch.type, e.target.checked)} className="w-4 h-4 shrink-0" />
                                         <span className="text-sm text-slate-700 font-medium leading-tight">Appartiene alla Loggia Madre</span>
-                                    </label>
-                                    <label className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-md cursor-pointer hover:border-slate-300 h-auto min-h-[40px] w-full">
-                                        <input type="checkbox" checked={branchData.isFounder || false} onChange={(e) => updateBranchData(branch.type, { isFounder: e.target.checked })} className="w-4 h-4 shrink-0" />
-                                        <div className="flex items-center gap-2"><Crown size={14} className="text-yellow-600"/><span className="text-sm text-slate-700 font-medium">Socio Fondatore</span></div>
                                     </label>
                                     <div className={`transition-opacity ${branchData.isMotherLodgeMember !== false ? 'opacity-50 pointer-events-none' : 'opacity-100'} w-full`}>
                                         <label className="block text-xs font-medium text-slate-500 mb-1">Nome Loggia Provenienza</label>

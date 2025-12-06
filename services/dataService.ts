@@ -1,7 +1,5 @@
 
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
-import { Member, AppSettings, BranchType, OfficerRole } from "../types";
+import { Member, AppSettings, BranchType, OfficerRole, ChangeLogEntry } from "../types";
 import { isMemberActiveInYear, COMMON_ROLES } from "../constants";
 
 const firebaseConfig = {
@@ -14,17 +12,33 @@ const firebaseConfig = {
   measurementId: "G-2FC590JYSL"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
 class DataService {
   private USE_FIREBASE = true;
   public APP_VERSION = '0.26'; // Incremented version
-  private membersCollection = collection(db, "members");
-  private settingsDoc = doc(db, "settings", "appSettings");
+  private app: any = null;
+  private db: any = null;
+  private membersCollection: any = null;
+  private settingsDoc: any = null;
+  private firebaseFns: any = null;
+  private firebaseInitialized = false;
 
   constructor() {
     this.init();
+  }
+
+  private async ensureFirebase() {
+    if (!this.USE_FIREBASE) return;
+    if (this.firebaseInitialized) return;
+    const { initializeApp } = await import('firebase/app');
+    const firestore = await import('firebase/firestore');
+    const { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch } = firestore;
+
+    this.app = initializeApp(firebaseConfig);
+    this.db = getFirestore(this.app);
+    this.membersCollection = collection(this.db, 'members');
+    this.settingsDoc = doc(this.db, 'settings', 'appSettings');
+    this.firebaseFns = { collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch };
+    this.firebaseInitialized = true;
   }
 
   private init() {
@@ -39,7 +53,8 @@ class DataService {
     if (!this.USE_FIREBASE) {
       return Promise.resolve([]);
     }
-    const querySnapshot = await getDocs(this.membersCollection);
+    await this.ensureFirebase();
+    const querySnapshot = await this.firebaseFns.getDocs(this.membersCollection);
     const members: Member[] = [];
     querySnapshot.forEach((doc) => {
       members.push({ id: doc.id, ...doc.data() } as Member);
@@ -54,8 +69,9 @@ class DataService {
     if (id === 'new') {
         return this.getEmptyMember();
     }
-    const docRef = doc(this.membersCollection, id);
-    const docSnap = await getDoc(docRef);
+    await this.ensureFirebase();
+    const docRef = this.firebaseFns.doc(this.membersCollection, id);
+    const docSnap = await this.firebaseFns.getDoc(docRef);
     return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } as Member : undefined;
   }
 
@@ -65,11 +81,17 @@ class DataService {
     }
     let memberToSave = { ...member };
     if (!memberToSave.id) {
-        const newDocRef = doc(this.membersCollection);
+        await this.ensureFirebase();
+        const newDocRef = this.firebaseFns.doc(this.membersCollection);
         memberToSave.id = newDocRef.id;
     }
-    const memberRef = doc(this.membersCollection, memberToSave.id);
-    await setDoc(memberRef, memberToSave, { merge: true });
+    await this.ensureFirebase();
+    // Enforce changelog maximum length (keep most recent 100 entries)
+    if (memberToSave.changelog && Array.isArray(memberToSave.changelog)) {
+      memberToSave.changelog = memberToSave.changelog.slice(-100);
+    }
+    const memberRef = this.firebaseFns.doc(this.membersCollection, memberToSave.id);
+    await this.firebaseFns.setDoc(memberRef, memberToSave, { merge: true });
     return memberToSave;
   }
 
@@ -78,15 +100,17 @@ class DataService {
     if (!this.USE_FIREBASE) {
       return Promise.resolve();
     }
-    const memberRef = doc(this.membersCollection, id);
-    await deleteDoc(memberRef);
+    await this.ensureFirebase();
+    const memberRef = this.firebaseFns.doc(this.membersCollection, id);
+    await this.firebaseFns.deleteDoc(memberRef);
   }
 
   async getSettings(): Promise<AppSettings> {
     if (!this.USE_FIREBASE) {
       return Promise.resolve({ lodgeName: '', lodgeNumber: '', province: '' });
     }
-    const docSnap = await getDoc(this.settingsDoc);
+    await this.ensureFirebase();
+    const docSnap = await this.firebaseFns.getDoc(this.settingsDoc);
     return docSnap.exists() ? docSnap.data() as AppSettings : { lodgeName: '', lodgeNumber: '', province: '' };
   }
 
@@ -94,7 +118,8 @@ class DataService {
     if (!this.USE_FIREBASE) {
       return Promise.resolve(settings);
     }
-    await setDoc(this.settingsDoc, settings);
+    await this.ensureFirebase();
+    await this.firebaseFns.setDoc(this.settingsDoc, settings);
     return settings;
   }
   
@@ -118,8 +143,40 @@ class DataService {
       craft: { ...createBranchData(), statusEvents: [{ date: new Date().toISOString().split('T')[0], status: 'ACTIVE', note: 'Iniziazione' }] }, 
       mark: createBranchData(),
       chapter: createBranchData(),
-      ram: createBranchData()
+      ram: createBranchData(),
+      changelog: []
     };
+  }
+
+  exportToExcel(data: any[], filename: string) {
+    // Converti dati in CSV
+    const headers = Object.keys(data[0] || {});
+    const csvContent = [
+      headers.join(','),
+      ...data.map(row => 
+        headers.map(header => {
+          const value = row[header];
+          // Escapa le virgole e le virgolette
+          if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+            return `"${value.replace(/"/g, '""')}"`;
+          }
+          return value;
+        }).join(',')
+      )
+    ].join('\n');
+
+    // Crea blob e scarica
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 }
 

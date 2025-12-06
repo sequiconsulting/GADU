@@ -3,13 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings } from 'lucide-react';
 import { Member, AppSettings } from './types';
 import { dataService } from './services/dataService';
-import { MemberDetail } from './components/MemberDetail';
-import { RolesReport } from './components/RolesReport';
-import { RoleAssignment } from './components/RoleAssignment';
-import { Piedilista } from './components/Piedilista';
-import { InactiveMembers } from './components/InactiveMembers';
-import { AdminPanel } from './components/AdminPanel';
-import { Legend } from './components/Legend';
+const MemberDetail = React.lazy(() => import('./components/MemberDetail').then(m => ({ default: m.MemberDetail })));
+const RolesReport = React.lazy(() => import('./components/RolesReport').then(m => ({ default: m.RolesReport })));
+const RoleAssignment = React.lazy(() => import('./components/RoleAssignment').then(m => ({ default: m.RoleAssignment })));
+const Piedilista = React.lazy(() => import('./components/Piedilista').then(m => ({ default: m.Piedilista })));
+const InactiveMembers = React.lazy(() => import('./components/InactiveMembers').then(m => ({ default: m.InactiveMembers })));
+const AdminPanel = React.lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
+const Legend = React.lazy(() => import('./components/Legend').then(m => ({ default: m.Legend })));
 import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation } from './constants';
 
 type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN' | 'LEGEND';
@@ -432,26 +432,50 @@ const App: React.FC = () => {
           )}
 
           {currentView === 'INACTIVE_MEMBERS' && (
-             <InactiveMembers 
-                members={members} 
-                onMemberClick={(id) => handleMemberClick(id, 'INACTIVE_MEMBERS')} 
-                selectedYear={selectedYear} 
-                mode="TOTAL" 
-                lodgeName={appSettings.lodgeName}
-                lodgeNumber={appSettings.lodgeNumber}
-             />
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento archivio inattivi...</div>}>
+               <InactiveMembers 
+                  members={members} 
+                  onMemberClick={(id) => handleMemberClick(id, 'INACTIVE_MEMBERS')} 
+                  selectedYear={selectedYear} 
+                  mode="TOTAL" 
+                  lodgeName={appSettings.lodgeName}
+                  lodgeNumber={appSettings.lodgeNumber}
+               />
+            </React.Suspense>
           )}
-          
+
           {currentView === 'ADMIN' && (
-            <AdminPanel currentSettings={appSettings} onSave={handleSaveSettings} />
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento pannello admin...</div>}>
+              <AdminPanel currentSettings={appSettings} onSave={handleSaveSettings} />
+            </React.Suspense>
           )}
 
-          {currentView === 'LEGEND' && <Legend />}
+          {currentView === 'LEGEND' && (
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento legenda...</div>}>
+              <Legend />
+            </React.Suspense>
+          )}
 
-          {currentView === 'MEMBER_DETAIL' && selectedMemberId && <MemberDetail memberId={selectedMemberId} onBack={() => setCurrentView(returnView)} onSave={handleSaveMember} defaultYear={selectedYear}/>}
-          {currentView === 'ROLE_ASSIGNMENT' && <RoleAssignment members={members} selectedYear={selectedYear} onUpdate={loadData}/>}
-          {currentView === 'PIEDILISTA' && <Piedilista members={members} selectedYear={selectedYear} onMemberClick={(id) => handleMemberClick(id, 'PIEDILISTA')} lodgeName={appSettings.lodgeName} lodgeNumber={appSettings.lodgeNumber} />}
-          {currentView === 'REPORT' && <RolesReport members={members} selectedYear={selectedYear} lodgeName={appSettings.lodgeName} lodgeNumber={appSettings.lodgeNumber} />}
+          {currentView === 'MEMBER_DETAIL' && selectedMemberId && (
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento dettagli...</div>}>
+              <MemberDetail memberId={selectedMemberId} onBack={() => setCurrentView(returnView)} onSave={handleSaveMember} defaultYear={selectedYear}/>
+            </React.Suspense>
+          )}
+          {currentView === 'ROLE_ASSIGNMENT' && (
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento Ruoli...</div>}>
+              <RoleAssignment members={members} selectedYear={selectedYear} onUpdate={loadData}/>
+            </React.Suspense>
+          )}
+          {currentView === 'PIEDILISTA' && (
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento piedilista...</div>}>
+              <Piedilista members={members} selectedYear={selectedYear} onMemberClick={(id) => handleMemberClick(id, 'PIEDILISTA')} lodgeName={appSettings.lodgeName} lodgeNumber={appSettings.lodgeNumber} />
+            </React.Suspense>
+          )}
+          {currentView === 'REPORT' && (
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento report...</div>}>
+              <RolesReport members={members} selectedYear={selectedYear} lodgeName={appSettings.lodgeName} lodgeNumber={appSettings.lodgeNumber} />
+            </React.Suspense>
+          )}
         </div>
       </main>
     </div>

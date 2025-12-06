@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { Member, BranchType } from '../types';
 import { BRANCHES, getDegreeAbbreviation, isMemberActiveInYear } from '../constants';
-import { Printer, Layout, AlertTriangle } from 'lucide-react';
+import { Printer, Layout, AlertTriangle, Star, Download } from 'lucide-react';
+import { dataService } from '../services/dataService';
 
 interface PiedilistaProps {
   members: Member[];
@@ -23,6 +24,72 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
         // @ts-ignore
         return isMemberActiveInYear(m[branch.toLowerCase()], selectedYear);
     });
+  };
+
+  const handleExportExcel = () => {
+    const exportData: any[] = [];
+    
+    if (viewMode === 'ALL') {
+      BRANCHES.forEach(branch => {
+        const branchMembers = getMembersForBranch(branch.type);
+        branchMembers.forEach(m => {
+          // @ts-ignore
+          const branchData = m[branch.type.toLowerCase()];
+          const roleObj = getActiveRoleObj(m, branch.type);
+          const highestDegree = branchData?.degrees?.[branchData.degrees.length - 1];
+          let provenance = '';
+          if(branch.type !== 'CRAFT') {
+            if (branchData.isMotherLodgeMember) provenance = 'Membro Ordinario';
+            else provenance = `da ${branchData.otherLodgeName || 'Altra Loggia'}`;
+            if (branchData.isFounder) provenance += ' (Fondatore)';
+            if (branchData.isDualMember) provenance += ' (Doppia App.)';
+          } else { provenance = m.city; }
+          
+          exportData.push({
+            'Ramo': branch.label,
+            'Matricola': m.matricula,
+            'Cognome': m.lastName,
+            'Nome': m.firstName,
+            'Grado': highestDegree ? getDegreeAbbreviation(highestDegree.degreeName) : '-',
+            'Incarico': roleObj ? roleObj.roleName : '-',
+            'Provenienza/Città': provenance,
+            'Email': m.email,
+            'Telefono': m.phone
+          });
+        });
+      });
+    } else {
+      const branchMembers = getMembersForBranch(viewMode);
+      const branch = BRANCHES.find(b => b.type === viewMode);
+      const isCraft = viewMode === 'CRAFT';
+      
+      branchMembers.forEach(m => {
+        // @ts-ignore
+        const branchData = m[viewMode.toLowerCase()];
+        const roleObj = getActiveRoleObj(m, viewMode);
+        const highestDegree = branchData?.degrees?.[branchData.degrees.length - 1];
+        let provenance = '';
+        if(!isCraft) {
+          if (branchData.isMotherLodgeMember) provenance = 'Membro Ordinario';
+          else provenance = `da ${branchData.otherLodgeName || 'Altra Loggia'}`;
+          if (branchData.isFounder) provenance += ' (Fondatore)';
+          if (branchData.isDualMember) provenance += ' (Doppia App.)';
+        } else { provenance = m.city; }
+        
+        exportData.push({
+          'Matricola': m.matricula,
+          'Cognome': m.lastName,
+          'Nome': m.firstName,
+          'Grado': highestDegree ? getDegreeAbbreviation(highestDegree.degreeName) : '-',
+          'Incarico': roleObj ? roleObj.roleName : '-',
+          'Provenienza/Città': provenance,
+          'Email': m.email,
+          'Telefono': m.phone
+        });
+      });
+    }
+    
+    dataService.exportToExcel(exportData, `Piedilista_${selectedYear}-${selectedYear+1}`);
   };
 
   const formatDate = (isoString: string) => {
@@ -103,10 +170,11 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
                             return (
                                 <tr key={m.id} className={`hover:bg-slate-50 transition-colors ${isDuplicate ? 'bg-red-50/50' : ''} break-inside-avoid`}>
                                     {isCraft && <td className="py-2.5 pl-4 font-mono text-slate-600">{m.matricula}</td>}
-                                    <td className="py-2.5 pl-2 font-serif">
+                                    <td className="py-2.5 pl-2 font-serif flex items-center gap-1">
                                         <button onClick={() => onMemberClick(m.id)} className="font-bold text-slate-800 hover:text-masonic-blue hover:underline decoration-dotted underline-offset-4 cursor-pointer text-left">
                                             {m.lastName} {m.firstName}
                                         </button>
+                                        {branchData.isFounder && <Star size={14} className="text-yellow-600 fill-yellow-600 shrink-0" title="Socio Fondatore" />}
                                     </td>
                                     <td className="py-2.5 text-slate-600">
                                         {highestDegree ? 
@@ -130,7 +198,7 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
     <div className="bg-white p-4 md:p-8 rounded-xl shadow-lg border border-slate-200 animate-fadeIn min-h-[800px] print:shadow-none print:border-none print:p-0">
       <div className="flex flex-col md:flex-row justify-between items-start mb-6 print:hidden gap-4">
         <div><h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-800">Piedilista</h2><p className="text-slate-500 mt-1">Elenco fratelli attivi per l'anno {selectedYear}-{selectedYear+1}.</p></div>
-        <div className="flex items-center gap-2"><button onClick={() => window.print()} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md w-full md:w-auto justify-center"><Printer size={18} /> Stampa Visualizzato</button></div>
+        <div className="flex items-center gap-2"><button onClick={() => window.print()} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md w-full md:w-auto justify-center"><Printer size={18} /> Stampa Visualizzato</button><button onClick={handleExportExcel} className="flex items-center gap-2 bg-green-700 text-white px-5 py-2.5 rounded-lg hover:bg-green-600 transition-colors shadow-md w-full md:w-auto justify-center"><Download size={18} /> Esporta</button></div>
       </div>
       <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto mb-8 print:hidden rounded-t-lg scrollbar-hide">
           <button onClick={() => setViewMode('ALL')} className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 flex items-center gap-2 flex-shrink-0 ${viewMode === 'ALL' ? 'border-slate-800 text-slate-900 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><Layout size={16} /> Tutto</button>

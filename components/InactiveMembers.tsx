@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { Member, BranchType } from '../types';
 import { BRANCHES, isMemberActiveInYear } from '../constants';
-import { UserX, Calendar, History, Printer } from 'lucide-react';
+import { UserX, Calendar, History, Printer, Download } from 'lucide-react';
+import { dataService } from '../services/dataService';
 
 interface InactiveMembersProps {
   members: Member[];
@@ -68,6 +69,21 @@ export const InactiveMembers: React.FC<InactiveMembersProps> = ({ members, onMem
       return `${d}/${m}/${y}`;
   }
 
+  const handleExportExcel = () => {
+    const exportData = inactiveList.map(m => ({
+      'Matricola': m.matricula,
+      'Cognome': m.lastName,
+      'Nome': m.firstName,
+      'Ramo': activeTab,
+      'Data Inattività': formatDate(getLastInactiveDate(m) || ''),
+      'Email': m.email,
+      'Telefono': m.phone,
+      'Città': m.city
+    }));
+    
+    dataService.exportToExcel(exportData, `InattiveMembers_${activeTab}_${selectedYear}`);
+  };
+
   const branchConfig = BRANCHES.find(b => b.type === activeTab);
 
   return (
@@ -86,9 +102,14 @@ export const InactiveMembers: React.FC<InactiveMembersProps> = ({ members, onMem
                 : `Elenco completo di tutti i fratelli attualmente inattivi (dimessi o passati all'Oriente Eterno) in via definitiva.`}
            </p>
         </div>
-        <button onClick={() => window.print()} className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg shadow transition-colors flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          <button onClick={() => window.print()} className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg shadow transition-colors flex items-center gap-2">
             <Printer size={18} /> Stampa
-        </button>
+          </button>
+          <button onClick={handleExportExcel} className="bg-green-700 hover:bg-green-600 text-white px-4 py-2 rounded-lg shadow transition-colors flex items-center gap-2">
+              <Download size={18} /> Esporta
+          </button>
+        </div>
       </div>
 
       {/* Print Header */}
@@ -110,34 +131,54 @@ export const InactiveMembers: React.FC<InactiveMembersProps> = ({ members, onMem
       </div>
       <div className="p-6">
         {inactiveList.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 print:grid-cols-2">
-            {inactiveList.map(member => {
-              const inactiveDate = getLastInactiveDate(member);
-              return (
-                <div key={member.id} onClick={() => onMemberClick(member.id)} className="group border border-slate-200 rounded-lg p-4 hover:shadow-md hover:border-slate-300 transition-all cursor-pointer bg-slate-50/50 break-inside-avoid print:bg-transparent print:border-slate-400">
-                    <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-serif font-bold group-hover:bg-slate-300 transition-colors print:border print:border-slate-400">{member.firstName[0]}{member.lastName[0]}</div>
-                    <div><h4 className="font-bold text-slate-700 group-hover:text-slate-900 group-hover:underline decoration-dotted underline-offset-2">{member.lastName} {member.firstName}</h4><p className="text-xs text-slate-500">Matr. {member.matricula}</p></div>
-                    </div>
-                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 print:border-slate-300">
-                    <span>
-                        {/* @ts-ignore */}
-                        {member[activeTab.toLowerCase()].degrees[member[activeTab.toLowerCase()].degrees.length - 1]?.degreeName || 'Nessun grado'}
-                    </span>
-                    <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded font-medium print:bg-transparent print:border print:border-slate-300">
-                        {mode === 'YEAR' 
-                            ? `Inattivo nel ${selectedYear}-${selectedYear+1}` 
-                            : (inactiveDate ? `Inattivo dal ${formatDate(inactiveDate)}` : 'Attualmente Inattivo')}
-                    </span>
-                    </div>
-                </div>
-              );
-            })}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[700px] print:min-w-0">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 uppercase text-xs font-semibold tracking-wider text-left border-y border-slate-200 print:bg-transparent print:text-slate-700 print:border-black">
+                  <th className="py-3 pl-4 w-20">Matr.</th>
+                  <th className="py-3 pl-2">Cognome e Nome</th>
+                  <th className="py-3">Grado</th>
+                  <th className="py-3">Stato / Data</th>
+                  <th className="py-3">Incarico</th>
+                  <th className="py-3">Provenienza / Città</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 print:divide-slate-300">
+                {inactiveList.map(m => {
+                  const branchData = m[activeTab.toLowerCase() as keyof Member] as any;
+                  const highestDegree = branchData?.degrees?.[branchData.degrees.length - 1];
+                  const inactiveDate = getLastInactiveDate(m);
+                  let provenance = '';
+                  if (activeTab !== 'CRAFT') {
+                    if (branchData.isMotherLodgeMember) provenance = 'Membro Ordinario';
+                    else provenance = `da ${branchData.otherLodgeName || 'Altra Loggia'}`;
+                    if (branchData.isFounder) provenance += ' (Fondatore)';
+                    if (branchData.isDualMember) provenance += ' (Doppia App.)';
+                  } else {
+                    provenance = m.city;
+                  }
+                  const roleObj = branchData.roles?.find((r: any) => r.yearStart === selectedYear && r.branch === activeTab);
+
+                  return (
+                    <tr key={m.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => onMemberClick(m.id)}>
+                      <td className="py-2.5 pl-4 font-mono text-slate-600">{m.matricula}</td>
+                      <td className="py-2.5 pl-2 font-serif">
+                        <div className="font-bold text-slate-800">{m.lastName} {m.firstName}</div>
+                      </td>
+                      <td className="py-2.5 text-slate-600">{highestDegree ? highestDegree.degreeName : '-'}</td>
+                      <td className="py-2.5 text-slate-600">{mode === 'YEAR' ? `Inattivo nel ${selectedYear}-${selectedYear+1}` : (inactiveDate ? `Inattivo dal ${formatDate(inactiveDate)}` : 'Attualmente Inattivo')}</td>
+                      <td className="py-2.5">{roleObj ? roleObj.roleName : '-'}</td>
+                      <td className="py-2.5 text-slate-500">{provenance}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         ) : (
           <div className="text-center py-12 text-slate-400 italic">
-              {mode === 'YEAR' 
-                ? `Nessun membro inattivo trovato per il ramo ${branchConfig?.label} nell'anno ${selectedYear}-{selectedYear+1}.` 
+              {mode === 'YEAR'
+                ? `Nessun membro inattivo trovato per il ramo ${branchConfig?.label} nell'anno ${selectedYear}-${selectedYear+1}.`
                 : `Nessun membro attualmente inattivo nel ramo ${branchConfig?.label}.`}
           </div>
         )}

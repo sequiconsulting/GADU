@@ -25,64 +25,43 @@ export const RoleEditor: React.FC<RoleEditorProps> = ({ roles, branch, onChange,
     onChange(updatedRoles);
   };
 
-  // Sort roles by year descending
+  // Sort roles by year descending (più recente in cima)
   const sortedRoles = [...roles].sort((a, b) => b.yearStart - a.yearStart);
 
   return (
-    <div className="space-y-4 bg-white p-4 rounded-lg shadow-sm border border-slate-200 mt-4">
-      <div className="flex items-center gap-2 mb-2">
+    <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 mt-4">
+      <div className="flex items-center gap-2 mb-3">
         <ShieldCheck className={`w-5 h-5 ${branchColor.replace('bg-', 'text-')}`} />
         <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Ruoli e Incarichi</h3>
       </div>
       
-      <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-        {sortedRoles.length === 0 && <p className="text-xs text-slate-400 italic">Nessun incarico assegnato.</p>}
-        {sortedRoles.map((role) => (
-          <div key={role.id} className={`p-3 rounded-md border ${role.yearStart === defaultYear ? 'bg-yellow-50/50 border-yellow-200' : 'bg-slate-50 border-slate-100'}`}>
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                 <div className="font-bold text-slate-800 text-xs">{role.roleName}</div>
-                 <div className="text-[10px] text-slate-500">
-                    Anno {role.yearStart}-{role.yearStart + 1} ({calculateMasonicYearString(role.yearStart)})
-                 </div>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-2">
-                <div>
-                    <label className="block text-[9px] text-slate-400 uppercase font-semibold mb-0.5">Data Inizio</label>
-                    <input 
-                        type="date" 
-                        value={role.startDate || ''} 
-                        onChange={(e) => handleUpdate(role.id, 'startDate', e.target.value)}
-                        className="w-full text-[10px] md:text-xs border-slate-300 rounded border p-1 h-7 bg-white focus:ring-1 focus:ring-slate-400 outline-none"
-                    />
-                </div>
-                <div>
-                    <label className="block text-[9px] text-slate-400 uppercase font-semibold mb-0.5">N. Tornata</label>
-                    <input 
-                        type="text" 
-                        placeholder="N."
-                        value={role.installationMeeting || ''} 
-                        onChange={(e) => handleUpdate(role.id, 'installationMeeting', e.target.value)}
-                        className="w-full text-[10px] md:text-xs border-slate-300 rounded border p-1 h-7 bg-white focus:ring-1 focus:ring-slate-400 outline-none"
-                    />
-                </div>
-                <div>
-                    <label className="block text-[9px] text-slate-400 uppercase font-semibold mb-0.5">Data Fine</label>
-                    <input 
-                        type="date" 
-                        value={role.endDate || ''} 
-                        onChange={(e) => handleUpdate(role.id, 'endDate', e.target.value)}
-                        className="w-full text-[10px] md:text-xs border-slate-300 rounded border p-1 h-7 bg-white focus:ring-1 focus:ring-slate-400 outline-none"
-                    />
-                </div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="text-[10px] text-slate-400 italic pt-2 border-t border-slate-100">
-        * L'assegnazione e rimozione dei ruoli si effettua dalla schermata "Gestione Ufficiali". Qui puoi modificare i dettagli (date e tornata).
+      {sortedRoles.length === 0 ? (
+        <p className="text-xs text-slate-400 italic">Nessun incarico assegnato.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50">
+                <th className="text-left py-1.5 px-2 font-semibold text-slate-600">Ruolo</th>
+                <th className="text-left py-1.5 px-2 font-semibold text-slate-600">Anno Massonico</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedRoles.map((role) => (
+                <tr 
+                  key={role.id} 
+                  className={`border-b border-slate-100 ${role.yearStart === defaultYear ? 'bg-yellow-50/50' : 'hover:bg-slate-50'}`}
+                >
+                  <td className="py-1.5 px-2 text-slate-800 font-medium">{role.roleName}</td>
+                  <td className="py-1.5 px-2 text-slate-600">{calculateMasonicYearString(role.yearStart)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="text-[10px] text-slate-400 italic pt-2 mt-2 border-t border-slate-100">
+        * L'assegnazione e rimozione dei ruoli si effettua dalla schermata "Gestione Ufficiali".
       </div>
     </div>
   );

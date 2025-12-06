@@ -2,7 +2,8 @@
 import React from 'react';
 import { Member, BranchType } from '../types';
 import { BRANCHES, COMMON_ROLES, calculateMasonicYearString } from '../constants';
-import { ShieldCheck, Printer } from 'lucide-react';
+import { ShieldCheck, Printer, Download } from 'lucide-react';
+import { dataService } from '../services/dataService';
 
 interface RolesReportProps {
   members: Member[];
@@ -42,6 +43,23 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
     return roleMap.sort((a, b) => a.sortIndex - b.sortIndex);
   };
 
+  const handleExportExcel = () => {
+    const exportData: any[] = [];
+    
+    BRANCHES.forEach(branch => {
+      const roles = getRolesForBranch(branch.type);
+      roles.forEach(role => {
+        exportData.push({
+          'Ramo': branch.label,
+          'Ruolo': role.roleName,
+          'Membro': role.memberName
+        });
+      });
+    });
+    
+    dataService.exportToExcel(exportData, `RolesReport_${selectedYear}-${selectedYear+1}`);
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn pb-10">
       <div className="flex justify-between items-end mb-4 print:hidden">
@@ -49,12 +67,20 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
           <h2 className="text-2xl font-serif font-bold text-slate-800">Organigramma e Ruoli</h2>
           <p className="text-slate-500">Anno {selectedYear}-{selectedYear+1} - Anno Massonico {calculateMasonicYearString(selectedYear)}</p>
         </div>
-        <button 
-          onClick={() => window.print()} 
-          className="flex items-center gap-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors"
-        >
-          <Printer size={18} /> Stampa Report
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => window.print()} 
+            className="flex items-center gap-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors"
+          >
+            <Printer size={18} /> Stampa Report
+          </button>
+          <button 
+            onClick={handleExportExcel} 
+            className="flex items-center gap-2 text-white bg-green-700 hover:bg-green-600 px-4 py-2 rounded-lg transition-colors"
+          >
+            <Download size={18} /> Esporta
+          </button>
+        </div>
       </div>
 
       {/* Print Header only visible when printing */}

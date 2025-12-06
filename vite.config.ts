@@ -19,5 +19,23 @@ export default defineConfig(({ mode }) => {
           '@': path.resolve(__dirname, '.'),
         }
       }
+      ,
+      build: {
+        // Improve chunking to keep large vendor libraries in separate files
+        rollupOptions: {
+          output: {
+            manualChunks(id: string) {
+              if (id.includes('node_modules')) {
+                if (id.includes('react') || id.includes('react-dom')) return 'react-vendor';
+                if (id.includes('firebase')) return 'firebase';
+                if (id.includes('lucide-react')) return 'icons';
+                if (id.includes('@faker-js') || id.includes('faker')) return 'faker';
+                return 'vendor';
+              }
+            }
+          }
+        },
+        chunkSizeWarningLimit: 600
+      }
     };
 });
