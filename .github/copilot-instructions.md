@@ -54,6 +54,29 @@ npm run build             # Compile to dist/ with Vite
 npm run preview           # Serve built dist locally
 ```
 
+### Version Management
+
+**CRITICAL: Every code change must update the app version. Database changes must also update the DB version in Firestore.**
+
+**App Version** (`dataService.ts` line 17):
+- Update `APP_VERSION` with each commit/deployment (e.g., `'0.27'` → `'0.28'`)
+- Format: Semantic versioning as string (e.g., `'MAJOR.MINOR'`)
+- Used in UI title bar and cache busting
+- Example: `public APP_VERSION = '0.28';`
+
+**Database Version** (`dataService.ts` line 18 + Firestore):
+- Increment `DB_VERSION` only when `Member` or `AppSettings` types/schema change
+- Update **both**:
+  1. `dataService.ts` line 18: `public DB_VERSION = 2;`
+  2. Firestore `settings/appSettings` document field `dbVersion: 2`
+- Migration path: On app load, if `dbVersion` mismatch detected, show migration prompt or apply schema upgrades
+- Example change: Adding a new field to `Member` or `MasonicBranchData`, changing degree/role structure
+
+**When to Update:**
+- ✅ **App Version**: Every UI fix, workflow change, button style update, printing fix, feature addition
+- ✅ **DB Version**: Only when data model (`types.ts` `Member` or `AppSettings`) changes structure
+- ❌ **Both**: Only if code AND schema change together (rare; usually just app version)
+
 ### Firebase Setup
 
 - **Local Development**: `dataService.USE_FIREBASE = true` (default) connects to staging Firebase project (`gadu-staging`)
@@ -70,6 +93,35 @@ npm run preview           # Serve built dist locally
 | Add branch | `types.ts` (`BranchType`), `constants.ts` (`BRANCHES`, `DEGREES`, `COMMON_ROLES`), `MemberDetail.tsx` (new tab), `dataService.ts` (initialize empty branch) |
 | New view/page | `App.tsx` (add `View` type, render case, navigation), create new `components/ViewName.tsx` |
 | UI styling | Tailwind classes (e.g., `bg-masonic-blue`) via Vite; custom colors in `index.html` or inline |
+| Add ritual support | Update `constants.ts` types/labels/role arrays, `types.ts` AppSettings, `RoleAssignment.tsx` UI, `RolesReport.tsx` display |
+| Fix printing issues | Adjust `@media print` CSS in `index.html` and `print:` Tailwind classes in affected component (Piedilista, RolesReport) |
+
+### Critical Workflows
+
+**Year Navigation & Data Refresh Flow:**
+- `App` maintains `selectedYear` (civil year) and `yearOptions` array (range available in dropdown)
+- Arrow buttons call `handleAddFutureYear()` / `handleAddPastYear()` (increment/decrement by 1)
+- `loadData()` refreshes `members` and `appSettings` from Firebase and passes both to child components
+- **Do not use Math.max/Math.min on yearOptions**; always increment/decrement from `selectedYear` directly
+
+**Member Save Flow:**
+1. `MemberDetail` validates form (async matricula check via `validate()`)
+2. User clicks "Salva" button → `handleSave()` calls `dataService.saveMember(member)`
+3. `saveMember()` performs `.setDoc(..., { merge: true })` on Firestore
+4. On success, component callback triggers `onSave()` → parent calls `loadData()` → all child views refresh
+5. After save, navigation returns to `returnView` (e.g., 'MEMBERS' if edited from members list)
+
+**Ritual Change Flow in RoleAssignment:**
+1. User clicks "Modifica Rituale" button → `setUnlockingRitual(activeBranch)` unlocks UI
+2. User selects new ritual from dropdown → `confirmingRitualChange` modal appears
+3. User confirms → `handleRitualChange()` updates `AppSettings.yearlyRituals[year]` AND deletes all roles for that branch/year
+4. On success, `onUpdate()` callback triggers parent `loadData()` to refresh role display
+
+**Print Workflow:**
+- User clicks "Stampa" button → browser print dialog (Ctrl+P or print button)
+- CSS `@media print` hides sidebar, search bars, and control buttons; shows print header with lodge name
+- `print-branch-container:nth-of-type(n+2)` forces new page for each branch; `page-break-inside: avoid` keeps table rows together
+- Print preview confirms layout before sending to printer
 
 ## Patterns & Conventions
 
@@ -90,6 +142,15 @@ interface ComponentProps {
 - Member active status calculated per (branch, year) tuple via `isMemberActiveInYear(member, branch, year)`
 - Roles keyed by `yearStart` integer; UI displays via `calculateMasonicYearString(yearStart)`
 
+### Ritual System (Year-Based)
+
+- **Craft** branch supports two rituals: `'Emulation'` (default) or `'Scozzese'` (Scottish Rite)
+- **Mark & Chapter** branches support: `'Irlandese'` (default) or `'Aldersgate'`
+- **RAM** branch uses no ritual distinction
+- Rituals selected per year in `AppSettings.yearlyRituals[year]` (e.g., `{craft: 'Scozzese', markAndArch: 'Aldersgate'}`)
+- Use `getRolesForRitual(branch, ritual)` to fetch correct role list (e.g., `CRAFT_ROLES_SCOTTISH_RITE` vs `CRAFT_ROLES_EMULATION`)
+- Changing ritual in `RoleAssignment` component **deletes all roles for that branch/year** (confirmation modal + deletion logic)
+
 ### Branch Data Access
 
 Branch data accessed by lowercase key:
@@ -101,6 +162,12 @@ const branchData = member[branchKey]; // e.g., member.craft
 ### Validation Pattern
 
 Validation in component (e.g., `MemberDetail.validate()`) with user-facing Italian error messages; async to check Firestore duplicates.
+
+### Printing & Report Styles
+
+- Print styles in `index.html` `@media print` block: use `page-break-before: always !important` for section breaks
+- Piedilista prints with header + table together; branches on separate pages via `.print-branch-container:nth-of-type(n+2) { page-break-before: always !important; }`
+- Career/degree add buttons and "Modifica Rituale" button use yellow background (`bg-yellow-400 hover:bg-yellow-500 text-slate-900`) for visual prominence
 
 ### Italian Terminology
 
@@ -123,10 +190,26 @@ All UI labels and degree/role names in Italian (e.g., "Maestro Venerabile", "App
 4. **Status vs. Degree**: `statusEvents` track active/inactive; `degrees` track progression—both per branch
 5. **Mobile menu**: `isMobileMenuOpen` state toggles on view changes; layout responsive at breakpoints via Tailwind
 6. **Empty member template**: `dataService.getEmptyMember()` initializes new member with empty branch data structs
+7. **Ritual state management**: `RoleAssignment` manages `unlockingRitual` (locked by default) and `confirmingRitualChange` states; confirm modal must appear before deleting roles
+8. **Print layout**: Use `pageBreakInside: 'auto'` on container and avoid on header/footer rows; pair inline styles with `!important` CSS rules in `index.html`
+
+## Recently Added Features
+
+### Ritual Selection System (In Progress)
+- **Files**: `constants.ts` (types, labels, role arrays, `getRolesForRitual`), `types.ts` (AppSettings.yearlyRituals), `RoleAssignment.tsx` (UI), `RolesReport.tsx`, `Piedilista.tsx`
+- **Pattern**: Year-based ritual configuration with role deletion on change; ritual displayed in organigramma section headers
+- **UI Convention**: Ritual selector button locked by default (`<Lock>` icon); click "Modifica Rituale" to unlock (`<Unlock>` icon); confirmation modal warns of role deletion
+
+### Authentication (Planned: Auth0)
+- **Status**: Not yet integrated; currently zero authentication
+- **Plan**: Wrap app with `Auth0Provider`, add `LoginPage` component, guard views behind `isAuthenticated` check, implement role-based access control (admin/editor/viewer)
+- **Note**: Logout button in sidebar (line 253 of `App.tsx`) is non-functional stub awaiting Auth0 implementation
 
 ## Testing & Debugging
 
 - **Console logging**: `dataService.init()` logs Firebase mode status
-- **Version tracking**: `APP_VERSION` in `dataService` for UI title and cache busting
+- **Version tracking**: `APP_VERSION` in `dataService` for UI title and cache busting; always increment on code changes
+- **Database schema migration**: If data model changes, increment `DB_VERSION` in both `dataService.ts` and Firestore `settings/appSettings` doc
 - **Firestore Rules**: `firestore.rules` file present; ensure read/write rules match authentication model
 - **Build validation**: TypeScript strict mode catches type errors; run `npm run build` to verify before deploy
+- **Print preview**: Use browser print preview (Ctrl+P) to verify Piedilista and RolesReport layouts before official printing

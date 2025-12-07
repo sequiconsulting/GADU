@@ -68,6 +68,7 @@ export interface AppSettings {
   lodgeName: string;
   lodgeNumber: string;
   province: string;
+  dbVersion: number; // Database schema version for migrations
   preferences: {
     craft: 'Emulation' | 'Giustinianeo';
     markAndArch: 'Irlandese' | 'Aldersgate';

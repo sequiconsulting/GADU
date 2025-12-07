@@ -14,7 +14,8 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.26'; // Incremented version
+  public APP_VERSION = '0.27'; // Incremented version
+  public DB_VERSION = 1;
   private app: any = null;
   private db: any = null;
   private membersCollection: any = null;
@@ -107,11 +108,16 @@ class DataService {
 
   async getSettings(): Promise<AppSettings> {
     if (!this.USE_FIREBASE) {
-      return Promise.resolve({ lodgeName: '', lodgeNumber: '', province: '' });
+      return Promise.resolve({ lodgeName: '', lodgeNumber: '', province: '', dbVersion: this.DB_VERSION });
     }
     await this.ensureFirebase();
     const docSnap = await this.firebaseFns.getDoc(this.settingsDoc);
-    return docSnap.exists() ? docSnap.data() as AppSettings : { lodgeName: '', lodgeNumber: '', province: '' };
+    const settings = docSnap.exists() ? docSnap.data() as AppSettings : { lodgeName: '', lodgeNumber: '', province: '', dbVersion: this.DB_VERSION };
+    // Ensure dbVersion is set
+    if (!settings.dbVersion) {
+      settings.dbVersion = this.DB_VERSION;
+    }
+    return settings;
   }
 
   async saveSettings(settings: AppSettings): Promise<AppSettings> {
