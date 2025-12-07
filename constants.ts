@@ -34,7 +34,7 @@ export const BRANCHES: { type: BranchType; label: string; shortLabel: string; co
   {
     type: 'MARK',
     label: 'Loggia del Marchio',
-    shortLabel: 'MMM',
+    shortLabel: 'Marchio',
     color: 'bg-masonic-mark',
     degreeLabels: DEGREES.MARK.map(d => d.name)
   },
@@ -141,7 +141,7 @@ export const CRAFT_ROLES_SCOTTISH_RITE = [
   'Tesoriere',
   'Maestro delle Cerimonie',
   'Esperto',
-  'Hospitaliere',
+  'Ospitaliere',
   'Copritore Interno',
   'Copritore Esterno'
 ];
@@ -155,7 +155,7 @@ export const MARK_ROLES_ALDERSGATE = [
   'Tesoriere',
   'Maestro delle Cerimonie',
   'Maestro dei Marchi',
-  'Hospitaliere'
+  'Ospitaliere'
 ];
 
 export const MARK_ROLES_IRISH = COMMON_ROLES.MARK;
