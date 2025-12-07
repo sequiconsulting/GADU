@@ -54,6 +54,8 @@ export interface MasonicBranchData {
   otherLodgeName?: string;       // Name of the other lodge if not Mother Lodge
   isFounder?: boolean;           // Is a founding member of this specific body
   isDualMember?: boolean;        // Only applicable if !isMotherLodgeMember
+  isHonorary?: boolean;          // Is an honorary member
+  isDualAppartenance?: boolean;  // Has dual membership in this body
   
   initiationDate?: string; // Or Advancement/Exaltation/Elevation
   degrees: DegreeEvent[];

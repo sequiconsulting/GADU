@@ -4,7 +4,7 @@ import { Member, BranchType, StatusType } from '../types';
 import { BRANCHES, DEGREES, isMemberActiveInYear, calculateMasonicYearString } from '../constants';
 import { HistoryEditor } from './HistoryEditor';
 import { RoleEditor } from './RoleEditor';
-import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, Link2 } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 const PROFILE = 'PROFILE';
@@ -126,6 +126,10 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
           changes.push(`${branchLabel}: Socio Fondatore: ${origBranch.isFounder} → ${newBranch.isFounder}`);
         if (origBranch.isDualMember !== newBranch.isDualMember) 
           changes.push(`${branchLabel}: Doppia App.: ${origBranch.isDualMember} → ${newBranch.isDualMember}`);
+        if (origBranch.isHonorary !== newBranch.isHonorary) 
+          changes.push(`${branchLabel}: Onorario: ${origBranch.isHonorary} → ${newBranch.isHonorary}`);
+        if (origBranch.isDualAppartenance !== newBranch.isDualAppartenance) 
+          changes.push(`${branchLabel}: Doppia Appartenenza: ${origBranch.isDualAppartenance} → ${newBranch.isDualAppartenance}`);
         if (origBranch.otherLodgeName !== newBranch.otherLodgeName) 
           changes.push(`${branchLabel}: Loggia Provenienza: ${origBranch.otherLodgeName} → ${newBranch.otherLodgeName}`);
         if (origBranch.initiationDate !== newBranch.initiationDate) 
@@ -411,6 +415,16 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                             <input type="checkbox" checked={branchData.isFounder || false} onChange={(e) => updateBranchData(branch.type, { isFounder: e.target.checked })} className="w-3 h-3 shrink-0" />
                                             <Crown size={13} className="text-yellow-600"/>
                                             <span className="text-xs text-slate-700 font-medium">Fondatore</span>
+                                        </label>
+                                        <label className="flex items-center gap-1.5 p-1.5 bg-amber-50 border border-amber-200 rounded cursor-pointer hover:bg-amber-100/50">
+                                            <input type="checkbox" checked={branchData.isHonorary || false} onChange={(e) => updateBranchData(branch.type, { isHonorary: e.target.checked })} className="w-3 h-3 shrink-0" />
+                                            <Star size={13} className="text-amber-600"/>
+                                            <span className="text-xs text-slate-700 font-medium">Onorario</span>
+                                        </label>
+                                        <label className="flex items-center gap-1.5 p-1.5 bg-blue-50 border border-blue-200 rounded cursor-pointer hover:bg-blue-100/50">
+                                            <input type="checkbox" checked={branchData.isDualAppartenance || false} onChange={(e) => updateBranchData(branch.type, { isDualAppartenance: e.target.checked })} className="w-3 h-3 shrink-0" />
+                                            <Link2 size={13} className="text-blue-600"/>
+                                            <span className="text-xs text-slate-700 font-medium">Doppia App.</span>
                                         </label>
                                     </div>
                                     <span className="text-xs text-slate-500 font-sans mt-1 block">Riferimento: Anno {defaultYear}-{defaultYear + 1} - A.L. {calculateMasonicYearString(defaultYear)}</span>

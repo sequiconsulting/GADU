@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings, FileText, DollarSign, ClipboardList } from 'lucide-react';
+import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings, FileText, DollarSign, ClipboardList, Crown, Star } from 'lucide-react';
 import { Member, AppSettings } from './types';
 import { dataService } from './services/dataService';
 // TODO: Auth0 integration - uncomment when ready
@@ -421,12 +421,18 @@ const App: React.FC = () => {
                                      const highestDegree = degrees && degrees.length > 0 ? degrees[degrees.length - 1].degreeName : '';
                                      
                                      if (!highestDegree) return null;
+                                     
+                                     const badges = [];
+                                     if (branchData?.isFounder) badges.push({ icon: 'crown', color: 'text-yellow-600', title: 'Fondatore' });
+                                     if (branchData?.isHonorary) badges.push({ icon: 'star', color: 'text-amber-500', title: 'Onorario' });
+                                     if (branchData?.isDualAppartenance) badges.push({ icon: 'users', color: 'text-blue-600', title: 'Doppia Appartenenza' });
 
                                      return { 
                                          label: b.shortLabel, 
                                          val: getDegreeAbbreviation(highestDegree),
                                          color: b.color,
-                                         fullName: highestDegree
+                                         fullName: highestDegree,
+                                         badges: badges
                                      };
                                 }).filter(Boolean);
 
@@ -444,7 +450,16 @@ const App: React.FC = () => {
                                                         <span key={i} title={info.fullName} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-50 border border-slate-200 text-xs font-medium text-slate-700 whitespace-nowrap print:border-slate-400">
                                                             <span className={`w-2 h-2 rounded-full ${info?.color} print:border print:border-slate-600`}></span>
                                                             <span className="text-slate-500">{info?.label}:</span>
-                                                            <span className="font-bold">{info?.val}</span>
+                                                            <div className="flex items-center gap-1">
+                                                              <span className="font-bold">{info?.val}</span>
+                                                              {info.badges?.map((badge, idx) => (
+                                                                <span key={idx} title={badge.title} className="flex items-center">
+                                                                  {badge.icon === 'crown' && <Crown size={12} className={`${badge.color} shrink-0`} />}
+                                                                  {badge.icon === 'star' && <Star size={12} className={`${badge.color} fill-amber-500 shrink-0`} />}
+                                                                  {badge.icon === 'users' && <Users size={12} className={`${badge.color} shrink-0`} />}
+                                                                </span>
+                                                              ))}
+                                                            </div>
                                                         </span>
                                                     ))
                                                 ) : (

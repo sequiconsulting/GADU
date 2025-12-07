@@ -1,9 +1,8 @@
 
-
 import React, { useState } from 'react';
 import { Member, BranchType } from '../types';
 import { BRANCHES, getDegreeAbbreviation, isMemberActiveInYear } from '../constants';
-import { Printer, Layout, AlertTriangle, Star, Download } from 'lucide-react';
+import { Printer, Layout, AlertTriangle, Star, Download, Link2, Crown, Users } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 interface PiedilistaProps {
@@ -43,6 +42,8 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
             else provenance = `da ${branchData.otherLodgeName || 'Altra Loggia'}`;
             if (branchData.isFounder) provenance += ' (Fondatore)';
             if (branchData.isDualMember) provenance += ' (Doppia App.)';
+            if (branchData.isHonorary) provenance += ' (Onorario)';
+            if (branchData.isDualAppartenance) provenance += ' (Doppia Appartenenza)';
           } else { provenance = m.city; }
           
           exportData.push({
@@ -74,6 +75,8 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
           else provenance = `da ${branchData.otherLodgeName || 'Altra Loggia'}`;
           if (branchData.isFounder) provenance += ' (Fondatore)';
           if (branchData.isDualMember) provenance += ' (Doppia App.)';
+          if (branchData.isHonorary) provenance += ' (Onorario)';
+          if (branchData.isDualAppartenance) provenance += ' (Doppia Appartenenza)';
         } else { provenance = m.city; }
         
         exportData.push({
@@ -174,7 +177,9 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
                                         <button onClick={() => onMemberClick(m.id)} className="font-bold text-slate-800 hover:text-masonic-blue hover:underline decoration-dotted underline-offset-4 cursor-pointer text-left">
                                             {m.lastName} {m.firstName}
                                         </button>
-                                        {branchData.isFounder && <Star size={14} className="text-yellow-600 fill-yellow-600 shrink-0" title="Socio Fondatore" />}
+                                        {branchData.isFounder && <Crown size={14} className="text-yellow-600 shrink-0" title="Socio Fondatore" />}
+                                        {branchData.isHonorary && <Star size={14} className="text-amber-500 fill-amber-500 shrink-0" title="Onorario" />}
+                                        {branchData.isDualAppartenance && <Users size={14} className="text-blue-600 shrink-0" title="Doppia Appartenenza" />}
                                     </td>
                                     <td className="py-2.5 text-slate-600">
                                         {highestDegree ? 

@@ -14,8 +14,8 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.30'; // Incremented version
-  public DB_VERSION = 1;
+  public APP_VERSION = '0.32'; // Incremented version
+  public DB_VERSION = 2;
   private app: any = null;
   private db: any = null;
   private membersCollection: any = null;
