@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Member, BranchType } from '../types';
-import { BRANCHES, COMMON_ROLES, calculateMasonicYearString } from '../constants';
+import { Member, BranchType, AppSettings } from '../types';
+import { BRANCHES, COMMON_ROLES, calculateMasonicYearString, getRolesForRitual } from '../constants';
 import { ShieldCheck, Printer, Download } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
@@ -10,10 +10,18 @@ interface RolesReportProps {
   selectedYear: number;
   lodgeName?: string;
   lodgeNumber?: string;
+  settings?: AppSettings;
 }
 
-export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear, lodgeName, lodgeNumber }) => {
+export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear, lodgeName, lodgeNumber, settings }) => {
   
+  const getRitualForYear = (branch: BranchType): string => {
+    if (branch === 'RAM') return 'RAM';
+    const yearlyRituals = settings?.yearlyRituals?.[selectedYear];
+    if (branch === 'CRAFT') return yearlyRituals?.craft || 'Emulation';
+    if (branch === 'MARK' || branch === 'CHAPTER') return yearlyRituals?.markAndArch || 'Irlandese';
+    return 'Irlandese';
+  };
   // Helper to find roles for a specific branch in the selected year
   // Supports Multi-Role: A member can appear multiple times if they have multiple roles
   const getRolesForBranch = (branch: BranchType) => {
@@ -97,9 +105,12 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
           
           return (
             <div key={branch.type} className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col break-inside-avoid print:shadow-none print:border print:border-slate-300 print-branch-container ${idx > 0 ? 'md:mt-0' : ''}`} style={idx > 0 ? { pageBreakBefore: 'always' } : {}}>
-              <div className={`${branch.color} text-white p-4 flex items-center gap-3 print:bg-slate-100 print:text-slate-900 print:border-b print:border-slate-300 print-branch-header`}>
-                <ShieldCheck size={24} />
-                <h3 className="font-serif font-bold text-lg">{branch.label}</h3>
+              <div className={`${branch.color} text-white p-4 flex items-center justify-between print:bg-slate-100 print:text-slate-900 print:border-b print:border-slate-300 print-branch-header`}>
+                <div className="flex items-center gap-3">
+                  <ShieldCheck size={24} />
+                  <h3 className="font-serif font-bold text-lg">{branch.label}</h3>
+                </div>
+                <span className="text-sm font-semibold opacity-90">{getRitualForYear(branch.type)}</span>
               </div>
               
               <div className="p-4 flex-1">

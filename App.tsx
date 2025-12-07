@@ -475,7 +475,7 @@ const App: React.FC = () => {
           )}
           {currentView === 'REPORT' && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento report...</div>}>
-              <RolesReport members={members} selectedYear={selectedYear} lodgeName={appSettings.lodgeName} lodgeNumber={appSettings.lodgeNumber} />
+              <RolesReport members={members} selectedYear={selectedYear} lodgeName={appSettings.lodgeName} lodgeNumber={appSettings.lodgeNumber} settings={appSettings} />
             </React.Suspense>
           )}
         </div>

@@ -70,6 +70,10 @@
         .print-page-break-before {
           page-break-before: always !important;
         }
+        /* Force page break for RolesReport branches (non-first) */
+        .print-branch-container:nth-of-type(n+2) {
+          page-break-before: always !important;
+        }
       }
     </style>
   <script type="importmap">

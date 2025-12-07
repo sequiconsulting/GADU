@@ -179,7 +179,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
             <button 
               onClick={() => setUnlockingRitual(activeBranch)}
               disabled={loading}
-              className="flex items-center gap-1 px-3 py-1 bg-slate-200 text-slate-700 rounded text-xs font-medium hover:bg-slate-300 transition-colors"
+              className="flex items-center gap-1 px-3 py-1 bg-yellow-400 text-slate-900 rounded text-xs font-medium hover:bg-yellow-500 transition-colors"
             >
               <Unlock size={14} /> Modifica Rituale
             </button>

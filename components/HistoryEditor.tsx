@@ -155,7 +155,7 @@ export const HistoryEditor: React.FC<HistoryEditorProps> = ({ degrees, degreeOpt
           <button
             onClick={handleAdd}
             disabled={!!validationError}
-            className={`w-full h-8 flex justify-center items-center rounded-md text-white transition-colors ${!!validationError ? 'bg-slate-300 cursor-not-allowed' : 'bg-slate-300'}`}
+            className={`w-full h-8 flex justify-center items-center rounded-md text-slate-900 transition-colors ${!!validationError ? 'bg-yellow-300 cursor-not-allowed' : 'bg-yellow-400 hover:bg-yellow-500'}`}
           >
             <Plus size={16} />
           </button>
