@@ -157,6 +157,7 @@ export const isMemberActiveInYear = (branchData: MasonicBranchData | undefined, 
 };
 
 export const getDegreeAbbreviation = (degreeName: string): string => {
+    // First try exact match
     for (const branch in DEGREES) {
         const degrees = DEGREES[branch as BranchType];
         const degree = degrees.find(d => d.name === degreeName);
@@ -164,6 +165,17 @@ export const getDegreeAbbreviation = (degreeName: string): string => {
             return degree.abbreviation;
         }
     }
+    
+    // If no exact match found, try partial match (case-insensitive)
+    const normalizedInput = degreeName.toLowerCase().trim();
+    for (const branch in DEGREES) {
+        const degrees = DEGREES[branch as BranchType];
+        const degree = degrees.find(d => d.name.toLowerCase().includes(normalizedInput) || normalizedInput.includes(d.name.toLowerCase()));
+        if (degree) {
+            return degree.abbreviation;
+        }
+    }
+    
     return degreeName;
 };
 

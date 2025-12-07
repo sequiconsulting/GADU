@@ -224,7 +224,7 @@ const App: React.FC = () => {
 
           <div>
             <button onClick={() => setIsRolesMenuOpen(!isRolesMenuOpen)} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isRolesMenuOpen || ['ROLE_ASSIGNMENT', 'REPORT'].includes(currentView) ? 'text-white' : ''}`}>
-               <div className="flex items-center gap-3"><Shield size={20} /> <span className="font-medium">Ruoli</span></div>
+               <div className="flex items-center gap-3"><Shield size={20} /> <span className="font-medium">Gestione Ufficiali</span></div>
                {isRolesMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
             </button>
             {isRolesMenuOpen && (
