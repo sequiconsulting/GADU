@@ -133,14 +133,14 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
       });
 
       return (
-        <div className="mb-10 break-inside-avoid">
-            <div className={`flex items-center gap-3 border-b-2 ${branch.color.replace('bg-', 'border-')} pb-2 mb-4`}>
+        <div style={{ pageBreakInside: 'auto' }} className="mb-10">
+            <div className={`flex items-center gap-3 border-b-2 ${branch.color.replace('bg-', 'border-')} pb-2 mb-0`} style={{ pageBreakAfter: 'avoid' }}>
                 <div className={`w-4 h-4 rounded-full ${branch.color} print:border print:border-slate-800`}></div>
                 <h3 className="text-xl md:text-2xl font-serif font-bold text-slate-800 uppercase tracking-wide">{branch.label}</h3>
                 <span className="ml-auto text-sm font-medium bg-slate-100 px-3 py-1 rounded-full text-slate-600 whitespace-nowrap print:bg-transparent print:border print:border-slate-300">{branchMembers.length} Fratelli</span>
             </div>
             
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" style={{ pageBreakInside: 'auto' }}>
                 <table className="w-full text-sm min-w-[600px] print:min-w-0">
                     <thead>
                         <tr className="bg-slate-50 text-slate-500 uppercase text-xs font-semibold tracking-wider text-left border-y border-slate-200 print:bg-transparent print:text-slate-700 print:border-black">
@@ -212,10 +212,21 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
           <h1 className="text-4xl font-serif font-bold mb-2">G.A.D.U.</h1>
           {lodgeName && <h2 className="text-2xl font-bold">{lodgeName} N. {lodgeNumber}</h2>}
           <h3 className="text-xl text-slate-600 mt-2">Piedilista Ufficiale - {viewMode === 'ALL' ? 'Tutti i Rami' : BRANCHES.find(b => b.type === viewMode)?.label}</h3>
-          <p className="text-sm text-slate-400 mt-2">Anno {selectedYear}-{selectedYear+1} - Generato il {new Date().toLocaleDateString('it-IT')}</p>
+          <p className="text-sm text-slate-600 mt-2">Anno {selectedYear}-{selectedYear+1}</p>
       </div>
-      <div className="space-y-4">
-          {viewMode === 'ALL' ? BRANCHES.map(branch => <div key={branch.type}>{renderTable(branch)}</div>) : BRANCHES.filter(b => b.type === viewMode).map(branch => <div key={branch.type}>{renderTable(branch)}</div>)}
+      <div className="space-y-4 print:space-y-0">
+          {viewMode === 'ALL' ? BRANCHES.map((branch, idx) => {
+            const isFirstBranch = idx === 0;
+            return (
+              <div key={branch.type} className={isFirstBranch ? '' : 'print-page-break-before'}>
+                {renderTable(branch)}
+              </div>
+            );
+          }) : BRANCHES.filter(b => b.type === viewMode).map(branch => (
+            <div key={branch.type}>
+              {renderTable(branch)}
+            </div>
+          ))}
       </div>
     </div>
   );

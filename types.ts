@@ -73,6 +73,11 @@ export interface AppSettings {
     markAndArch: 'Irlandese' | 'Aldersgate';
     ram: 'Irlandese' | 'Aldersgate';
   };
+  // Ritual preferences per year (Masonic year start, e.g., 2025 for 2025-2026)
+  yearlyRituals?: Record<number, {
+    craft: 'Emulation' | 'Scozzese';
+    markAndArch: 'Irlandese' | 'Aldersgate';
+  }>;
 }
 
 export interface DashboardStats {

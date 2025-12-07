@@ -91,13 +91,13 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
           <p className="text-sm text-slate-500">A.L. {calculateMasonicYearString(selectedYear)}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-8 print:block print:space-y-8">
-        {BRANCHES.map(branch => {
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-8 print:block print:space-y-0">
+        {BRANCHES.map((branch, idx) => {
           const roles = getRolesForBranch(branch.type);
           
           return (
-            <div key={branch.type} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col break-inside-avoid print:shadow-none print:border print:border-slate-300 print:mb-6">
-              <div className={`${branch.color} text-white p-4 flex items-center gap-3 print:bg-slate-100 print:text-slate-900 print:border-b print:border-slate-300`}>
+            <div key={branch.type} className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col break-inside-avoid print:shadow-none print:border print:border-slate-300 print-branch-container ${idx > 0 ? 'md:mt-0' : ''}`} style={idx > 0 ? { pageBreakBefore: 'always' } : {}}>
+              <div className={`${branch.color} text-white p-4 flex items-center gap-3 print:bg-slate-100 print:text-slate-900 print:border-b print:border-slate-300 print-branch-header`}>
                 <ShieldCheck size={24} />
                 <h3 className="font-serif font-bold text-lg">{branch.label}</h3>
               </div>

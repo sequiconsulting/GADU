@@ -34,21 +34,41 @@
           size: A4 portrait;
           margin: 1cm;
         }
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
         body {
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-          background-color: white;
+          background-color: white !important;
         }
         /* Hide scrollbars in print to prevent ugly bars on PDF */
         ::-webkit-scrollbar {
-          display: none;
+          display: none !important;
         }
         /* Ensure inputs look like text */
         input, select, textarea {
           border: none !important;
           box-shadow: none !important;
           background: transparent !important;
-          appearance: none;
+          appearance: none !important;
+        }
+        /* Override all break settings to allow natural flow */
+        div {
+          page-break-inside: auto !important;
+          page-break-before: auto !important;
+          page-break-after: auto !important;
+        }
+        /* Header should not break from following content */
+        .flex.items-center.gap-3 {
+          page-break-after: avoid !important;
+        }
+        /* Rows should not break */
+        tbody tr {
+          page-break-inside: avoid !important;
+        }
+        /* Force page break for non-first branches */
+        .print-page-break-before {
+          page-break-before: always !important;
         }
       }
     </style>

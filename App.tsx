@@ -72,17 +72,19 @@ const App: React.FC = () => {
   };
 
   const handleAddFutureYear = () => {
-    const maxYear = Math.max(...yearOptions);
-    const newYear = maxYear + 1;
-    setYearOptions(prev => [...prev, newYear]);
-    setSelectedYear(newYear);
+    const nextYear = selectedYear + 1;
+    if (!yearOptions.includes(nextYear)) {
+      setYearOptions(prev => [...prev, nextYear]);
+    }
+    setSelectedYear(nextYear);
   };
 
   const handleAddPastYear = () => {
-    const minYear = Math.min(...yearOptions);
-    const newYear = minYear - 1;
-    setYearOptions(prev => [newYear, ...prev]);
-    setSelectedYear(newYear);
+    const prevYear = selectedYear - 1;
+    if (!yearOptions.includes(prevYear)) {
+      setYearOptions(prev => [prevYear, ...prev]);
+    }
+    setSelectedYear(prevYear);
   };
 
   const handleViewChange = (view: View) => {
@@ -463,7 +465,7 @@ const App: React.FC = () => {
           )}
           {currentView === 'ROLE_ASSIGNMENT' && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento Ruoli...</div>}>
-              <RoleAssignment members={members} selectedYear={selectedYear} onUpdate={loadData}/>
+              <RoleAssignment members={members} selectedYear={selectedYear} onUpdate={loadData} settings={appSettings}/>
             </React.Suspense>
           )}
           {currentView === 'PIEDILISTA' && (

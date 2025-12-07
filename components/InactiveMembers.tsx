@@ -113,7 +113,7 @@ export const InactiveMembers: React.FC<InactiveMembersProps> = ({ members, onMem
       </div>
 
       {/* Print Header */}
-      <div className="hidden print:block text-center mb-10 pt-4">
+      <div className="hidden print:block text-center mb-10 pt-4 print-branch-header">
           <h1 className="text-3xl font-serif font-bold">G.A.D.U.</h1>
           {lodgeName && <h2 className="text-2xl font-bold mt-1">{lodgeName} N. {lodgeNumber}</h2>}
           <h3 className="text-xl mt-2 font-serif text-slate-700">

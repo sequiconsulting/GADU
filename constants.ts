@@ -54,6 +54,18 @@ export const BRANCHES: { type: BranchType; label: string; shortLabel: string; co
   }
 ];
 
+// Ritual types for each branch
+export type CraftRitual = 'Emulation' | 'Scozzese';
+export type MarkArchRitual = 'Irlandese' | 'Aldersgate';
+
+// Ritual labels
+export const RITUAL_LABELS: Record<string, string> = {
+  'Emulation': 'Emulation',
+  'Scozzese': 'Scozzese',
+  'Irlandese': 'Irlandese',
+  'Aldersgate': 'Aldersgate'
+};
+
 // Based on the Irish system, in Italian
 export const COMMON_ROLES: Record<BranchType, string[]> = {
   CRAFT: [
@@ -115,6 +127,68 @@ export const COMMON_ROLES: Record<BranchType, string[]> = {
     'Guardiano',
     'Tegolatore'
   ]
+};
+
+// Ritual-specific roles
+export const CRAFT_ROLES_EMULATION: string[] = COMMON_ROLES.CRAFT;
+
+export const CRAFT_ROLES_SCOTTISH_RITE = [
+  'Venerabile Maestro',
+  'Primo Sorvegliante',
+  'Secondo Sorvegliante',
+  'Oratore',
+  'Segretario',
+  'Tesoriere',
+  'Maestro delle Cerimonie',
+  'Esperto',
+  'Hospitaliere',
+  'Copritore Interno',
+  'Copritore Esterno'
+];
+
+export const MARK_ROLES_ALDERSGATE = [
+  'Venerabile Maestro',
+  'Primo Sorvegliante',
+  'Secondo Sorvegliante',
+  'Oratore',
+  'Segretario',
+  'Tesoriere',
+  'Maestro delle Cerimonie',
+  'Maestro dei Marchi',
+  'Hospitaliere'
+];
+
+export const MARK_ROLES_IRISH = COMMON_ROLES.MARK;
+
+export const ARCH_ROLES_ALDERSGATE = [
+  'Primo Principale',
+  'Secondo Principale',
+  'Terzo Principale',
+  'Scrivano del Capitolo',
+  'Tesoriere',
+  'Maestro delle Cerimonie',
+  'Maestro del Velo',
+  'Sovrintendente dei Lavori',
+  'Hospitaliere'
+];
+
+export const ARCH_ROLES_IRISH = COMMON_ROLES.CHAPTER;
+
+// Function to get roles based on ritual
+export const getRolesForRitual = (branch: BranchType, ritual: string): string[] => {
+  if (branch === 'CRAFT') {
+    return ritual === 'Scozzese' ? CRAFT_ROLES_SCOTTISH_RITE : CRAFT_ROLES_EMULATION;
+  }
+  if (branch === 'MARK') {
+    return ritual === 'Aldersgate' ? MARK_ROLES_ALDERSGATE : MARK_ROLES_IRISH;
+  }
+  if (branch === 'CHAPTER') {
+    return ritual === 'Aldersgate' ? ARCH_ROLES_ALDERSGATE : ARCH_ROLES_IRISH;
+  }
+  if (branch === 'RAM') {
+    return COMMON_ROLES.RAM;
+  }
+  return [];
 };
 
 export const EVENT_STATUS_ACTIVE = 'Riattivazione / Inizio Attività';
