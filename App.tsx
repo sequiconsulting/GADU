@@ -3,6 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings } from 'lucide-react';
 import { Member, AppSettings } from './types';
 import { dataService } from './services/dataService';
+// TODO: Auth0 integration - uncomment when ready
+// import { useAuth0 } from '@auth0/auth0-react';
+// import { canWriteToBranch, getWritableBranches } from './utils/permissions';
+// import LoginPage from './components/LoginPage';
 const MemberDetail = React.lazy(() => import('./components/MemberDetail').then(m => ({ default: m.MemberDetail })));
 const RolesReport = React.lazy(() => import('./components/RolesReport').then(m => ({ default: m.RolesReport })));
 const RoleAssignment = React.lazy(() => import('./components/RoleAssignment').then(m => ({ default: m.RoleAssignment })));
@@ -15,6 +19,11 @@ import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation }
 type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN' | 'LEGEND';
 
 const App: React.FC = () => {
+  // TODO: Auth0 integration - uncomment when ready
+  // const { isAuthenticated, isLoading } = useAuth0();
+  // if (isLoading) return <LoadingScreen />;
+  // if (!isAuthenticated) return <LoginPage />;
+
   const [currentView, setCurrentView] = useState<View>('DASHBOARD');
   const [returnView, setReturnView] = useState<View>('MEMBERS');
   const [members, setMembers] = useState<Member[]>([]);

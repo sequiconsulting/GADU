@@ -2,7 +2,22 @@
 export type BranchType = 'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM';
 export type StatusType = 'ACTIVE' | 'INACTIVE';
 
-export interface ChangeLogEntry {
+// Auth0 User Roles
+export type UserRole = 
+  | 'admin_global' 
+  | 'admin_craft' 
+  | 'admin_mark_arch' 
+  | 'admin_ram';
+
+export interface Auth0User {
+  sub: string; // Auth0 unique ID
+  email: string;
+  name?: string;
+  picture?: string;
+  'https://gadu.com/roles'?: UserRole[]; // Custom claim with user roles
+}
+
+export interface DegreeEvent {
   timestamp: string; // ISO 8601 UTC timestamp
   description: string;
 }

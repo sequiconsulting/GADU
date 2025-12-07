@@ -200,10 +200,36 @@ All UI labels and degree/role names in Italian (e.g., "Maestro Venerabile", "App
 - **Pattern**: Year-based ritual configuration with role deletion on change; ritual displayed in organigramma section headers
 - **UI Convention**: Ritual selector button locked by default (`<Lock>` icon); click "Modifica Rituale" to unlock (`<Unlock>` icon); confirmation modal warns of role deletion
 
-### Authentication (Planned: Auth0)
-- **Status**: Not yet integrated; currently zero authentication
-- **Plan**: Wrap app with `Auth0Provider`, add `LoginPage` component, guard views behind `isAuthenticated` check, implement role-based access control (admin/editor/viewer)
-- **Note**: Logout button in sidebar (line 253 of `App.tsx`) is non-functional stub awaiting Auth0 implementation
+### Authentication (Prepared: Auth0 - Not Yet Active)
+
+**Status**: Infrastructure prepared but NOT implemented. App currently has zero authentication.
+
+**Prepared Components & Files:**
+- **`types.ts`**: `UserRole` type and `Auth0User` interface with custom claims support
+- **`utils/permissions.ts`**: Complete permission checking system with these functions:
+  - `canWriteToBranch(user, branch)` - Check write access per branch
+  - `getWritableBranches(user)` - Get list of branches user can modify
+  - `canModifyMember()`, `canCreateMember()`, `canDeleteMember()` - Member-level controls
+  - `canModifyAdminSettings()`, `canChangeRitual()` - Admin-only operations
+- **`contexts/AuthContext.tsx`**: Placeholder context for Auth0 (not active)
+- **`components/LoginPage.tsx`**: Pre-built login UI component (not active)
+- **`App.tsx`**: TODO comments showing where Auth0 guard will be added (lines 21-24)
+
+**User Roles** (stored in Auth0 custom claim `https://gadu.com/roles`):
+- **`admin_global`** - Full read/write to all branches
+- **`admin_craft`** - Read all, write only Craft branch
+- **`admin_mark_arch`** - Read all, write Mark & Chapter branches
+- **`admin_ram`** - Read all, write only RAM branch
+- Users can have multiple roles; permission functions handle union of capabilities
+
+**To Activate Auth0** (future step):
+1. Install `@auth0/auth0-react`: `npm install @auth0/auth0-react`
+2. Create `.env.local` with: `VITE_AUTH0_DOMAIN`, `VITE_AUTH0_CLIENT_ID`, `VITE_AUTH0_REDIRECT_URI`
+3. Replace `AuthContext.tsx` placeholder with actual Auth0Provider
+4. Uncomment imports and guard in `App.tsx` lines 5-7 and 21-24
+5. Update Firestore rules to validate Auth0 tokens
+6. Use `canWriteToBranch(user, branch)` in MemberDetail, RoleAssignment, etc. to gate write operations
+7. Test role-based access in each workflow
 
 ## Testing & Debugging
 
@@ -213,3 +239,4 @@ All UI labels and degree/role names in Italian (e.g., "Maestro Venerabile", "App
 - **Firestore Rules**: `firestore.rules` file present; ensure read/write rules match authentication model
 - **Build validation**: TypeScript strict mode catches type errors; run `npm run build` to verify before deploy
 - **Print preview**: Use browser print preview (Ctrl+P) to verify Piedilista and RolesReport layouts before official printing
+- **Auth0 permissions**: Test `utils/permissions.ts` functions with mock users in each role; verify write restrictions enforce correctly
