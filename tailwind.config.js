@@ -7,6 +7,14 @@ export default {
     './utils/**/*.ts',
     './services/**/*.ts'
   ],
+  safelist: [
+    'bg-masonic-blue',
+    'bg-masonic-red',
+    'bg-masonic-mark',
+    'bg-masonic-ram',
+    'bg-masonic-gold',
+    'bg-masonic-dark',
+  ],
   theme: {
     extend: {
       fontFamily: {

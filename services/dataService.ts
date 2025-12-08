@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.63'; // Completed Tailwind CSS migration: local build, optimized content paths, no CDN warnings
+  public APP_VERSION = '0.64'; // Fixed missing colored indicators: added safelist for dynamic masonic color classes in Tailwind
   public DB_VERSION = 2;
   private app: any = null;
   private db: any = null;
