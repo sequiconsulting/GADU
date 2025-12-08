@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.62'; // Migrated from CDN Tailwind to local build, fixed PostCSS ES modules
+  public APP_VERSION = '0.63'; // Completed Tailwind CSS migration: local build, optimized content paths, no CDN warnings
   public DB_VERSION = 2;
   private app: any = null;
   private db: any = null;
