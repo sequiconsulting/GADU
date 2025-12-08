@@ -4,7 +4,7 @@ import { Member, BranchType, StatusType } from '../types';
 import { BRANCHES, DEGREES, isMemberActiveInYear, calculateMasonicYearString, STATUS_REASONS } from '../constants';
 import { HistoryEditor } from './HistoryEditor';
 import { RoleEditor } from './RoleEditor';
-import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, Link2, X } from 'lucide-react';
+import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, X } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 const PROFILE = 'PROFILE';
@@ -78,7 +78,17 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
       }
     });
 
-    // 4. Check that active members have at least one degree in that branch
+    // 4. For non-Craft branches, if not Mother Lodge member, loggia name is required
+    (['mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+      const branchData = mem[branchKey];
+      if (branchData.isMotherLodgeMember === false && (!branchData.otherLodgeName || branchData.otherLodgeName.trim() === '')) {
+        const branchLabel = { mark: 'Mark', chapter: 'Chapter', ram: 'RAM' }[branchKey];
+        setError(`Nel ramo ${branchLabel}: se non è membro della Loggia Madre, è obbligatorio specificare il nome della loggia di provenienza.`);
+        throw new Error('missing-lodge-name');
+      }
+    });
+
+    // 5. Check that active members have at least one degree in that branch
     (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
       const branchData = mem[branchKey];
       const isActive = isMemberActiveInYear(branchData, defaultYear);
@@ -234,45 +244,32 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
      setStatusReason('');
   };
 
-  const handleMotherLodgeChange = (branch: BranchType, isMotherLodge: boolean) => {
+  const handleProvenanceChange = (branch: BranchType, provenance: 'mother' | 'dual' | 'other') => {
     if (!member) return;
     const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
 
-    // Create a copy of member
     const updatedMember = { ...member };
 
-    // 1. Update the specific branch provenance and enforce mutual exclusivity
-    updatedMember[branchKey] = { 
-      ...updatedMember[branchKey], 
-      isMotherLodgeMember: isMotherLodge,
-      isDualAppartenance: isMotherLodge ? false : updatedMember[branchKey].isDualAppartenance // Clear dual if setting mother lodge
-    };
-
-    // 2. Rule: If NOT mother lodge member -> Automaticaly deactivate Craft (Add INACTIVE event)
-    if (!isMotherLodge) {
-        const craftKey = 'craft';
-        const craftData = updatedMember[craftKey];
-        // Check if already inactive to avoid duplicate events
-        const isAlreadyInactive = !isMemberActiveInYear(craftData, defaultYear);
-        if (!isAlreadyInactive) {
-             craftData.statusEvents.push({ date: new Date().toISOString().split('T')[0], status: 'INACTIVE', note: 'Auto-disattivazione per cambio Loggia Madre' });
-        }
+    if (provenance === 'mother') {
+      updatedMember[branchKey] = { 
+        ...updatedMember[branchKey], 
+        isMotherLodgeMember: true,
+        isDualAppartenance: false
+      };
+    } else if (provenance === 'dual') {
+      updatedMember[branchKey] = { 
+        ...updatedMember[branchKey], 
+        isMotherLodgeMember: false,
+        isDualAppartenance: true
+      };
+    } else if (provenance === 'other') {
+      // Membro effettivo da altra loggia: no mother lodge, no dual membership
+      updatedMember[branchKey] = { 
+        ...updatedMember[branchKey], 
+        isMotherLodgeMember: false,
+        isDualAppartenance: false
+      };
     }
-
-    setMember(updatedMember);
-  };
-
-  const handleDualAppartenanceChange = (branch: BranchType, isDual: boolean) => {
-    if (!member) return;
-    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
-
-    const updatedMember = { ...member };
-    // Enforce mutual exclusivity: if setting dual to true, clear mother lodge flag
-    updatedMember[branchKey] = { 
-      ...updatedMember[branchKey], 
-      isDualAppartenance: isDual,
-      isMotherLodgeMember: isDual ? false : updatedMember[branchKey].isMotherLodgeMember
-    };
 
     setMember(updatedMember);
   };
@@ -481,19 +478,19 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                             <Star size={13} className="text-amber-500 fill-amber-500"/>
                                             <span className="text-xs text-slate-700 font-medium">Onorario</span>
                                         </label>
-                                        <label className="flex items-center gap-1.5 p-1.5 bg-blue-50 border border-blue-200 rounded cursor-pointer hover:bg-blue-100/50">
-                                            <input type="checkbox" checked={branchData.isDualAppartenance || false} onChange={(e) => handleDualAppartenanceChange(branch.type, e.target.checked)} className="w-3 h-3 shrink-0" />
-                                            <Link2 size={13} className="text-blue-600"/>
-                                            <span className="text-xs text-slate-700 font-medium">Doppia App.</span>
-                                        </label>
                                         <label className="flex items-center gap-1.5 p-1.5 bg-stone-50 border border-stone-300 rounded cursor-pointer hover:bg-stone-100/50">
-                                          <input type="checkbox" checked={branchData.isMotherLodgeMember ?? true} onChange={(e) => handleMotherLodgeChange(branch.type, e.target.checked)} className="w-3 h-3 shrink-0" />
+                                          <input type="checkbox" checked={branchData.isMotherLodgeMember ?? true} onChange={(e) => handleProvenanceChange(branch.type, e.target.checked ? 'mother' : 'other')} className="w-3 h-3 shrink-0" />
                                           <Landmark size={13} className="text-stone-700"/>
                                           <span className="text-xs text-slate-700 font-medium">Loggia Madre</span>
                                         </label>
-                                        <div className={`flex items-center gap-1.5 p-1.5 ${branchData.isMotherLodgeMember !== false ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+                                        <label className="flex items-center gap-1.5 p-1.5 bg-blue-50 border border-blue-200 rounded cursor-pointer hover:bg-blue-100/50">
+                                            <input type="checkbox" checked={branchData.isDualAppartenance || false} onChange={(e) => handleProvenanceChange(branch.type, e.target.checked ? 'dual' : 'mother')} className="w-3 h-3 shrink-0" />
+                                            <Users size={13} className="text-blue-600"/>
+                                            <span className="text-xs text-slate-700 font-medium">Doppia App.</span>
+                                        </label>
+                                        <div className={`flex items-center gap-1.5 p-1.5 ${branchData.isMotherLodgeMember === false ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
                                           <label className="text-xs font-medium text-slate-700 whitespace-nowrap">Loggia:</label>
-                                          <input type="text" placeholder="Nome" value={branchData.otherLodgeName || ''} onChange={e => updateBranchData(branch.type, { otherLodgeName: e.target.value })} className="border border-slate-300 rounded px-2 py-1 w-32 text-xs" disabled={branchData.isMotherLodgeMember !== false} />
+                                          <input type="text" placeholder="Nome" value={branchData.otherLodgeName || ''} onChange={e => updateBranchData(branch.type, { otherLodgeName: e.target.value })} className="border border-slate-300 rounded px-2 py-1 w-32 text-xs" disabled={branchData.isMotherLodgeMember === true} />
                                         </div>
                                     </div>
                                 </div>
