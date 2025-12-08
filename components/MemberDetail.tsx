@@ -440,7 +440,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                         </label>
                                         <label className="flex items-center gap-1.5 p-1.5 bg-amber-50 border border-amber-200 rounded cursor-pointer hover:bg-amber-100/50">
                                             <input type="checkbox" checked={branchData.isHonorary || false} onChange={(e) => updateBranchData(branch.type, { isHonorary: e.target.checked })} className="w-3 h-3 shrink-0" />
-                                            <Star size={13} className="text-amber-600"/>
+                                            <Star size={13} className="text-amber-500 fill-amber-500"/>
                                             <span className="text-xs text-slate-700 font-medium">Onorario</span>
                                         </label>
                                         <label className="flex items-center gap-1.5 p-1.5 bg-blue-50 border border-blue-200 rounded cursor-pointer hover:bg-blue-100/50">

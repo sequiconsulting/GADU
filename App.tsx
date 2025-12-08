@@ -14,6 +14,7 @@ const Piedilista = React.lazy(() => import('./components/Piedilista').then(m => 
 const InactiveMembers = React.lazy(() => import('./components/InactiveMembers').then(m => ({ default: m.InactiveMembers })));
 const AdminPanel = React.lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const Legend = React.lazy(() => import('./components/Legend').then(m => ({ default: m.Legend })));
+const RelazioneAnnuale = React.lazy(() => import('./components/RelazioneAnnuale').then(m => ({ default: m.RelazioneAnnuale })));
 import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation } from './constants';
 
 type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE';
@@ -544,11 +545,9 @@ const App: React.FC = () => {
             </div>
           )}
           {currentView === 'RELAZIONE_ANNUALE' && (
-            <div className="text-center py-12">
-              <ClipboardList size={48} className="mx-auto text-slate-300 mb-4" />
-              <h3 className="text-xl font-semibold text-slate-600">Relazione Annuale</h3>
-              <p className="text-slate-500 mt-2">Sezione in sviluppo</p>
-            </div>
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento relazione...</div>}>
+              <RelazioneAnnuale members={members} selectedYear={selectedYear} settings={appSettings} />
+            </React.Suspense>
           )}
         </div>
       </main>
