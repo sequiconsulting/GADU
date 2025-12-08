@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.51'; // Fixed activeBranch → activeTab in AdminPanel
+  public APP_VERSION = '0.57'; // Fixed status change confirmation check for pendingStatusChange
   public DB_VERSION = 2;
   private app: any = null;
   private db: any = null;
@@ -172,12 +172,53 @@ class DataService {
       city: '',
       email: '',
       phone: '',
-      craft: { ...createBranchData(), statusEvents: [{ date: new Date().toISOString().split('T')[0], status: 'ACTIVE', note: 'Iniziazione' }] }, 
+      craft: createBranchData(),
       mark: createBranchData(),
       chapter: createBranchData(),
       ram: createBranchData(),
       changelog: []
     };
+  }
+
+  validateAndCleanAllMembers(members: Member[]): { cleaned: Member[]; report: string } {
+    const report: string[] = [];
+    let totalCleaned = 0;
+
+    const cleaned = members.map(member => {
+      const cleaned = { ...member };
+      
+      // Pulisci status events per ogni branch
+      (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+        const branch = cleaned[branchKey];
+        if (!branch || !branch.statusEvents) return;
+
+        const originalCount = branch.statusEvents.length;
+        
+        // Rimuovi eventi duplicati consecutivi (stesso status e data)
+        const deduped: typeof branch.statusEvents = [];
+        branch.statusEvents.forEach((event, idx) => {
+          const prev = deduped[deduped.length - 1];
+          if (!prev || prev.status !== event.status || prev.date !== event.date) {
+            deduped.push(event);
+          }
+        });
+
+        // Ordina per data
+        deduped.sort((a, b) => a.date.localeCompare(b.date));
+
+        if (deduped.length !== originalCount) {
+          report.push(`${member.lastName} ${member.firstName} - ${branchKey}: Rimossi ${originalCount - deduped.length} eventi duplicati`);
+          totalCleaned += originalCount - deduped.length;
+        }
+
+        branch.statusEvents = deduped;
+      });
+
+      return cleaned;
+    });
+
+    report.push(`\n=== TOTALE ===\nEventi duplicati rimossi: ${totalCleaned}`);
+    return { cleaned, report: report.join('\n') };
   }
 
   exportToExcel(data: any[], filename: string) {

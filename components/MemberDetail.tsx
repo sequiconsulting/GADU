@@ -75,6 +75,19 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
       }
     });
 
+    // 4. Check that active members have at least one degree in that branch
+    (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+      const branchData = mem[branchKey];
+      const isActive = isMemberActiveInYear(branchData, defaultYear);
+      const hasDegrees = branchData.degrees && branchData.degrees.length > 0;
+      
+      if (isActive && !hasDegrees) {
+        const branchLabel = { craft: 'Craft', mark: 'Mark', chapter: 'Chapter', ram: 'RAM' }[branchKey];
+        setError(`Non è possibile salvare un membro attivo nel ramo ${branchLabel} senza almeno un grado massonico. Aggiungi un grado prima di salvare.`);
+        throw new Error('no-degrees-while-active');
+      }
+    });
+
     return true;
   };
 
@@ -431,8 +444,11 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                              <div className="flex items-start gap-3 flex-1">
                                 <div className={`w-3 h-3 rounded-full ${branch.color} shrink-0 mt-1`}></div>
                                 <div className="w-full">
-                                    <h2 className="text-xl font-serif font-bold text-slate-800 leading-none mb-3">Scheda {branch.label}</h2>
-                                    <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="flex items-baseline gap-2 flex-wrap">
+                                        <h2 className="text-xl font-serif font-bold text-slate-800 leading-none">Scheda {branch.label}</h2>
+                                        <span className="text-xs text-slate-500 font-sans">Anno {defaultYear}-{defaultYear + 1} - A.L. {calculateMasonicYearString(defaultYear)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-wrap mt-2">
                                         <label className="flex items-center gap-1.5 p-1.5 bg-yellow-50 border border-yellow-200 rounded cursor-pointer hover:bg-yellow-100/50">
                                             <input type="checkbox" checked={branchData.isFounder || false} onChange={(e) => updateBranchData(branch.type, { isFounder: e.target.checked })} className="w-3 h-3 shrink-0" />
                                             <Crown size={13} className="text-yellow-600"/>
@@ -462,7 +478,6 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                           </>
                                         )}
                                     </div>
-                                    <span className="text-xs text-slate-500 font-sans mt-3 block">Riferimento: Anno {defaultYear}-{defaultYear + 1} - A.L. {calculateMasonicYearString(defaultYear)}</span>
                                 </div>
                              </div>
 
@@ -632,7 +647,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
               </button>
               <button
                 onClick={() => {
-                  if (statusReason) {
+                  if (statusReason && pendingStatusChange) {
                     handleStatusChange(pendingStatusChange.branch, pendingStatusChange.isActivation ? 'ACTIVE' : 'INACTIVE');
                   }
                 }}
