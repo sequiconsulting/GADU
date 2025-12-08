@@ -44,6 +44,7 @@ export interface StatusEvent {
   status: StatusType;
   reason?: string; // Reason for activation/deactivation (e.g., 'Iniziazione', 'Dimissioni')
   note?: string;
+  lodge?: string; // Lodge name for transfers (Trasferimento Italia/Estero)
 }
 
 export interface MasonicBranchData {

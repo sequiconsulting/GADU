@@ -4,7 +4,7 @@ import { Member, BranchType, StatusType } from '../types';
 import { BRANCHES, DEGREES, isMemberActiveInYear, calculateMasonicYearString, STATUS_REASONS } from '../constants';
 import { HistoryEditor } from './HistoryEditor';
 import { RoleEditor } from './RoleEditor';
-import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, X } from 'lucide-react';
+import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, X, Trash2 } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 const PROFILE = 'PROFILE';
@@ -28,7 +28,11 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   const [changingStatusFor, setChangingStatusFor] = useState<BranchType | null>(null);
   const [statusDate, setStatusDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [statusReason, setStatusReason] = useState<string>('');
+  const [statusLodge, setStatusLodge] = useState<string>('');
   const [pendingStatusChange, setPendingStatusChange] = useState<{branch: BranchType, isActivation: boolean} | null>(null);
+  
+  // State for delete confirmation
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{branch: BranchType, eventIndex: number} | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -220,8 +224,11 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
      const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
      const currentData = member[branchKey];
 
-     // Add status event with reason
-     const newEvent = { date: statusDate, status: newStatus, reason: statusReason };
+     // Add status event with reason and lodge (if applicable)
+     const newEvent: any = { date: statusDate, status: newStatus, reason: statusReason };
+     if (statusLodge && (statusReason === 'Trasferimento Italia' || statusReason === 'Trasferimento Estero')) {
+       newEvent.lodge = statusLodge;
+     }
      const updatedEvents = [...currentData.statusEvents, newEvent];
 
      let updatedRoles = currentData.roles;
@@ -242,6 +249,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
      setChangingStatusFor(null);
      setPendingStatusChange(null);
      setStatusReason('');
+     setStatusLodge('');
   };
 
   const handleProvenanceChange = (branch: BranchType, provenance: 'mother' | 'dual' | 'other') => {
@@ -272,6 +280,24 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
     }
 
     setMember(updatedMember);
+  };
+
+  const handleDeleteStatusEvent = (branch: BranchType, eventIndex: number) => {
+    if (!member) return;
+    
+    // Se non c'è già una conferma attiva, mostra il prompt
+    if (!deleteConfirmation || deleteConfirmation.branch !== branch || deleteConfirmation.eventIndex !== eventIndex) {
+      setDeleteConfirmation({ branch, eventIndex });
+      return;
+    }
+    
+    // Conferma ricevuta, procedi con la cancellazione
+    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+    const currentData = member[branchKey];
+    
+    const updatedEvents = currentData.statusEvents.filter((_, idx) => idx !== eventIndex);
+    updateBranchData(branch, { statusEvents: updatedEvents });
+    setDeleteConfirmation(null);
   };
 
   const activateCraft = () => {
@@ -521,6 +547,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                         setPendingStatusChange({branch: branch.type, isActivation: !isActiveCurrentYear});
                                         setStatusDate(new Date().toISOString().split('T')[0]);
                                         setStatusReason('');
+                                        setStatusLodge('');
                                     }}
                                     className="text-xs border border-slate-300 px-2 py-1 rounded hover:bg-white transition-colors"
                                 >
@@ -553,9 +580,111 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                           </>
                         )}
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div><HistoryEditor branchColor={branch.color} degrees={branchData.degrees} degreeOptions={DEGREES[branch.type]} onChange={(degrees) => updateBranchData(branch.type, { degrees })} onValidate={(deg) => validateDegreePrerequisites(branch.type, deg)} /></div>
-                            <div><RoleEditor branchColor={branch.color} branch={branch.type} roles={branchData.roles} onChange={(roles) => updateBranchData(branch.type, { roles })} defaultYear={defaultYear} /></div>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* Carriera Massonica */}
+                            <div className="flex flex-col">
+                              <h3 className="text-base font-semibold text-slate-800 mb-3 pb-2 border-b border-slate-200">Carriera Massonica</h3>
+                              <HistoryEditor branchColor={branch.color} degrees={branchData.degrees} degreeOptions={DEGREES[branch.type]} onChange={(degrees) => updateBranchData(branch.type, { degrees })} onValidate={(deg) => validateDegreePrerequisites(branch.type, deg)} />
+                            </div>
+
+                            {/* Ruoli e Incarichi */}
+                            <div className="flex flex-col">
+                              <h3 className="text-base font-semibold text-slate-800 mb-3 pb-2 border-b border-slate-200">Ruoli e Incarichi</h3>
+                              <RoleEditor branchColor={branch.color} branch={branch.type} roles={branchData.roles} onChange={(roles) => updateBranchData(branch.type, { roles })} defaultYear={defaultYear} />
+                            </div>
+
+                            {/* Attivazioni/Disattivazioni */}
+                            <div className="flex flex-col">
+                              <h3 className="text-base font-semibold text-slate-800 mb-3 pb-2 border-b border-slate-200">Attivazioni/Disattivazioni</h3>
+                              <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 overflow-x-auto">
+                                <table className="w-full text-xs border border-slate-200 rounded table-fixed">
+                                  <colgroup>
+                                    <col style={{width: '65px'}} />
+                                    <col style={{width: '65px'}} />
+                                    <col style={{width: '80px'}} />
+                                    <col style={{width: '50px'}} />
+                                  </colgroup>
+                                  <thead className="bg-slate-100">
+                                    <tr>
+                                      <th className="text-left px-1.5 py-1.5 font-semibold text-slate-700">Data</th>
+                                      <th className="text-left px-1.5 py-1.5 font-semibold text-slate-700">Stato</th>
+                                      <th className="text-left px-1.5 py-1.5 font-semibold text-slate-700">Motivo</th>
+                                      <th className="text-center px-1 py-1.5"></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {[...branchData.statusEvents]
+                                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                                      .map((event, idx) => {
+                                        const originalIdx = branchData.statusEvents.findIndex(e => e === event);
+                                        const [year, month, day] = event.date.split('-');
+                                        const formattedDate = `${day}/${month}/${year}`;
+                                        const isConfirming = deleteConfirmation?.branch === branch.type && deleteConfirmation?.eventIndex === originalIdx;
+                                        return (
+                                          <React.Fragment key={originalIdx}>
+                                            <tr className="border-t border-slate-200 hover:bg-slate-50">
+                                              <td className="px-1.5 py-1.5 text-slate-600 whitespace-nowrap align-top text-[11px]">{formattedDate}</td>
+                                              <td className="px-1.5 py-1.5 align-top">
+                                                <span className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium ${event.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                  {event.status === 'ACTIVE' ? <CheckCircle2 size={9} /> : <AlertCircle size={9} />}
+                                                  {event.status === 'ACTIVE' ? 'Att.' : 'Inatt.'}
+                                                </span>
+                                              </td>
+                                              <td className="px-1.5 py-1.5 text-slate-700 align-top text-[11px]">
+                                                {event.reason || '—'}
+                                              </td>
+                                              <td className="px-1 py-1.5 text-center align-top">
+                                                {isConfirming ? (
+                                                  <div className="flex flex-col gap-0.5">
+                                                    <div className="text-[9px] text-slate-600 font-semibold">Sicuro?</div>
+                                                    <div className="flex gap-0.5 justify-center">
+                                                      <button
+                                                        onClick={() => handleDeleteStatusEvent(branch.type, originalIdx)}
+                                                        className="bg-red-500 hover:bg-red-600 text-white px-1.5 py-0.5 rounded text-[9px] font-medium"
+                                                      >
+                                                        Sì
+                                                      </button>
+                                                      <button
+                                                        onClick={() => setDeleteConfirmation(null)}
+                                                        className="bg-slate-300 hover:bg-slate-400 text-slate-700 px-1.5 py-0.5 rounded text-[9px] font-medium"
+                                                      >
+                                                        No
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                ) : (
+                                                  <button
+                                                    onClick={() => handleDeleteStatusEvent(branch.type, originalIdx)}
+                                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 p-0.5 rounded transition-colors"
+                                                    title="Elimina evento"
+                                                  >
+                                                    <Trash2 size={13} />
+                                                  </button>
+                                                )}
+                                              </td>
+                                            </tr>
+                                            {event.lodge && (
+                                              <tr className="border-t border-slate-100">
+                                                <td colSpan={4} className="px-1.5 py-1 text-right text-[10px] text-slate-500 bg-slate-50">
+                                                  <Landmark size={9} className="inline mr-1" />
+                                                  {event.lodge}
+                                                </td>
+                                              </tr>
+                                            )}
+                                          </React.Fragment>
+                                        );
+                                      })}
+                                    {branchData.statusEvents.length === 0 && (
+                                      <tr>
+                                        <td colSpan={4} className="px-2 py-4 text-center text-slate-400 text-xs">
+                                          Nessun evento registrato
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
                         </div>
                     </div>
                 )
@@ -576,6 +705,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                   setPendingStatusChange(null);
                   setChangingStatusFor(null);
                   setStatusReason('');
+                  setStatusLodge('');
                 }}
                 className="text-slate-400 hover:text-slate-600"
               >
@@ -638,7 +768,13 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                 </label>
                 <select
                   value={statusReason}
-                  onChange={(e) => setStatusReason(e.target.value)}
+                  onChange={(e) => {
+                    setStatusReason(e.target.value);
+                    // Clear lodge if not a transfer
+                    if (e.target.value !== 'Trasferimento Italia' && e.target.value !== 'Trasferimento Estero') {
+                      setStatusLodge('');
+                    }
+                  }}
                   className="w-full border border-slate-300 rounded p-2.5 text-sm focus:border-masonic-gold focus:outline-none"
                 >
                   <option value="">Seleziona un motivo...</option>
@@ -647,6 +783,22 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                   ))}
                 </select>
               </div>
+
+              {/* Lodge field for transfers */}
+              {(statusReason === 'Trasferimento Italia' || statusReason === 'Trasferimento Estero') && (
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">
+                    Loggia {pendingStatusChange.isActivation ? 'di provenienza' : 'di destinazione'} <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={statusLodge}
+                    onChange={(e) => setStatusLodge(e.target.value)}
+                    placeholder="Nome della loggia"
+                    className="w-full border border-slate-300 rounded p-2.5 text-sm focus:border-masonic-gold focus:outline-none"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 p-6 border-t border-slate-200 bg-slate-50">
@@ -655,6 +807,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                   setPendingStatusChange(null);
                   setChangingStatusFor(null);
                   setStatusReason('');
+                  setStatusLodge('');
                 }}
                 className="flex-1 px-4 py-2 text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors font-medium"
               >
@@ -663,10 +816,15 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
               <button
                 onClick={() => {
                   if (statusReason && pendingStatusChange) {
+                    // Check if lodge is required and filled
+                    const isTransfer = statusReason === 'Trasferimento Italia' || statusReason === 'Trasferimento Estero';
+                    if (isTransfer && !statusLodge.trim()) {
+                      return; // Don't proceed if lodge is required but empty
+                    }
                     handleStatusChange(pendingStatusChange.branch, pendingStatusChange.isActivation ? 'ACTIVE' : 'INACTIVE');
                   }
                 }}
-                disabled={!statusReason}
+                disabled={!statusReason || ((statusReason === 'Trasferimento Italia' || statusReason === 'Trasferimento Estero') && !statusLodge.trim())}
                 className="flex-1 px-4 py-2 bg-masonic-gold hover:bg-yellow-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
               >
                 Conferma

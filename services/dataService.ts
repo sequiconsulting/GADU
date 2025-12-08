@@ -14,8 +14,8 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.69'; // Added support for members from other lodges: checkbox-based provenance selection (Mother Lodge/Dual/Other) with mandatory lodge name validation for non-Craft branches
-  public DB_VERSION = 2;
+  public APP_VERSION = '0.80'; // Compacted all status events table columns horizontally for better trash icon visibility
+  public DB_VERSION = 3;
   private app: any = null;
   private db: any = null;
   private membersCollection: any = null;

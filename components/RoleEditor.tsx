@@ -29,12 +29,7 @@ export const RoleEditor: React.FC<RoleEditorProps> = ({ roles, branch, onChange,
   const sortedRoles = [...roles].sort((a, b) => b.yearStart - a.yearStart);
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 mt-4">
-      <div className="flex items-center gap-2 mb-3">
-        <ShieldCheck className={`w-5 h-5 ${branchColor.replace('bg-', 'text-')}`} />
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Ruoli e Incarichi</h3>
-      </div>
-      
+    <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200">
       {sortedRoles.length === 0 ? (
         <p className="text-xs text-slate-400 italic">Nessun incarico assegnato.</p>
       ) : (

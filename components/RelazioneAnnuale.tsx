@@ -301,7 +301,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
                   <td className="px-3 py-2">{row.member.firstName}</td>
                   {showDegree && <td className="px-3 py-2">{getLatestDegree(row.branchData, activeBranch)}</td>}
                   {showOrigin && (
-                    <td className="px-3 py-2">{row.branchData.otherLodgeName || '—'}</td>
+                    <td className="px-3 py-2">{row.event.lodge || row.branchData.otherLodgeName || '—'}</td>
                   )}
                   <td className="px-3 py-2 whitespace-nowrap">{formatDate(row.event.date)}</td>
                   <td className="px-3 py-2">{row.event.reason || '—'}</td>
