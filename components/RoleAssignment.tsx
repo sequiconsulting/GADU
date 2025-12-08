@@ -117,11 +117,15 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
 
   const branchConfig = BRANCHES.find(b => b.type === activeBranch);
   
-  // Filter members: Must be active in the specific year to hold office
+  // Filter members: Must be active in the specific year to hold office AND have at least one degree in that branch
   const eligibleMembers = members
     .filter(m => {
+        const branchLower = activeBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+        const branchData = m[branchLower];
         // @ts-ignore
-        return isMemberActiveInYear(m[activeBranch.toLowerCase()], selectedYear);
+        const isActive = isMemberActiveInYear(branchData, selectedYear);
+        const hasDegree = branchData.degrees && branchData.degrees.length > 0;
+        return isActive && hasDegree;
     })
     .sort((a, b) => a.lastName.localeCompare(b.lastName));
 
