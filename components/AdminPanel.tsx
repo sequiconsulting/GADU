@@ -1,15 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
-import { AppSettings } from '../types';
+import { AppSettings, BranchType } from '../types';
 import { Save, Settings } from 'lucide-react';
-import { ITALIAN_PROVINCES } from '../constants';
+import { ITALIAN_PROVINCES, BRANCHES } from '../constants';
 
 interface AdminPanelProps {
   currentSettings: AppSettings;
   onSave: (settings: AppSettings) => void;
 }
 
-type Tab = 'CRAFT' | 'MARK_ARCH' | 'RAM';
+type Tab = 'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM';
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave }) => {
   const [settings, setSettings] = useState<AppSettings>(currentSettings);
@@ -42,70 +42,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
 
   const renderPreferences = () => {
     return (
-        <div>
-            <div className="mb-4 border-b border-gray-200">
-                <ul className="flex flex-wrap -mb-px text-sm font-medium text-center">
-                    <li className="mr-2">
-                        <button onClick={() => setActiveTab('CRAFT')} className={`inline-block p-4 rounded-t-lg border-b-2 ${activeTab === 'CRAFT' ? 'text-masonic-gold border-masonic-gold' : 'hover:text-gray-600 hover:border-gray-300'}`}>
-                            Craft
-                        </button>
-                    </li>
-                    <li className="mr-2">
-                        <button onClick={() => setActiveTab('MARK_ARCH')} className={`inline-block p-4 rounded-t-lg border-b-2 ${activeTab === 'MARK_ARCH' ? 'text-masonic-gold border-masonic-gold' : 'hover:text-gray-600 hover:border-gray-300'}`}>
-                            Mark & Arch
-                        </button>
-                    </li>
-                    <li className="mr-2">
-                        <button onClick={() => setActiveTab('RAM')} className={`inline-block p-4 rounded-t-lg border-b-2 ${activeTab === 'RAM' ? 'text-masonic-gold border-masonic-gold' : 'hover:text-gray-600 hover:border-gray-300'}`}>
-                            RAM
-                        </button>
-                    </li>
-                </ul>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-lg">
-                {activeTab === 'CRAFT' && (
-                    <div>
-                        <label className="block text-sm font-medium text-slate-600 mb-1">Rito</label>
-                        <select
-                            value={settings.preferences?.craft || 'Emulation'}
-                            onChange={(e) => handlePreferenceChange('craft', e.target.value)}
-                            className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold bg-white"
-                        >
-                            <option value="Emulation">Emulation</option>
-                            <option value="Giustinianeo">Giustinianeo</option>
-                        </select>
-                    </div>
-                )}
-                {activeTab === 'MARK_ARCH' && (
-                    <div>
-                        <label className="block text-sm font-medium text-slate-600 mb-1">Rito</label>
-                        <select
-                            value={settings.preferences?.markAndArch || 'Irlandese'}
-                            onChange={(e) => handlePreferenceChange('markAndArch', e.target.value)}
-                            className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold bg-white"
-                        >
-                            <option value="Irlandese">Irlandese</option>
-                            <option value="Aldersgate">Aldersgate</option>
-                        </select>
-                    </div>
-                )}
-                {activeTab === 'RAM' && (
-                    <div>
-                        <label className="block text-sm font-medium text-slate-600 mb-1">Rito</label>
-                        <select
-                            value={settings.preferences?.ram || 'Irlandese'}
-                            onChange={(e) => handlePreferenceChange('ram', e.target.value)}
-                            className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold bg-white"
-                        >
-                            <option value="Irlandese">Irlandese</option>
-                            <option value="Aldersgate">Aldersgate</option>
-                        </select>
-                    </div>
-                )}
-            </div>
+      <div>
+        <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto rounded-t-lg scrollbar-hide mb-4">
+          {BRANCHES.map(b => (
+            <button
+              key={b.type}
+              onClick={() => setActiveTab(b.type as Tab)}
+              className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 flex items-center gap-2 flex-shrink-0 ${
+                activeTab === b.type
+                  ? `${b.color.replace('bg-', 'border-')} ${b.color.replace('bg-', 'text-')} bg-white`
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <div className={`w-2 h-2 rounded-full ${b.color}`} />
+              {b.label}
+            </button>
+          ))}
         </div>
+        <div className="p-4 bg-white border border-slate-200 border-t-0 rounded-b-lg text-slate-500 text-sm">
+          Nessuna configurazione specifica richiesta per questo ramo.
+        </div>
+      </div>
     );
-  }
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden animate-fadeIn pb-8">
@@ -126,8 +85,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
                         type="text" 
                         value={settings.lodgeName} 
                         onChange={(e) => handleChange('lodgeName', e.target.value)} 
-                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold" 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold bg-slate-50 cursor-not-allowed" 
                         placeholder="Es. G. Mazzini"
+                        readOnly
                     />
                 </div>
                 <div>
@@ -136,8 +96,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
                         type="text" 
                         value={settings.lodgeNumber} 
                         onChange={(e) => handleChange('lodgeNumber', e.target.value)} 
-                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold" 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold bg-slate-50 cursor-not-allowed" 
                         placeholder="Es. 100"
+                        readOnly
                     />
                 </div>
                 <div>
@@ -145,7 +106,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
                     <select
                         value={settings.province}
                         onChange={(e) => handleChange('province', e.target.value)}
-                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold bg-white"
+                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold bg-slate-50 cursor-not-allowed"
+                        disabled
                     >
                         <option value="">Seleziona...</option>
                         {ITALIAN_PROVINCES.map(prov => (
