@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.80'; // Compacted all status events table columns horizontally for better trash icon visibility
+  public APP_VERSION = '0.81'; // Enhanced changelog: now logs all status events (added and removed) with lodge details, improved activation/deactivation tracking
   public DB_VERSION = 3;
   private app: any = null;
   private db: any = null;

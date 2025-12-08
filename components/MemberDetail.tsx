@@ -163,10 +163,20 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
         // Stati
         if (JSON.stringify(origBranch.statusEvents) !== JSON.stringify(newBranch.statusEvents)) {
           const addedEvents = newBranch.statusEvents.filter(e => !origBranch.statusEvents.some(oe => oe.date === e.date && oe.status === e.status));
+          const removedEvents = origBranch.statusEvents.filter(e => !newBranch.statusEvents.some(ne => ne.date === e.date && ne.status === e.status));
+          
           addedEvents.forEach(e => {
             const statusLabel = e.status === 'ACTIVE' ? 'Attivato' : 'Disattivato';
             const reasonLabel = e.reason ? ` - ${e.reason}` : '';
-            changes.push(`${branchLabel}: ${statusLabel} (${e.date})${reasonLabel}`);
+            const lodgeLabel = e.lodge ? ` [${e.lodge}]` : '';
+            changes.push(`${branchLabel}: ${statusLabel} (${e.date})${reasonLabel}${lodgeLabel}`);
+          });
+          
+          removedEvents.forEach(e => {
+            const statusLabel = e.status === 'ACTIVE' ? 'Attivazione' : 'Disattivazione';
+            const reasonLabel = e.reason ? ` - ${e.reason}` : '';
+            const lodgeLabel = e.lodge ? ` [${e.lodge}]` : '';
+            changes.push(`${branchLabel}: Rimosso evento di ${statusLabel} (${e.date})${reasonLabel}${lodgeLabel}`);
           });
         }
         
