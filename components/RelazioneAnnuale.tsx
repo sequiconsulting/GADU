@@ -162,16 +162,30 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
 
       const config = branchReportConfig[branch.type];
 
+      // Categorize activation events - mutually exclusive
       const primaryActivations = activationEvents.filter(e => e.event.reason === config.primaryActivationReason);
       const reAdmissions = activationEvents.filter(e => e.event.reason === 'Riammissione');
       const transfersIn = activationEvents.filter(e => e.event.reason === 'Trasferimento Italia');
       const transfersForeign = activationEvents.filter(e => e.event.reason === 'Trasferimento Estero');
-      const doubleAffiliations = activationEvents.filter(e => (e.branchData.isDualAppartenance || e.branchData.isDualMember) && e.event.status === 'ACTIVE');
+      const doubleAffiliations = activationEvents.filter(e => 
+        (e.branchData.isDualAppartenance || e.branchData.isDualMember) && 
+        e.event.reason !== config.primaryActivationReason && 
+        e.event.reason !== 'Riammissione' && 
+        e.event.reason !== 'Trasferimento Italia' &&
+        e.event.reason !== 'Trasferimento Estero'
+      );
 
+      // Categorize deactivation events - mutually exclusive
       const resignations = deactivationEvents.filter(e => e.event.reason === 'Dimissioni');
       const deaths = deactivationEvents.filter(e => e.event.reason === 'Oriente Eterno');
       const deletions = deactivationEvents.filter(e => e.event.reason === 'Depennamento');
-      const transfersOut = deactivationEvents.filter(e => e.event.reason && e.event.reason.startsWith('Trasferimento'));
+      const transfersOut = deactivationEvents.filter(e => 
+        e.event.reason && 
+        e.event.reason.startsWith('Trasferimento') && 
+        e.event.reason !== 'Dimissioni' && 
+        e.event.reason !== 'Oriente Eterno' && 
+        e.event.reason !== 'Depennamento'
+      );
 
       acc[branch.type] = {
         branch,
@@ -196,7 +210,13 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
 
   const currentReport = branchReports[activeBranch];
 
-  const renderMembersTable = (title: string, rows: MemberBranchContext[]) => (
+  const renderMembersTable = (title: string, rows: MemberBranchContext[]) => {
+    // Deduplicate by member ID
+    const dedupedRows = Array.from(
+      new Map(rows.map(row => [row.member.id, row])).values()
+    );
+
+    return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 font-semibold text-slate-700">{title}</div>
       <div className="overflow-x-auto">
@@ -212,12 +232,12 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
+            {dedupedRows.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-3 py-4 text-center text-slate-400">Nessun dato disponibile</td>
               </tr>
             )}
-            {rows.map((row, index) => (
+            {dedupedRows.map((row, index) => (
               <tr key={row.member.id || `${row.member.lastName}-${index}`} className="odd:bg-white even:bg-slate-50">
                 <td className="px-3 py-2 text-slate-500">{index + 1}</td>
                 <td className="px-3 py-2 font-medium">{row.member.lastName}</td>
@@ -231,15 +251,23 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
           <tfoot>
             <tr className="bg-slate-100 text-sm font-semibold text-slate-600">
               <td className="px-3 py-2" colSpan={5}>Totale</td>
-              <td className="px-3 py-2">{rows.length}</td>
+              <td className="px-3 py-2">{dedupedRows.length}</td>
             </tr>
           </tfoot>
         </table>
       </div>
     </div>
-  );
+    );
+  };
 
   const renderSimpleList = (title: string, rows: EventContext[], showDegree = false, showOrigin = false) => {
+    // Deduplicate rows by member ID and event date+reason combination
+    const dedupedRows = Array.from(
+      new Map(rows.map(row => 
+        [`${row.member.id}-${row.event.date}-${row.event.reason}`, row]
+      )).values()
+    );
+
     const optionalColumns = (showDegree ? 1 : 0) + (showOrigin ? 1 : 0);
     const totalColumns = 5 + optionalColumns;
     const labelColSpan = totalColumns - 1;
@@ -261,12 +289,12 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 && (
+              {dedupedRows.length === 0 && (
                 <tr>
                   <td colSpan={totalColumns} className="px-3 py-4 text-center text-slate-400">Nessun evento registrato</td>
                 </tr>
               )}
-              {rows.map((row, index) => (
+              {dedupedRows.map((row, index) => (
                 <tr key={`${row.member.id}-${row.event.date}-${index}`} className="odd:bg-white even:bg-slate-50">
                   <td className="px-3 py-2 text-slate-500">{index + 1}</td>
                   <td className="px-3 py-2 font-medium">{row.member.lastName}</td>
@@ -283,7 +311,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
             <tfoot>
               <tr className="bg-slate-100 text-sm font-semibold text-slate-600">
                 <td className="px-3 py-2" colSpan={labelColSpan}>Totale</td>
-                <td className="px-3 py-2">{rows.length}</td>
+                <td className="px-3 py-2">{dedupedRows.length}</td>
               </tr>
             </tfoot>
           </table>
