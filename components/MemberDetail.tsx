@@ -595,7 +595,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
 
                             {/* Attivazioni/Disattivazioni */}
                             <div className="flex flex-col">
-                              <h3 className="text-base font-semibold text-slate-800 mb-3 pb-2 border-b border-slate-200">Attivazioni/Disattivazioni</h3>
+                              <h3 className="text-base font-semibold text-slate-800 mb-3 pb-2 border-b border-slate-200">Stato di Attivazione</h3>
                               <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 overflow-x-auto">
                                 <table className="w-full text-xs border border-slate-200 rounded table-fixed">
                                   <colgroup>
