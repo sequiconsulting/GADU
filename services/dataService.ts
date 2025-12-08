@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.59'; // Fixed annual report deduplication and categorization logic for all branches
+  public APP_VERSION = '0.60'; // Added netlify.toml, fixed util._extend deprecation, increased MaxListeners limit
   public DB_VERSION = 2;
   private app: any = null;
   private db: any = null;
