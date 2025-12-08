@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.32'; // Incremented version
+  public APP_VERSION = '0.49'; // Incremented version
   public DB_VERSION = 2;
   private app: any = null;
   private db: any = null;
@@ -40,6 +40,24 @@ class DataService {
     this.settingsDoc = doc(this.db, 'settings', 'appSettings');
     this.firebaseFns = { collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch };
     this.firebaseInitialized = true;
+  }
+
+  private async syncVersionToFirestore(): Promise<void> {
+    if (!this.USE_FIREBASE) return;
+    await this.ensureFirebase();
+    try {
+      const docSnap = await this.firebaseFns.getDoc(this.settingsDoc);
+      const dbVersion = docSnap.exists() ? docSnap.data().dbVersion : undefined;
+      
+      // If version mismatch, automatically update Firestore to current version
+      if (dbVersion !== this.DB_VERSION) {
+        console.log(`DB Version mismatch detected: Firestore has ${dbVersion}, code expects ${this.DB_VERSION}. Auto-syncing...`);
+        await this.firebaseFns.setDoc(this.settingsDoc, { dbVersion: this.DB_VERSION }, { merge: true });
+        console.log(`DB Version synced to ${this.DB_VERSION}`);
+      }
+    } catch (error) {
+      console.error("Error syncing DB version:", error);
+    }
   }
 
   private init() {
@@ -93,6 +111,8 @@ class DataService {
     }
     const memberRef = this.firebaseFns.doc(this.membersCollection, memberToSave.id);
     await this.firebaseFns.setDoc(memberRef, memberToSave, { merge: true });
+    // Automatically sync version after member save
+    await this.syncVersionToFirestore();
     return memberToSave;
   }
 
@@ -117,6 +137,8 @@ class DataService {
     if (!settings.dbVersion) {
       settings.dbVersion = this.DB_VERSION;
     }
+    // Automatically sync version if mismatch detected
+    await this.syncVersionToFirestore();
     return settings;
   }
 
@@ -125,8 +147,12 @@ class DataService {
       return Promise.resolve(settings);
     }
     await this.ensureFirebase();
-    await this.firebaseFns.setDoc(this.settingsDoc, settings);
-    return settings;
+    // Ensure dbVersion is preserved in settings before saving
+    const settingsToSave = { ...settings, dbVersion: this.DB_VERSION };
+    await this.firebaseFns.setDoc(this.settingsDoc, settingsToSave);
+    // Automatically sync version after settings save
+    await this.syncVersionToFirestore();
+    return settingsToSave;
   }
   
   getEmptyMember(): Member {

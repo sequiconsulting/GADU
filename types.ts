@@ -42,6 +42,7 @@ export interface OfficerRole {
 export interface StatusEvent {
   date: string; // YYYY-MM-DD
   status: StatusType;
+  reason?: string; // Reason for activation/deactivation (e.g., 'Iniziazione', 'Dimissioni')
   note?: string;
 }
 

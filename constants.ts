@@ -1,6 +1,22 @@
 
 import { BranchType, MasonicBranchData } from "./types";
 
+// Status change reasons per branch and type
+export const STATUS_REASONS = {
+  ACTIVATION: {
+    CRAFT: ['Iniziazione', 'Riammissione', 'Regolarizzazione', 'Trasferimento Italia', 'Trasferimento Estero'],
+    MARK: ['Avanzamento', 'Riammissione', 'Regolarizzazione', 'Trasferimento Italia', 'Trasferimento Estero'],
+    CHAPTER: ['Esaltazione per primo', 'Riammissione', 'Regolarizzazione', 'Trasferimento Italia', 'Trasferimento Estero'],
+    RAM: ['Elevazione', 'Riammissione', 'Regolarizzazione', 'Trasferimento Italia', 'Trasferimento Estero']
+  },
+  DEACTIVATION: {
+    CRAFT: ['Dimissioni', 'Oriente Eterno', 'Depennamento', 'Trasferimento Italia', 'Trasferimento Estero'],
+    MARK: ['Dimissioni', 'Oriente Eterno', 'Depennamento', 'Trasferimento Italia', 'Trasferimento Estero'],
+    CHAPTER: ['Dimissioni', 'Oriente Eterno', 'Depennamento', 'Trasferimento Italia', 'Trasferimento Estero'],
+    RAM: ['Dimissioni', 'Oriente Eterno', 'Depennamento', 'Trasferimento Italia', 'Trasferimento Estero']
+  }
+};
+
 export const DEGREES = {
   CRAFT: [
     { name: 'Apprendista Ammesso', abbreviation: 'AA' },

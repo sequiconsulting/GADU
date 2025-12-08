@@ -66,11 +66,22 @@ npm run preview           # Serve built dist locally
 
 **Database Version** (`dataService.ts` line 18 + Firestore):
 - Increment `DB_VERSION` only when `Member` or `AppSettings` types/schema change
-- Update **both**:
-  1. `dataService.ts` line 18: `public DB_VERSION = 2;`
-  2. Firestore `settings/appSettings` document field `dbVersion: 2`
-- Migration path: On app load, if `dbVersion` mismatch detected, show migration prompt or apply schema upgrades
-- Example change: Adding a new field to `Member` or `MasonicBranchData`, changing degree/role structure
+- Update `dataService.ts` line 18: `public DB_VERSION = 2;` (in-code version)
+- **Automatic Synchronization**: The app automatically syncs DB version on every read/write operation:
+  1. On `getSettings()`: Compares `dbVersion` from Firestore with local `DB_VERSION`
+  2. On `saveMember()`, `saveSettings()`, and all data operations: If version mismatch detected, automatically pushes updated `dbVersion` to Firestore
+  3. No manual Firebase Console update required; app handles version drift automatically
+- **Migration Pattern**: On app load, if `dbVersion` mismatch detected between app code and Firestore:
+  - App auto-updates Firestore to match current code version
+  - Optional: Show migration prompt for data schema upgrades
+  - Optional: Apply automatic schema migrations for backward compatibility
+- **Example Workflow**:
+  1. Developer adds new field to `Member` type in `types.ts`
+  2. Developer increments `DB_VERSION` from 2 → 3 in `dataService.ts`
+  3. User updates app (gets new code with DB_VERSION = 3)
+  4. App calls `getSettings()` → detects Firestore has `dbVersion: 2` but code expects 3
+  5. App automatically updates Firestore document with `dbVersion: 3`
+  6. Migration complete; no manual intervention needed
 
 **When to Update:**
 - ✅ **App Version**: Every UI fix, workflow change, button style update, printing fix, feature addition
@@ -83,6 +94,7 @@ npm run preview           # Serve built dist locally
 - **Firestore Collections**: `members` (docs per member by ID), `settings/appSettings` (singleton app config)
 - **Credentials**: Embedded in `dataService.ts` (staging credentials; production credentials in `.env` on real project)
 - **Offline Development**: Set `USE_FIREBASE = false` to mock data (returns empty arrays)
+- **Version Sync**: Automatic on every data operation; no manual Firestore edits required
 
 ### Key Files for Common Tasks
 

@@ -70,16 +70,23 @@ export const InactiveMembers: React.FC<InactiveMembersProps> = ({ members, onMem
   }
 
   const handleExportExcel = () => {
-    const exportData = inactiveList.map(m => ({
-      'Matricola': m.matricula,
-      'Cognome': m.lastName,
-      'Nome': m.firstName,
-      'Ramo': activeTab,
-      'Data Inattività': formatDate(getLastInactiveDate(m) || ''),
-      'Email': m.email,
-      'Telefono': m.phone,
-      'Città': m.city
-    }));
+    const exportData = inactiveList.map(m => {
+      const branchData = m[activeTab.toLowerCase() as keyof Member] as any;
+      const inactiveEvent = [...(branchData.statusEvents || [])].reverse().find((e: any) => e.status === 'INACTIVE');
+      const inactiveReason = inactiveEvent?.reason || '-';
+      
+      return {
+        'Matricola': m.matricula,
+        'Cognome': m.lastName,
+        'Nome': m.firstName,
+        'Ramo': activeTab,
+        'Data Inattività': formatDate(getLastInactiveDate(m) || ''),
+        'Motivo': inactiveReason,
+        'Email': m.email,
+        'Telefono': m.phone,
+        'Città': m.city
+      };
+    });
     
     dataService.exportToExcel(exportData, `InattiveMembers_${activeTab}_${selectedYear}`);
   };
@@ -139,7 +146,7 @@ export const InactiveMembers: React.FC<InactiveMembersProps> = ({ members, onMem
                   <th className="py-3 pl-2">Cognome e Nome</th>
                   <th className="py-3">Grado</th>
                   <th className="py-3">Stato / Data</th>
-                  <th className="py-3">Incarico</th>
+                  <th className="py-3">Motivo</th>
                   <th className="py-3">Provenienza / Città</th>
                 </tr>
               </thead>
@@ -157,7 +164,10 @@ export const InactiveMembers: React.FC<InactiveMembersProps> = ({ members, onMem
                   } else {
                     provenance = m.city;
                   }
-                  const roleObj = branchData.roles?.find((r: any) => r.yearStart === selectedYear && r.branch === activeTab);
+                  
+                  // Get the reason from the last inactive status event
+                  const inactiveEvent = [...(branchData.statusEvents || [])].reverse().find((e: any) => e.status === 'INACTIVE');
+                  const inactiveReason = inactiveEvent?.reason || '-';
 
                   return (
                     <tr key={m.id} className="hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => onMemberClick(m.id)}>
@@ -167,7 +177,7 @@ export const InactiveMembers: React.FC<InactiveMembersProps> = ({ members, onMem
                       </td>
                       <td className="py-2.5 text-slate-600">{highestDegree ? highestDegree.degreeName : '-'}</td>
                       <td className="py-2.5 text-slate-600">{mode === 'YEAR' ? `Inattivo nel ${selectedYear}-${selectedYear+1}` : (inactiveDate ? `Inattivo dal ${formatDate(inactiveDate)}` : 'Attualmente Inattivo')}</td>
-                      <td className="py-2.5">{roleObj ? roleObj.roleName : '-'}</td>
+                      <td className="py-2.5">{inactiveReason}</td>
                       <td className="py-2.5 text-slate-500">{provenance}</td>
                     </tr>
                   );

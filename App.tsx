@@ -193,7 +193,7 @@ const App: React.FC = () => {
                 <Layout size={28} />
                 <div className="flex items-baseline gap-2">
                     <h1 className="text-xl font-serif font-bold tracking-widest text-white">G.A.D.U.</h1>
-                    <span className="text-[10px] text-slate-400 font-sans tracking-normal">v{dataService.APP_VERSION}</span>
+                    <span className="text-[10px] text-slate-400 font-sans tracking-normal">v{dataService.APP_VERSION}/{dataService.DB_VERSION}</span>
                 </div>
             </div>
             <p className="text-xs text-slate-500 mt-2 uppercase tracking-wide">Gestione Associazioni Decisamente User-friendly</p>

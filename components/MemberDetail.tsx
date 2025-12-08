@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Member, BranchType, StatusType } from '../types';
-import { BRANCHES, DEGREES, isMemberActiveInYear, calculateMasonicYearString } from '../constants';
+import { BRANCHES, DEGREES, isMemberActiveInYear, calculateMasonicYearString, STATUS_REASONS } from '../constants';
 import { HistoryEditor } from './HistoryEditor';
 import { RoleEditor } from './RoleEditor';
-import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, Link2 } from 'lucide-react';
+import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, Link2, X } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 const PROFILE = 'PROFILE';
@@ -27,6 +27,8 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   // State for status change modal/input
   const [changingStatusFor, setChangingStatusFor] = useState<BranchType | null>(null);
   const [statusDate, setStatusDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [statusReason, setStatusReason] = useState<string>('');
+  const [pendingStatusChange, setPendingStatusChange] = useState<{branch: BranchType, isActivation: boolean} | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -63,13 +65,28 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
       return false;
     }
 
+    // 3. Check incompatibility between isMotherLodgeMember and isDualAppartenance
+    (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+      const branchData = mem[branchKey];
+      if (branchData.isMotherLodgeMember === true && branchData.isDualAppartenance === true) {
+        const branchLabel = { craft: 'Craft', mark: 'Mark', chapter: 'Chapter', ram: 'RAM' }[branchKey];
+        setError(`Incongruenza nel ramo ${branchLabel}: non è possibile essere sia "Appartiene alla Loggia Madre" che "Doppia Appartenenza". Seleziona uno solo.`);
+        throw new Error('incompatibility');
+      }
+    });
+
     return true;
   };
 
   const handleSave = async () => {
     if (member && originalMember) {
-      const isValid = await validate(member);
-      if (!isValid) return;
+      try {
+        const isValid = await validate(member);
+        if (!isValid) return;
+      } catch (e) {
+        // Validation error already set via setError
+        return;
+      }
       
       // Traccia le modifiche
       const changes: string[] = [];
@@ -116,7 +133,11 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
         // Stati
         if (JSON.stringify(origBranch.statusEvents) !== JSON.stringify(newBranch.statusEvents)) {
           const addedEvents = newBranch.statusEvents.filter(e => !origBranch.statusEvents.some(oe => oe.date === e.date && oe.status === e.status));
-          addedEvents.forEach(e => changes.push(`${branchLabel}: ${e.status === 'ACTIVE' ? 'Attivato' : 'Disattivato'} (${e.date})`));
+          addedEvents.forEach(e => {
+            const statusLabel = e.status === 'ACTIVE' ? 'Attivato' : 'Disattivato';
+            const reasonLabel = e.reason ? ` - ${e.reason}` : '';
+            changes.push(`${branchLabel}: ${statusLabel} (${e.date})${reasonLabel}`);
+          });
         }
         
         // Dati di appartenenza
@@ -173,8 +194,8 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
      const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
      const currentData = member[branchKey];
 
-     // Add status event
-     const newEvent = { date: statusDate, status: newStatus };
+     // Add status event with reason
+     const newEvent = { date: statusDate, status: newStatus, reason: statusReason };
      const updatedEvents = [...currentData.statusEvents, newEvent];
 
      let updatedRoles = currentData.roles;
@@ -193,6 +214,8 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
 
      updateBranchData(branch, { statusEvents: updatedEvents, roles: updatedRoles });
      setChangingStatusFor(null);
+     setPendingStatusChange(null);
+     setStatusReason('');
   };
 
   const handleMotherLodgeChange = (branch: BranchType, isMotherLodge: boolean) => {
@@ -400,17 +423,16 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                 const isCraft = branch.type === 'CRAFT';
                 const branchData = member[branch.type.toLowerCase() as keyof Member] as any;
                 const isActiveCurrentYear = isMemberActiveInYear(branchData, defaultYear);
-                const isChanging = changingStatusFor === branch.type;
 
                 return activeTab === branch.type && (
                     <div key={branch.type} className="animate-fadeIn">
                         {/* Status Header */}
-                        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 pb-4 border-b gap-4">
-                             <div className="flex items-center gap-3">
-                                <div className={`w-3 h-3 rounded-full ${branch.color}`}></div>
-                                <div>
+                        <div className="flex flex-col md:flex-row md:items-start justify-between mb-6 pb-4 border-b gap-4">
+                             <div className="flex items-start gap-3 flex-1">
+                                <div className={`w-3 h-3 rounded-full ${branch.color} shrink-0 mt-1`}></div>
+                                <div className="w-full">
+                                    <h2 className="text-xl font-serif font-bold text-slate-800 leading-none mb-3">Scheda {branch.label}</h2>
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <h2 className="text-xl font-serif font-bold text-slate-800 leading-none">Scheda {branch.label}</h2>
                                         <label className="flex items-center gap-1.5 p-1.5 bg-yellow-50 border border-yellow-200 rounded cursor-pointer hover:bg-yellow-100/50">
                                             <input type="checkbox" checked={branchData.isFounder || false} onChange={(e) => updateBranchData(branch.type, { isFounder: e.target.checked })} className="w-3 h-3 shrink-0" />
                                             <Crown size={13} className="text-yellow-600"/>
@@ -426,70 +448,60 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                             <Link2 size={13} className="text-blue-600"/>
                                             <span className="text-xs text-slate-700 font-medium">Doppia App.</span>
                                         </label>
+                                        {!isCraft && (
+                                          <>
+                                            <label className="flex items-center gap-1.5 p-1.5 bg-stone-50 border border-stone-300 rounded cursor-pointer hover:bg-stone-100/50">
+                                              <input type="checkbox" checked={branchData.isMotherLodgeMember ?? true} onChange={(e) => handleMotherLodgeChange(branch.type, e.target.checked)} className="w-3 h-3 shrink-0" />
+                                              <Landmark size={13} className="text-stone-700"/>
+                                              <span className="text-xs text-slate-700 font-medium">Loggia Madre</span>
+                                            </label>
+                                            <div className={`flex items-center gap-1.5 p-1.5 ${branchData.isMotherLodgeMember !== false ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+                                              <label className="text-xs font-medium text-slate-700 whitespace-nowrap">Loggia:</label>
+                                              <input type="text" placeholder="Nome" value={branchData.otherLodgeName || ''} onChange={e => updateBranchData(branch.type, { otherLodgeName: e.target.value })} className="border border-slate-300 rounded px-2 py-1 w-32 text-xs" disabled={branchData.isMotherLodgeMember !== false} />
+                                            </div>
+                                          </>
+                                        )}
                                     </div>
-                                    <span className="text-xs text-slate-500 font-sans mt-1 block">Riferimento: Anno {defaultYear}-{defaultYear + 1} - A.L. {calculateMasonicYearString(defaultYear)}</span>
+                                    <span className="text-xs text-slate-500 font-sans mt-3 block">Riferimento: Anno {defaultYear}-{defaultYear + 1} - A.L. {calculateMasonicYearString(defaultYear)}</span>
                                 </div>
                              </div>
 
-                             <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200 w-full md:w-auto justify-between md:justify-start">
-                                {isChanging ? (
-                                    <div className="flex flex-col sm:flex-row items-center gap-2 animate-fadeIn w-full">
-                                        <input
-                                            type="date"
-                                            value={statusDate}
-                                            onChange={(e) => setStatusDate(e.target.value)}
-                                            className="text-sm border border-slate-300 rounded p-1 w-full sm:w-auto"
-                                        />
-                                        <div className="flex gap-2 w-full sm:w-auto">
-                                            <button
-                                                onClick={() => handleStatusChange(branch.type, isActiveCurrentYear ? 'INACTIVE' : 'ACTIVE')}
-                                                className="text-xs bg-slate-800 text-white px-2 py-1 rounded flex-1 sm:flex-none whitespace-nowrap"
-                                            >
-                                                Conferma {isActiveCurrentYear ? 'Disattivazione' : 'Attivazione'}
-                                            </button>
-                                            <button onClick={() => setChangingStatusFor(null)} className="text-xs text-slate-500 underline">Annulla</button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className={`text-sm font-bold flex items-center gap-1 ${isActiveCurrentYear ? 'text-green-700' : 'text-red-600'}`}>
-                                            {isActiveCurrentYear ? <CheckCircle2 size={16}/> : <AlertCircle size={16}/>}
-                                            {isActiveCurrentYear ? 'Attivo' : 'Non Attivo'}
-                                        </div>
-                                        <button
-                                            onClick={() => {
-                                                setChangingStatusFor(branch.type);
-                                                setStatusDate(new Date().toISOString().split('T')[0]);
-                                            }}
-                                            className="text-xs border border-slate-300 px-2 py-1 rounded hover:bg-white transition-colors"
-                                        >
-                                            Cambia
-                                        </button>
-                                    </>
-                                )}
+                             <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200 w-full md:w-auto justify-between md:justify-start flex-col md:flex-row shrink-0">
+                                <div>
+                                  <div className={`text-sm font-bold flex items-center gap-1 ${isActiveCurrentYear ? 'text-green-700' : 'text-red-600'}`}>
+                                      {isActiveCurrentYear ? <CheckCircle2 size={16}/> : <AlertCircle size={16}/>}
+                                      {isActiveCurrentYear ? 'Attivo' : 'Non Attivo'}
+                                  </div>
+                                  {branchData.statusEvents && branchData.statusEvents.length > 0 && (() => {
+                                    const lastEvent = [...branchData.statusEvents].reverse()[0];
+                                    const [year, month, day] = lastEvent.date.split('-');
+                                    const formattedDate = `${day}/${month}/${year}`;
+                                    return (
+                                      <div className="text-xs text-slate-500 mt-1">
+                                        {lastEvent.reason && <span className="font-medium">{lastEvent.reason}</span>}
+                                        {lastEvent.reason && <span> - </span>}
+                                        <span>{formattedDate}</span>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setChangingStatusFor(branch.type);
+                                        setPendingStatusChange({branch: branch.type, isActivation: !isActiveCurrentYear});
+                                        setStatusDate(new Date().toISOString().split('T')[0]);
+                                        setStatusReason('');
+                                    }}
+                                    className="text-xs border border-slate-300 px-2 py-1 rounded hover:bg-white transition-colors"
+                                >
+                                    Cambia
+                                </button>
                              </div>
                         </div>
 
                         {!isCraft && (
-                             <div className="bg-slate-50 p-4 rounded-lg mb-6 border border-slate-200">
-                                <h4 className="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2"><Landmark size={16} /> Dettagli Appartenenza</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-                                    <label className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-md cursor-pointer hover:border-slate-300 h-auto min-h-[40px] w-full">
-                                        <input type="checkbox" checked={branchData.isMotherLodgeMember ?? true} onChange={(e) => handleMotherLodgeChange(branch.type, e.target.checked)} className="w-4 h-4 shrink-0" />
-                                        <span className="text-sm text-slate-700 font-medium leading-tight">Appartiene alla Loggia Madre</span>
-                                    </label>
-                                    <div className={`transition-opacity ${branchData.isMotherLodgeMember !== false ? 'opacity-50 pointer-events-none' : 'opacity-100'} w-full`}>
-                                        <label className="block text-xs font-medium text-slate-500 mb-1">Nome Loggia Provenienza</label>
-                                        <input type="text" value={branchData.otherLodgeName || ''} onChange={e => updateBranchData(branch.type, { otherLodgeName: e.target.value })} className="w-full text-sm border border-slate-300 rounded-md p-2 h-10" disabled={branchData.isMotherLodgeMember !== false} />
-                                    </div>
-                                    <div className={`transition-opacity ${branchData.isMotherLodgeMember !== false ? 'opacity-50 pointer-events-none' : 'opacity-100'} w-full`}>
-                                         <label className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-md cursor-pointer mt-0 h-auto min-h-[40px]">
-                                            <input type="checkbox" checked={branchData.isDualMember || false} onChange={(e) => updateBranchData(branch.type, { isDualMember: e.target.checked })} className="w-4 h-4 shrink-0" disabled={branchData.isMotherLodgeMember !== false} />
-                                            <div className="flex items-center gap-2"><Users size={14} className="text-slate-600"/><span className="text-sm text-slate-700 font-medium">Doppia App.</span></div>
-                                        </label>
-                                    </div>
-                                </div>
-                                {branchData.isMotherLodgeMember !== false && !isMemberActiveInYear(member.craft, defaultYear) && (
+                          <>
+                                    {branchData.isMotherLodgeMember !== false && !isMemberActiveInYear(member.craft, defaultYear) && (
                                     <div className="mt-4 bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded-r-md flex items-start gap-3">
                                         <AlertTriangle className="text-yellow-600 shrink-0 mt-0.5" size={18} />
                                         <div>
@@ -499,7 +511,16 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                         </div>
                                     </div>
                                 )}
-                             </div>
+                                {branchData.isMotherLodgeMember === true && branchData.isDualAppartenance === true && (
+                                    <div className="mt-4 bg-red-50 border-l-4 border-red-500 p-3 rounded-r-md flex items-start gap-3">
+                                        <AlertTriangle className="text-red-600 shrink-0 mt-0.5" size={18} />
+                                        <div>
+                                            <h5 className="text-sm font-bold text-red-800">Errore di Incompatibilità</h5>
+                                            <p className="text-xs text-red-700 mt-1">Non è possibile essere sia "Appartiene alla Loggia Madre" che "Doppia Appartenenza". Selezionane uno solo.</p>
+                                        </div>
+                                    </div>
+                                )}
+                          </>
                         )}
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -511,6 +532,119 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
             })}
         </div>
       </div>
+
+      {/* Status Change Modal */}
+      {pendingStatusChange && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full animate-fadeIn">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <h3 className="text-lg font-bold text-slate-800">
+                {pendingStatusChange.isActivation ? 'Attivazione' : 'Disattivazione'} - {BRANCHES.find(b => b.type === pendingStatusChange.branch)?.label}
+              </h3>
+              <button
+                onClick={() => {
+                  setPendingStatusChange(null);
+                  setChangingStatusFor(null);
+                  setStatusReason('');
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Year display at top */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Anno Solare</label>
+                <div className="text-sm text-slate-600 bg-slate-50 p-3 rounded border border-slate-200">
+                  {statusDate.split('-')[0]}
+                </div>
+              </div>
+
+              {/* Date input in DD/MM format */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Data (gg/mm)</label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    placeholder="GG"
+                    maxLength={2}
+                    value={statusDate.split('-')[2]}
+                    onChange={(e) => {
+                      const year = statusDate.split('-')[0];
+                      const month = statusDate.split('-')[1];
+                      const day = e.target.value.padStart(2, '0');
+                      if (day.length <= 2 && !isNaN(parseInt(day))) {
+                        setStatusDate(`${year}-${month}-${day === '' ? '01' : day}`);
+                      }
+                    }}
+                    className="w-16 border border-slate-300 rounded p-2 text-center text-sm"
+                  />
+                  <span className="text-slate-600">/</span>
+                  <input
+                    type="text"
+                    placeholder="MM"
+                    maxLength={2}
+                    value={statusDate.split('-')[1]}
+                    onChange={(e) => {
+                      const year = statusDate.split('-')[0];
+                      const day = statusDate.split('-')[2];
+                      const month = e.target.value.padStart(2, '0');
+                      if (month.length <= 2 && !isNaN(parseInt(month))) {
+                        setStatusDate(`${year}-${month === '' ? '01' : month}-${day}`);
+                      }
+                    }}
+                    className="w-16 border border-slate-300 rounded p-2 text-center text-sm"
+                  />
+                  <span className="text-slate-500 text-sm">/{statusDate.split('-')[0]}</span>
+                </div>
+              </div>
+
+              {/* Reason selector */}
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Motivo {pendingStatusChange.isActivation ? 'Attivazione' : 'Disattivazione'}
+                </label>
+                <select
+                  value={statusReason}
+                  onChange={(e) => setStatusReason(e.target.value)}
+                  className="w-full border border-slate-300 rounded p-2.5 text-sm focus:border-masonic-gold focus:outline-none"
+                >
+                  <option value="">Seleziona un motivo...</option>
+                  {STATUS_REASONS[pendingStatusChange.isActivation ? 'ACTIVATION' : 'DEACTIVATION'][pendingStatusChange.branch].map(reason => (
+                    <option key={reason} value={reason}>{reason}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-6 border-t border-slate-200 bg-slate-50">
+              <button
+                onClick={() => {
+                  setPendingStatusChange(null);
+                  setChangingStatusFor(null);
+                  setStatusReason('');
+                }}
+                className="flex-1 px-4 py-2 text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors font-medium"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => {
+                  if (statusReason) {
+                    handleStatusChange(pendingStatusChange.branch, pendingStatusChange.isActivation ? 'ACTIVE' : 'INACTIVE');
+                  }
+                }}
+                disabled={!statusReason}
+                className="flex-1 px-4 py-2 bg-masonic-gold hover:bg-yellow-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg transition-colors font-medium"
+              >
+                Conferma
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
