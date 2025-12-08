@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.64'; // Fixed missing colored indicators: added safelist for dynamic masonic color classes in Tailwind
+  public APP_VERSION = '0.66'; // Fixed Craft branch: added Loggia Madre and Doppia Appartenenza fields to prevent validation conflicts
   public DB_VERSION = 2;
   private app: any = null;
   private db: any = null;

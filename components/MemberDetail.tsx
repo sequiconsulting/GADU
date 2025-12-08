@@ -241,8 +241,12 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
     // Create a copy of member
     const updatedMember = { ...member };
 
-    // 1. Update the specific branch provenance
-    updatedMember[branchKey] = { ...updatedMember[branchKey], isMotherLodgeMember: isMotherLodge };
+    // 1. Update the specific branch provenance and enforce mutual exclusivity
+    updatedMember[branchKey] = { 
+      ...updatedMember[branchKey], 
+      isMotherLodgeMember: isMotherLodge,
+      isDualAppartenance: isMotherLodge ? false : updatedMember[branchKey].isDualAppartenance // Clear dual if setting mother lodge
+    };
 
     // 2. Rule: If NOT mother lodge member -> Automaticaly deactivate Craft (Add INACTIVE event)
     if (!isMotherLodge) {
@@ -254,6 +258,21 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
              craftData.statusEvents.push({ date: new Date().toISOString().split('T')[0], status: 'INACTIVE', note: 'Auto-disattivazione per cambio Loggia Madre' });
         }
     }
+
+    setMember(updatedMember);
+  };
+
+  const handleDualAppartenanceChange = (branch: BranchType, isDual: boolean) => {
+    if (!member) return;
+    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+
+    const updatedMember = { ...member };
+    // Enforce mutual exclusivity: if setting dual to true, clear mother lodge flag
+    updatedMember[branchKey] = { 
+      ...updatedMember[branchKey], 
+      isDualAppartenance: isDual,
+      isMotherLodgeMember: isDual ? false : updatedMember[branchKey].isMotherLodgeMember
+    };
 
     setMember(updatedMember);
   };
@@ -463,23 +482,19 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                             <span className="text-xs text-slate-700 font-medium">Onorario</span>
                                         </label>
                                         <label className="flex items-center gap-1.5 p-1.5 bg-blue-50 border border-blue-200 rounded cursor-pointer hover:bg-blue-100/50">
-                                            <input type="checkbox" checked={branchData.isDualAppartenance || false} onChange={(e) => updateBranchData(branch.type, { isDualAppartenance: e.target.checked })} className="w-3 h-3 shrink-0" />
+                                            <input type="checkbox" checked={branchData.isDualAppartenance || false} onChange={(e) => handleDualAppartenanceChange(branch.type, e.target.checked)} className="w-3 h-3 shrink-0" />
                                             <Link2 size={13} className="text-blue-600"/>
                                             <span className="text-xs text-slate-700 font-medium">Doppia App.</span>
                                         </label>
-                                        {!isCraft && (
-                                          <>
-                                            <label className="flex items-center gap-1.5 p-1.5 bg-stone-50 border border-stone-300 rounded cursor-pointer hover:bg-stone-100/50">
-                                              <input type="checkbox" checked={branchData.isMotherLodgeMember ?? true} onChange={(e) => handleMotherLodgeChange(branch.type, e.target.checked)} className="w-3 h-3 shrink-0" />
-                                              <Landmark size={13} className="text-stone-700"/>
-                                              <span className="text-xs text-slate-700 font-medium">Loggia Madre</span>
-                                            </label>
-                                            <div className={`flex items-center gap-1.5 p-1.5 ${branchData.isMotherLodgeMember !== false ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
-                                              <label className="text-xs font-medium text-slate-700 whitespace-nowrap">Loggia:</label>
-                                              <input type="text" placeholder="Nome" value={branchData.otherLodgeName || ''} onChange={e => updateBranchData(branch.type, { otherLodgeName: e.target.value })} className="border border-slate-300 rounded px-2 py-1 w-32 text-xs" disabled={branchData.isMotherLodgeMember !== false} />
-                                            </div>
-                                          </>
-                                        )}
+                                        <label className="flex items-center gap-1.5 p-1.5 bg-stone-50 border border-stone-300 rounded cursor-pointer hover:bg-stone-100/50">
+                                          <input type="checkbox" checked={branchData.isMotherLodgeMember ?? true} onChange={(e) => handleMotherLodgeChange(branch.type, e.target.checked)} className="w-3 h-3 shrink-0" />
+                                          <Landmark size={13} className="text-stone-700"/>
+                                          <span className="text-xs text-slate-700 font-medium">Loggia Madre</span>
+                                        </label>
+                                        <div className={`flex items-center gap-1.5 p-1.5 ${branchData.isMotherLodgeMember !== false ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+                                          <label className="text-xs font-medium text-slate-700 whitespace-nowrap">Loggia:</label>
+                                          <input type="text" placeholder="Nome" value={branchData.otherLodgeName || ''} onChange={e => updateBranchData(branch.type, { otherLodgeName: e.target.value })} className="border border-slate-300 rounded px-2 py-1 w-32 text-xs" disabled={branchData.isMotherLodgeMember !== false} />
+                                        </div>
                                     </div>
                                 </div>
                              </div>
