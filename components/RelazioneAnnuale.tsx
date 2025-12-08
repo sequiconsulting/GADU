@@ -59,7 +59,7 @@ const branchReportConfig: Record<BranchType, {
   doubleAffiliationLabel: string;
 }> = {
   CRAFT: {
-    introLabel: 'Loggia',
+    introLabel: 'Loggia Craft',
     memberPlural: 'Fratelli',
     primaryActivationLabel: 'Iniziazioni',
     primaryActivationReason: 'Iniziazione',
