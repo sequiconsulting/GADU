@@ -1,6 +1,6 @@
 
 import { Member, AppSettings, BranchType, OfficerRole, ChangeLogEntry } from "../types";
-import { isMemberActiveInYear, COMMON_ROLES } from "../constants";
+import { isMemberActiveInYear } from "../constants";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCz0_p2klHvYZJ5xXWJE_eSrKy4pAz4Poc",
@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.81'; // Enhanced changelog: now logs all status events (added and removed) with lodge details, improved activation/deactivation tracking
+  public APP_VERSION = '0.84'; // Added ritual display under role names in RoleEditor (e.g. "Re Eccellente" with "Irlandese" underneath)
   public DB_VERSION = 3;
   private app: any = null;
   private db: any = null;

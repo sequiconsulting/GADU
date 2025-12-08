@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Member, BranchType, AppSettings } from '../types';
-import { BRANCHES, COMMON_ROLES, calculateMasonicYearString, getRolesForRitual } from '../constants';
+import { BRANCHES, calculateMasonicYearString, getRolesForRitual } from '../constants';
 import { ShieldCheck, Printer, Download } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
@@ -26,6 +26,8 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
   // Supports Multi-Role: A member can appear multiple times if they have multiple roles
   const getRolesForBranch = (branch: BranchType) => {
     const roleMap: { roleName: string; memberName: string; sortIndex: number }[] = [];
+    const ritual = getRitualForYear(branch);
+    const rolesForRitual = getRolesForRitual(branch, ritual);
     
     members.forEach(member => {
       const branchData = member[branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>];
@@ -35,8 +37,8 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
       const activeRoles = branchData.roles.filter(r => r.yearStart === selectedYear && r.branch === branch);
       
       activeRoles.forEach((role: any) => {
-        // Find index in common roles for sorting hierarchy
-        let sortIdx = COMMON_ROLES[branch].indexOf(role.roleName);
+        // Find index in roles for ritual to determine sorting hierarchy
+        let sortIdx = rolesForRitual.indexOf(role.roleName);
         if (sortIdx === -1) sortIdx = 999; // Custom roles go to bottom
 
         roleMap.push({

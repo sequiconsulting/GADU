@@ -1,6 +1,29 @@
 
 import { BranchType, MasonicBranchData } from "./types";
 
+// ============================================================
+// DEGREE DEFINITIONS BY RITUAL
+// ============================================================
+// Degrees are organized by (branch, ritual) pairs.
+// Each combination has its own degree list to support ritual-specific variations.
+// 
+// CRAFT BRANCH:
+//   - Emulation: DEGREES_CRAFT_EMULATION (default, 4 gradi)
+//   - Scozzese: DEGREES_CRAFT_SCOZZESE (4 gradi)
+//
+// MARK & CHAPTER BRANCHES:
+//   - Irlandese: DEGREES_MARK_IRLANDESE, DEGREES_CHAPTER_IRLANDESE (default)
+//   - Aldersgate: DEGREES_MARK_ALDERSGATE, DEGREES_CHAPTER_ALDERSGATE
+//
+// RAM BRANCH:
+//   - No ritual variants: DEGREES_RAM (fixed, 2 gradi)
+//
+// USAGE:
+//   - For UI: Use getDegreesByRitual(branch, ritual) to get degrees for current ritual year
+//   - For lookups: Use getDegreeAbbreviation(degreeName) - searches all variants
+//   - Legacy code: Use DEGREES[branch] - maps to default rituals per branch
+// ============================================================
+
 // Status change reasons per branch and type
 export const STATUS_REASONS = {
   ACTIVATION: {
@@ -17,27 +40,53 @@ export const STATUS_REASONS = {
   }
 };
 
-export const DEGREES = {
-  CRAFT: [
-    { name: 'Apprendista Ammesso', abbreviation: 'AA' },
-    { name: 'Compagno di Mestiere', abbreviation: 'CdM' },
-    { name: 'Maestro Muratore', abbreviation: 'MM' },
-    { name: 'Maestro Installato', abbreviation: 'MI' },
-  ],
-  MARK: [
-    { name: 'Uomo del Marchio', abbreviation: 'UdM' },
-    { name: 'Maestro del Marchio', abbreviation: 'MMM' },
-    { name: 'Maestro Installato del Marchio', abbreviation: 'MIM' },
-  ],
-  CHAPTER: [
-    { name: "Compagno dell'Arco Reale", abbreviation: 'CAR' },
-    { name: "Principale dell'Arco Reale", abbreviation: 'PAR' },
-  ],
-  RAM: [
-    { name: "Marinaio dell'Arca Reale", abbreviation: 'MAR' },
-    { name: 'Comandante del RAM', abbreviation: 'CdR' },
-  ],
-};
+// Default degree lists per branch (used in DEGREES object and as fallbacks)
+export const DEGREES_CRAFT_EMULATION = [
+  { name: 'Apprendista Ammesso', abbreviation: 'AA' },
+  { name: 'Compagno di Mestiere', abbreviation: 'CdM' },
+  { name: 'Maestro Muratore', abbreviation: 'MM' },
+  { name: 'Maestro Installato', abbreviation: 'MI' },
+];
+
+// Scozzese (Scottish Rite) variant for Craft
+export const DEGREES_CRAFT_SCOZZESE = [
+  { name: 'Apprendista Ammesso', abbreviation: 'AA' },
+  { name: 'Compagno di Mestiere', abbreviation: 'CdM' },
+  { name: 'Maestro Muratore', abbreviation: 'MM' },
+  { name: 'Maestro Scozzese', abbreviation: 'MS' },
+];
+
+// Irlandese (Irish) variant for Mark - DEFAULT
+export const DEGREES_MARK_IRLANDESE = [
+  { name: 'Uomo del Marchio', abbreviation: 'UdM' },
+  { name: 'Maestro del Marchio', abbreviation: 'MMM' },
+  { name: 'Maestro Installato del Marchio', abbreviation: 'MIM' },
+];
+
+// Aldersgate variant for Mark
+export const DEGREES_MARK_ALDERSGATE = [
+  { name: 'Uomo del Marchio', abbreviation: 'UdM' },
+  { name: 'Maestro del Marchio', abbreviation: 'MMM' },
+  { name: 'Maestro Aldersgate', abbreviation: 'MA' },
+];
+
+// Irlandese (Irish) variant for Chapter - DEFAULT
+export const DEGREES_CHAPTER_IRLANDESE = [
+  { name: "Compagno dell'Arco Reale", abbreviation: 'CAR' },
+  { name: "Principale dell'Arco Reale", abbreviation: 'PAR' },
+];
+
+// Aldersgate variant for Chapter
+export const DEGREES_CHAPTER_ALDERSGATE = [
+  { name: "Compagno dell'Arco Reale", abbreviation: 'CAR' },
+  { name: "Principale Aldersgate", abbreviation: 'PA' },
+];
+
+// RAM has no ritual variants
+export const DEGREES_RAM = [
+  { name: "Marinaio dell'Arca Reale", abbreviation: 'MAR' },
+  { name: 'Comandante del RAM', abbreviation: 'CdR' },
+];
 
 export const BRANCHES: { type: BranchType; label: string; shortLabel: string; color: string; degreeLabels: string[] }[] = [
   {
@@ -45,28 +94,28 @@ export const BRANCHES: { type: BranchType; label: string; shortLabel: string; co
     label: 'Loggia (Craft)',
     shortLabel: 'Craft',
     color: 'bg-masonic-blue',
-    degreeLabels: DEGREES.CRAFT.map(d => d.name)
+    degreeLabels: DEGREES_CRAFT_EMULATION.map(d => d.name)
   },
   {
     type: 'MARK',
     label: 'Loggia del Marchio',
     shortLabel: 'Marchio',
     color: 'bg-masonic-mark',
-    degreeLabels: DEGREES.MARK.map(d => d.name)
+    degreeLabels: DEGREES_MARK_IRLANDESE.map(d => d.name)
   },
   {
     type: 'CHAPTER',
     label: 'Capitolo (Arco Reale)',
     shortLabel: 'Arco',
     color: 'bg-masonic-red',
-    degreeLabels: DEGREES.CHAPTER.map(d => d.name)
+    degreeLabels: DEGREES_CHAPTER_IRLANDESE.map(d => d.name)
   },
   {
     type: 'RAM',
     label: 'Royal Ark Mariner',
     shortLabel: 'RAM',
     color: 'bg-masonic-ram',
-    degreeLabels: DEGREES.RAM.map(d => d.name)
+    degreeLabels: DEGREES_RAM.map(d => d.name)
   }
 ];
 
@@ -82,73 +131,32 @@ export const RITUAL_LABELS: Record<string, string> = {
   'Aldersgate': 'Aldersgate'
 };
 
-// Based on the Irish system, in Italian
-export const COMMON_ROLES: Record<BranchType, string[]> = {
-  CRAFT: [
-    'Maestro Venerabile',
-    'IEM',
-    'Primo Sorvegliante',
-    'Secondo Sorvegliante',
-    'Cappellano',
-    'Tesoriere',
-    'Segretario',
-    'Assistente Segretario',
-    'Direttore delle Cerimonie',
-    'Elemosiniere',
-    'Primo Diacono',
-    'Secondo Diacono',
-    'Direttore delle Cerimonie Agg.',
-    'Organista',
-    'Copritore Interno',
-    'Copritore Esterno'
-  ],
-  MARK: [
-    'Maestro Venerabile',
-    'Primo Sorvegliante',
-    'Secondo Sorvegliante',
-    'Maestro Supervisore',
-    'Primo Supervisore',
-    'Secondo Supervisore',
-    'Cappellano',
-    'Tesoriere',
-    'Segretario',
-    'Direttore delle Cerimonie',
-    'Primo Diacono',
-    'Secondo Diacono',
-    'Copritore Interno',
-    'Tegolatore'
-  ],
-  CHAPTER: [
-    'Re Eccellente',
-    'Sommo Sacerdote',
-    'Primo Scriba',
-    'Scriba E.',
-    'Scriba N.',
-    'Tesoriere',
-    'Direttore delle Cerimonie',
-    'Capitano dell\'Ospite',
-    'Soprintendente Principale',
-    'Primo Assistente Soprintendente',
-    'Secondo Assistente Soprintendente',
-    'Janitor'
-  ],
-  RAM: [
-    'Venerabile Comandante Noè',
-    'Iafet (Primo Sorvegliante)',
-    'Sem (Secondo Sorvegliante)',
-    'Scriba',
-    'Tesoriere',
-    'Direttore delle Cerimonie',
-    'Conduttore',
-    'Guardiano',
-    'Tegolatore'
-  ]
-};
+// ============================================================
+// ROLES BY RITUAL (explicit and complete)
+// ============================================================
 
-// Ritual-specific roles
-export const CRAFT_ROLES_EMULATION: string[] = COMMON_ROLES.CRAFT;
+// CRAFT EMULATION - Default
+export const CRAFT_EMULATION_ROLES = [
+  'Maestro Venerabile',
+  'IEM',
+  'Primo Sorvegliante',
+  'Secondo Sorvegliante',
+  'Cappellano',
+  'Tesoriere',
+  'Segretario',
+  'Assistente Segretario',
+  'Direttore delle Cerimonie',
+  'Elemosiniere',
+  'Primo Diacono',
+  'Secondo Diacono',
+  'Direttore delle Cerimonie Agg.',
+  'Organista',
+  'Copritore Interno',
+  'Copritore Esterno'
+];
 
-export const CRAFT_ROLES_SCOTTISH_RITE = [
+// CRAFT SCOZZESE (Scottish Rite)
+export const CRAFT_SCOZZESE_ROLES = [
   'Venerabile Maestro',
   'Primo Sorvegliante',
   'Secondo Sorvegliante',
@@ -162,7 +170,26 @@ export const CRAFT_ROLES_SCOTTISH_RITE = [
   'Copritore Esterno'
 ];
 
-export const MARK_ROLES_ALDERSGATE = [
+// MARCHIO IRLANDESE - Default
+export const MARCHIO_IRLANDESE_ROLES = [
+  'Maestro Venerabile',
+  'Primo Sorvegliante',
+  'Secondo Sorvegliante',
+  'Maestro Supervisore',
+  'Primo Supervisore',
+  'Secondo Supervisore',
+  'Cappellano',
+  'Tesoriere',
+  'Segretario',
+  'Direttore delle Cerimonie',
+  'Primo Diacono',
+  'Secondo Diacono',
+  'Copritore Interno',
+  'Tegolatore'
+];
+
+// MARCHIO ALDERSGATE
+export const MARCHIO_ALDERSGATE_ROLES = [
   'Venerabile Maestro',
   'Primo Sorvegliante',
   'Secondo Sorvegliante',
@@ -174,9 +201,24 @@ export const MARK_ROLES_ALDERSGATE = [
   'Ospitaliere'
 ];
 
-export const MARK_ROLES_IRISH = COMMON_ROLES.MARK;
+// CAPITOLO IRLANDESE - Default
+export const CAPITOLO_IRLANDESE_ROLES = [
+  'Re Eccellente',
+  'Sommo Sacerdote',
+  'Primo Scriba',
+  'Scriba E.',
+  'Scriba N.',
+  'Tesoriere',
+  'Direttore delle Cerimonie',
+  'Capitano dell\'Ospite',
+  'Soprintendente Principale',
+  'Primo Assistente Soprintendente',
+  'Secondo Assistente Soprintendente',
+  'Janitor'
+];
 
-export const ARCH_ROLES_ALDERSGATE = [
+// CAPITOLO ALDERSGATE
+export const CAPITOLO_ALDERSGATE_ROLES = [
   'Primo Principale',
   'Secondo Principale',
   'Terzo Principale',
@@ -188,21 +230,49 @@ export const ARCH_ROLES_ALDERSGATE = [
   'Hospitaliere'
 ];
 
-export const ARCH_ROLES_IRISH = COMMON_ROLES.CHAPTER;
+// RAM - No ritual variants
+export const RAM_ROLES = [
+  'Venerabile Comandante Noè',
+  'Iafet (Primo Sorvegliante)',
+  'Sem (Secondo Sorvegliante)',
+  'Scriba',
+  'Tesoriere',
+  'Direttore delle Cerimonie',
+  'Conduttore',
+  'Guardiano',
+  'Tegolatore'
+];
 
-// Function to get roles based on ritual
-export const getRolesForRitual = (branch: BranchType, ritual: string): string[] => {
+// Function to get degrees based on branch and ritual
+export const getDegreesByRitual = (branch: BranchType, ritual: string): { name: string; abbreviation: string }[] => {
   if (branch === 'CRAFT') {
-    return ritual === 'Scozzese' ? CRAFT_ROLES_SCOTTISH_RITE : CRAFT_ROLES_EMULATION;
+    return ritual === 'Scozzese' ? DEGREES_CRAFT_SCOZZESE : DEGREES_CRAFT_EMULATION;
   }
   if (branch === 'MARK') {
-    return ritual === 'Aldersgate' ? MARK_ROLES_ALDERSGATE : MARK_ROLES_IRISH;
+    return ritual === 'Aldersgate' ? DEGREES_MARK_ALDERSGATE : DEGREES_MARK_IRLANDESE;
   }
   if (branch === 'CHAPTER') {
-    return ritual === 'Aldersgate' ? ARCH_ROLES_ALDERSGATE : ARCH_ROLES_IRISH;
+    return ritual === 'Aldersgate' ? DEGREES_CHAPTER_ALDERSGATE : DEGREES_CHAPTER_IRLANDESE;
   }
   if (branch === 'RAM') {
-    return COMMON_ROLES.RAM;
+    return DEGREES_RAM;
+  }
+  return [];
+};
+
+// Function to get roles based on branch and ritual
+export const getRolesForRitual = (branch: BranchType, ritual: string): string[] => {
+  if (branch === 'CRAFT') {
+    return ritual === 'Scozzese' ? CRAFT_SCOZZESE_ROLES : CRAFT_EMULATION_ROLES;
+  }
+  if (branch === 'MARK') {
+    return ritual === 'Aldersgate' ? MARCHIO_ALDERSGATE_ROLES : MARCHIO_IRLANDESE_ROLES;
+  }
+  if (branch === 'CHAPTER') {
+    return ritual === 'Aldersgate' ? CAPITOLO_ALDERSGATE_ROLES : CAPITOLO_IRLANDESE_ROLES;
+  }
+  if (branch === 'RAM') {
+    return RAM_ROLES;
   }
   return [];
 };
@@ -247,10 +317,20 @@ export const isMemberActiveInYear = (branchData: MasonicBranchData | undefined, 
 };
 
 export const getDegreeAbbreviation = (degreeName: string): string => {
+    // List of all degree lists to search through
+    const allDegreeLists = [
+      DEGREES_CRAFT_EMULATION,
+      DEGREES_CRAFT_SCOZZESE,
+      DEGREES_MARK_IRLANDESE,
+      DEGREES_MARK_ALDERSGATE,
+      DEGREES_CHAPTER_IRLANDESE,
+      DEGREES_CHAPTER_ALDERSGATE,
+      DEGREES_RAM,
+    ];
+    
     // First try exact match
-    for (const branch in DEGREES) {
-        const degrees = DEGREES[branch as BranchType];
-        const degree = degrees.find(d => d.name === degreeName);
+    for (const degreeList of allDegreeLists) {
+        const degree = degreeList.find(d => d.name === degreeName);
         if (degree) {
             return degree.abbreviation;
         }
@@ -258,9 +338,8 @@ export const getDegreeAbbreviation = (degreeName: string): string => {
     
     // If no exact match found, try partial match (case-insensitive)
     const normalizedInput = degreeName.toLowerCase().trim();
-    for (const branch in DEGREES) {
-        const degrees = DEGREES[branch as BranchType];
-        const degree = degrees.find(d => d.name.toLowerCase().includes(normalizedInput) || normalizedInput.includes(d.name.toLowerCase()));
+    for (const degreeList of allDegreeLists) {
+        const degree = degreeList.find(d => d.name.toLowerCase().includes(normalizedInput) || normalizedInput.includes(d.name.toLowerCase()));
         if (degree) {
             return degree.abbreviation;
         }

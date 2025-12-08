@@ -1,10 +1,25 @@
 
 import React from 'react';
 import { Shield, BookOpen } from 'lucide-react';
-import { DEGREES, BRANCHES } from '../constants';
+import { BRANCHES, DEGREES_CRAFT_EMULATION, DEGREES_CRAFT_SCOZZESE, DEGREES_MARK_IRLANDESE, DEGREES_MARK_ALDERSGATE, DEGREES_CHAPTER_IRLANDESE, DEGREES_CHAPTER_ALDERSGATE, DEGREES_RAM } from '../constants';
 
 export const Legend: React.FC = () => {
-    const allDegrees = Object.values(DEGREES).flat();
+    const degreesByBranch = {
+      CRAFT: DEGREES_CRAFT_EMULATION,
+      MARK: DEGREES_MARK_IRLANDESE,
+      CHAPTER: DEGREES_CHAPTER_IRLANDESE,
+      RAM: DEGREES_RAM
+    };
+
+    const allDegrees = [
+      ...DEGREES_CRAFT_EMULATION,
+      ...DEGREES_CRAFT_SCOZZESE,
+      ...DEGREES_MARK_IRLANDESE,
+      ...DEGREES_MARK_ALDERSGATE,
+      ...DEGREES_CHAPTER_IRLANDESE,
+      ...DEGREES_CHAPTER_ALDERSGATE,
+      ...DEGREES_RAM
+    ].filter((d, i, arr) => arr.findIndex(x => x.name === d.name) === i);
 
     const prerequisites: { [key: string]: string } = {
       'Uomo del Marchio': 'Compagno di Mestiere (Craft)',
@@ -44,7 +59,7 @@ export const Legend: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {DEGREES[branch.type].map((degree, index) => {
+                                            {degreesByBranch[branch.type as keyof typeof degreesByBranch].map((degree, index) => {
                                                 let prerequisiteDisplay = <span className="text-slate-400 italic">Nessuno</span>;
                                                 const specificPrereq = prerequisites[degree.name];
 
@@ -52,7 +67,7 @@ export const Legend: React.FC = () => {
                                                     prerequisiteDisplay = <span>{specificPrereq}</span>;
                                                 } else if (index > 0) {
                                                     // Default to previous degree in the same branch if no specific rule applies
-                                                    prerequisiteDisplay = <span>{DEGREES[branch.type][index - 1].name}</span>;
+                                                    prerequisiteDisplay = <span>{degreesByBranch[branch.type as keyof typeof degreesByBranch][index - 1].name}</span>;
                                                 }
 
                                                 return (

@@ -1,7 +1,7 @@
 
 
 import React from 'react';
-import { OfficerRole, BranchType } from '../types';
+import { OfficerRole, BranchType, AppSettings } from '../types';
 import { calculateMasonicYearString } from '../constants';
 import { ShieldCheck } from 'lucide-react';
 
@@ -11,9 +11,18 @@ interface RoleEditorProps {
   onChange: (roles: OfficerRole[]) => void;
   branchColor: string;
   defaultYear: number;
+  appSettings?: AppSettings;
 }
 
-export const RoleEditor: React.FC<RoleEditorProps> = ({ roles, branch, onChange, branchColor, defaultYear }) => {
+export const RoleEditor: React.FC<RoleEditorProps> = ({ roles, branch, onChange, branchColor, defaultYear, appSettings }) => {
+  
+  const getRitualForYear = (year: number): string => {
+    if (branch === 'RAM') return 'RAM';
+    const yearlyRituals = appSettings?.yearlyRituals?.[year];
+    if (branch === 'CRAFT') return yearlyRituals?.craft || 'Emulation';
+    if (branch === 'MARK' || branch === 'CHAPTER') return yearlyRituals?.markAndArch || 'Irlandese';
+    return 'N/A';
+  };
   
   const handleUpdate = (id: string, field: keyof OfficerRole, value: string) => {
     const updatedRoles = roles.map(r => {
@@ -47,7 +56,10 @@ export const RoleEditor: React.FC<RoleEditorProps> = ({ roles, branch, onChange,
                   key={role.id} 
                   className={`border-b border-slate-100 ${role.yearStart === defaultYear ? 'bg-yellow-50/50' : 'hover:bg-slate-50'}`}
                 >
-                  <td className="py-1.5 px-2 text-slate-800 font-medium">{role.roleName}</td>
+                  <td className="py-1.5 px-2">
+                    <div className="text-slate-800 font-medium">{role.roleName}</div>
+                    <div className="text-slate-400 text-[9px] italic">{getRitualForYear(role.yearStart)}</div>
+                  </td>
                   <td className="py-1.5 px-2 text-slate-600">{calculateMasonicYearString(role.yearStart)}</td>
                 </tr>
               ))}

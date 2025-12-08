@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Member, BranchType, StatusType } from '../types';
-import { BRANCHES, DEGREES, isMemberActiveInYear, calculateMasonicYearString, STATUS_REASONS } from '../constants';
+import { Member, BranchType, StatusType, AppSettings } from '../types';
+import { BRANCHES, isMemberActiveInYear, calculateMasonicYearString, STATUS_REASONS, getDegreesByRitual } from '../constants';
 import { HistoryEditor } from './HistoryEditor';
 import { RoleEditor } from './RoleEditor';
 import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, X, Trash2 } from 'lucide-react';
@@ -14,9 +14,10 @@ interface MemberDetailProps {
   onBack: () => void;
   onSave: () => void;
   defaultYear: number;
+  appSettings: AppSettings;
 }
 
-export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, onSave, defaultYear }) => {
+export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, onSave, defaultYear, appSettings }) => {
   const [member, setMember] = useState<Member | null>(null);
   const [originalMember, setOriginalMember] = useState<Member | null>(null);
   const [activeTab, setActiveTab] = useState<BranchType | 'PROFILE'>(PROFILE);
@@ -33,6 +34,14 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   
   // State for delete confirmation
   const [deleteConfirmation, setDeleteConfirmation] = useState<{branch: BranchType, eventIndex: number} | null>(null);
+
+  // Helper to get ritual for a branch in a year
+  const getRitualForYear = (year: number, branch: BranchType): string => {
+    const yearlyRituals = appSettings.yearlyRituals?.[year];
+    if (branch === 'CRAFT') return yearlyRituals?.craft || 'Emulation';
+    if (branch === 'MARK' || branch === 'CHAPTER') return yearlyRituals?.markAndArch || 'Irlandese';
+    return '';
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -351,7 +360,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
       }
 
       // Default intra-branch progression (e.g., AA -> CdM)
-      const branchDegrees = DEGREES[branch];
+      const branchDegrees = getDegreesByRitual(branch, getRitualForYear(defaultYear, branch));
       const degreeInfo = branchDegrees.find(d => d.name === degreeName);
       if (!degreeInfo) return null;
 
@@ -594,13 +603,13 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                             {/* Carriera Massonica */}
                             <div className="flex flex-col">
                               <h3 className="text-base font-semibold text-slate-800 mb-3 pb-2 border-b border-slate-200">Carriera Massonica</h3>
-                              <HistoryEditor branchColor={branch.color} degrees={branchData.degrees} degreeOptions={DEGREES[branch.type]} onChange={(degrees) => updateBranchData(branch.type, { degrees })} onValidate={(deg) => validateDegreePrerequisites(branch.type, deg)} />
+                              <HistoryEditor branchColor={branch.color} degrees={branchData.degrees} degreeOptions={getDegreesByRitual(branch.type, getRitualForYear(defaultYear, branch.type))} onChange={(degrees) => updateBranchData(branch.type, { degrees })} onValidate={(deg) => validateDegreePrerequisites(branch.type, deg)} />
                             </div>
 
                             {/* Ruoli e Incarichi */}
                             <div className="flex flex-col">
                               <h3 className="text-base font-semibold text-slate-800 mb-3 pb-2 border-b border-slate-200">Ruoli e Incarichi</h3>
-                              <RoleEditor branchColor={branch.color} branch={branch.type} roles={branchData.roles} onChange={(roles) => updateBranchData(branch.type, { roles })} defaultYear={defaultYear} />
+                              <RoleEditor branchColor={branch.color} branch={branch.type} roles={branchData.roles} onChange={(roles) => updateBranchData(branch.type, { roles })} defaultYear={defaultYear} appSettings={appSettings} />
                             </div>
 
                             {/* Attivazioni/Disattivazioni */}

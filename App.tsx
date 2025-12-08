@@ -15,7 +15,7 @@ const InactiveMembers = React.lazy(() => import('./components/InactiveMembers').
 const AdminPanel = React.lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const Legend = React.lazy(() => import('./components/Legend').then(m => ({ default: m.Legend })));
 const RelazioneAnnuale = React.lazy(() => import('./components/RelazioneAnnuale').then(m => ({ default: m.RelazioneAnnuale })));
-import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation } from './constants';
+import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation, getDegreesByRitual } from './constants';
 
 type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE';
 
@@ -512,7 +512,7 @@ const App: React.FC = () => {
 
           {currentView === 'MEMBER_DETAIL' && selectedMemberId && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento dettagli...</div>}>
-              <MemberDetail memberId={selectedMemberId} onBack={() => setCurrentView(returnView)} onSave={handleSaveMember} defaultYear={selectedYear}/>
+              <MemberDetail memberId={selectedMemberId} onBack={() => setCurrentView(returnView)} onSave={handleSaveMember} defaultYear={selectedYear} appSettings={appSettings}/>
             </React.Suspense>
           )}
           {currentView === 'ROLE_ASSIGNMENT' && (

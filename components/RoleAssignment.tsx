@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Member, BranchType, AppSettings } from '../types';
-import { BRANCHES, COMMON_ROLES, isMemberActiveInYear, RITUAL_LABELS, getRolesForRitual } from '../constants';
+import { BRANCHES, isMemberActiveInYear, RITUAL_LABELS, getRolesForRitual } from '../constants';
 import { dataService } from '../services/dataService';
 import { UserCog, ArrowLeftRight, Lock, Unlock } from 'lucide-react';
 
