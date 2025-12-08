@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.60'; // Added netlify.toml, fixed util._extend deprecation, increased MaxListeners limit
+  public APP_VERSION = '0.61'; // Fixed netlify.toml port configuration and added allowedHosts in vite.config
   public DB_VERSION = 2;
   private app: any = null;
   private db: any = null;

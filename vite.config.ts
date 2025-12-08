@@ -8,6 +8,14 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        allowedHosts: [
+          'localhost',
+          '127.0.0.1',
+          '0.0.0.0',
+          'devserver-main--gadu.netlify.app',
+          '.netlify.app',
+          '.local'
+        ]
       },
       plugins: [react()],
       define: {
