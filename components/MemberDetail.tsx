@@ -51,18 +51,21 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   const validate = async (mem: Member): Promise<boolean> => {
     setError(null);
 
-    // 1. Basic format
-    if (!/^\d+$/.test(mem.matricula)) {
-      setError("La matricola deve contenere solo numeri.");
-      return false;
-    }
+    // 1. Matricola: deve essere vuoto oppure numerico e univoco
+    if (mem.matricula !== '') {
+      // Se non vuoto, deve essere numerico
+      if (!/^\d+$/.test(mem.matricula)) {
+        setError("La matricola deve contenere solo numeri o essere vuota.");
+        return false;
+      }
 
-    // 2. Duplicate Matricula
-    const allMembers = await dataService.getMembers();
-    const duplicate = allMembers.find(m => m.matricula === mem.matricula && m.id !== mem.id);
-    if (duplicate) {
-      setError(`Matricola ${mem.matricula} già assegnata a ${duplicate.lastName} ${duplicate.firstName}.`);
-      return false;
+      // 2. Duplicate Matricula (solo se presente)
+      const allMembers = await dataService.getMembers();
+      const duplicate = allMembers.find(m => m.matricula === mem.matricula && m.id !== mem.id);
+      if (duplicate) {
+        setError(`Matricola ${mem.matricula} già assegnata a ${duplicate.lastName} ${duplicate.firstName}.`);
+        return false;
+      }
     }
 
     // 3. Check incompatibility between isMotherLodgeMember and isDualAppartenance

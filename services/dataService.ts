@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.57'; // Fixed status change confirmation check for pendingStatusChange
+  public APP_VERSION = '0.58'; // Matricola now optional: can be empty or numeric and unique
   public DB_VERSION = 2;
   private app: any = null;
   private db: any = null;
