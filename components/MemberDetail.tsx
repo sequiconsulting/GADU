@@ -4,7 +4,7 @@ import { Member, BranchType, StatusType, AppSettings } from '../types';
 import { BRANCHES, isMemberActiveInYear, calculateMasonicYearString, STATUS_REASONS, getDegreesByRitual } from '../constants';
 import { HistoryEditor } from './HistoryEditor';
 import { RoleEditor } from './RoleEditor';
-import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, X, Trash2, Printer } from 'lucide-react';
+import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, X, Trash2 } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 const PROFILE = 'PROFILE';
@@ -24,7 +24,6 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [changelogPage, setChangelogPage] = useState<number>(0);
-  const [isPrinting, setIsPrinting] = useState(false);
 
   // State for status change modal/input
   const [changingStatusFor, setChangingStatusFor] = useState<BranchType | null>(null);
@@ -377,17 +376,6 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
       return null;
   };
 
-  const handlePrint = () => {
-    if (!member) return;
-    setIsPrinting(true);
-    
-    // Trigger print dialog after a small delay to allow state update
-    setTimeout(() => {
-      window.print();
-      setIsPrinting(false);
-    }, 100);
-  };
-
   if (isLoading || !member) return <div className="p-8 text-center">Caricamento...</div>;
 
   return (
@@ -396,20 +384,12 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
         <button onClick={onBack} className="flex items-center text-slate-500 hover:text-slate-800 transition-colors">
           <ArrowLeft className="mr-2" size={20} /> <span className="hidden sm:inline">Torna alla lista</span><span className="sm:hidden">Indietro</span>
         </button>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handlePrint}
-            className="bg-slate-600 hover:bg-slate-700 text-white px-4 md:px-6 py-2 rounded-md font-semibold shadow-md flex items-center transition-colors text-sm md:text-base print:hidden"
-          >
-            <Printer className="mr-2" size={18} /> Stampa
-          </button>
-          <button
-            onClick={handleSave}
-            className="bg-masonic-gold hover:bg-yellow-600 text-white px-4 md:px-6 py-2 rounded-md font-semibold shadow-md flex items-center transition-colors text-sm md:text-base"
-          >
-            <Save className="mr-2" size={18} /> Salva
-          </button>
-        </div>
+        <button
+          onClick={handleSave}
+          className="bg-masonic-gold hover:bg-yellow-600 text-white px-4 md:px-6 py-2 rounded-md font-semibold shadow-md flex items-center transition-colors text-sm md:text-base"
+        >
+          <Save className="mr-2" size={18} /> Salva
+        </button>
       </div>
 
       {error && (
@@ -520,10 +500,9 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                 const isCraft = branch.type === 'CRAFT';
                 const branchData = member[branch.type.toLowerCase() as keyof Member] as any;
                 const isActiveCurrentYear = isMemberActiveInYear(branchData, defaultYear);
-                const shouldRender = isPrinting || activeTab === branch.type;
 
-                return shouldRender && (
-                    <div key={branch.type} className={`animate-fadeIn ${isPrinting ? 'print:block' : ''} ${isPrinting && activeTab !== branch.type ? 'print:page-break-before' : ''}`} data-print-section>
+                return activeTab === branch.type && (
+                    <div key={branch.type} className="animate-fadeIn">
                         {/* Status Header */}
                         <div className="flex flex-col md:flex-row md:items-start justify-between mb-6 pb-4 border-b gap-4">
                              <div className="flex items-start gap-3 flex-1">

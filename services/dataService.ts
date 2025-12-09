@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.88'; // MemberDetail: fixed status change date to use selected year, not current year (fixes regularization not showing as active)
+  public APP_VERSION = '0.89'; // Removed print functionality from MemberDetail
   public DB_VERSION = 3;
   private app: any = null;
   private db: any = null;
