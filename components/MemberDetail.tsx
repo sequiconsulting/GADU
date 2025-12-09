@@ -585,7 +585,10 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                     onClick={() => {
                                         setChangingStatusFor(branch.type);
                                         setPendingStatusChange({branch: branch.type, isActivation: !isActiveCurrentYear});
-                                        setStatusDate(new Date().toISOString().split('T')[0]);
+                                        // Set the date to today's day/month but in the selected year
+                                        const todayString = new Date().toISOString().split('T')[0];
+                                        const [_, month, day] = todayString.split('-');
+                                        setStatusDate(`${defaultYear}-${month}-${day}`);
                                         setStatusReason('');
                                         setStatusLodge('');
                                     }}
