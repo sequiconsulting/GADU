@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.85'; // RoleAssignment: added requirement that members must have at least one degree in the branch to be eligible for roles
+  public APP_VERSION = '0.87'; // Added RolesHistory component with 5-column view (4 previous years + current) with print button and page breaks
   public DB_VERSION = 3;
   private app: any = null;
   private db: any = null;

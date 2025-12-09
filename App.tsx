@@ -15,9 +15,10 @@ const InactiveMembers = React.lazy(() => import('./components/InactiveMembers').
 const AdminPanel = React.lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const Legend = React.lazy(() => import('./components/Legend').then(m => ({ default: m.Legend })));
 const RelazioneAnnuale = React.lazy(() => import('./components/RelazioneAnnuale').then(m => ({ default: m.RelazioneAnnuale })));
+const RolesHistory = React.lazy(() => import('./components/RolesHistory').then(m => ({ default: m.RolesHistory })));
 import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation, getDegreesByRitual } from './constants';
 
-type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE';
+type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'ROLES_HISTORY' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE';
 
 const App: React.FC = () => {
   // TODO: Auth0 integration - uncomment when ready
@@ -105,7 +106,7 @@ const App: React.FC = () => {
     if (['MEMBERS', 'PIEDILISTA', 'INACTIVE_MEMBERS'].includes(view) || (view === 'MEMBER_DETAIL' && ['MEMBERS', 'PIEDILISTA', 'INACTIVE_MEMBERS'].includes(returnView))) {
         setIsMembersMenuOpen(true);
     }
-    if (['ROLE_ASSIGNMENT', 'REPORT'].includes(view)) {
+    if (['ROLE_ASSIGNMENT', 'ROLES_HISTORY', 'REPORT'].includes(view)) {
         setIsRolesMenuOpen(true);
     }
     if (['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE'].includes(view)) {
@@ -239,7 +240,7 @@ const App: React.FC = () => {
           </div>
 
           <div>
-            <button onClick={() => setIsRolesMenuOpen(!isRolesMenuOpen)} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isRolesMenuOpen || ['ROLE_ASSIGNMENT', 'REPORT'].includes(currentView) ? 'text-white' : ''}`}>
+            <button onClick={() => setIsRolesMenuOpen(!isRolesMenuOpen)} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isRolesMenuOpen || ['ROLE_ASSIGNMENT', 'ROLES_HISTORY', 'REPORT'].includes(currentView) ? 'text-white' : ''}`}>
                <div className="flex items-center gap-3"><Shield size={20} /> <span className="font-medium">Gestione Ufficiali</span></div>
                {isRolesMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
             </button>
@@ -247,6 +248,9 @@ const App: React.FC = () => {
                 <div className="ml-8 mt-1 space-y-1 border-l border-slate-700 pl-2">
                     <button onClick={() => handleViewChange('ROLE_ASSIGNMENT')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'ROLE_ASSIGNMENT' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
                         <UserCog size={16} /> Ruoli
+                    </button>
+                    <button onClick={() => handleViewChange('ROLES_HISTORY')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'ROLES_HISTORY' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
+                        <BookOpen size={16} /> Storico Ruoli
                     </button>
                     <button onClick={() => handleViewChange('REPORT')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'REPORT' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
                         <Shield size={16} /> Organigramma
@@ -300,6 +304,7 @@ const App: React.FC = () => {
                 {currentView === 'MEMBERS' && 'Elenco Associati'}
                 {currentView === 'MEMBER_DETAIL' && 'Dettaglio Associato'}
                 {currentView === 'ROLE_ASSIGNMENT' && 'Gestione Ufficiali'}
+                {currentView === 'ROLES_HISTORY' && 'Storico Ruoli'}
                 {currentView === 'REPORT' && 'Report Ruoli'}
                 {currentView === 'PIEDILISTA' && 'Piedilista'}
                 {currentView === 'INACTIVE_MEMBERS' && 'Archivio Fratelli Inattivi'}
@@ -528,6 +533,11 @@ const App: React.FC = () => {
           {currentView === 'REPORT' && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento report...</div>}>
               <RolesReport members={members} selectedYear={selectedYear} lodgeName={appSettings.lodgeName} lodgeNumber={appSettings.lodgeNumber} settings={appSettings} />
+            </React.Suspense>
+          )}
+          {currentView === 'ROLES_HISTORY' && (
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento storico ruoli...</div>}>
+              <RolesHistory members={members} selectedYear={selectedYear} appSettings={appSettings} />
             </React.Suspense>
           )}
           {currentView === 'PROCEDURES' && (

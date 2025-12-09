@@ -53,6 +53,48 @@
         .print-branch-container:nth-of-type(n+2) {
           page-break-before: always !important;
         }
+        /* Member Detail print: hide all non-active tabs */
+        [role="tabpanel"] {
+          display: none !important;
+        }
+        [role="tabpanel"][aria-hidden="false"],
+        [data-print-visible="true"] {
+          display: block !important;
+        }
+        /* Page break between member detail sections */
+        [data-print-section] {
+          page-break-after: always !important;
+        }
+        [data-print-section]:last-child {
+          page-break-after: auto !important;
+        }
+        /* Hide tab navigation during print */
+        .flex.border-b.border-slate-200.bg-slate-50.overflow-x-auto {
+          display: none !important;
+        }
+        /* Hide edit controls and buttons during print */
+        .print\\:hidden {
+          display: none !important;
+        }
+        /* Ensure all branch sections are visible during print */
+        div[data-print-section] {
+          display: block !important;
+        }
+        /* RolesHistory table formatting for print */
+        table {
+          width: 100% !important;
+          table-layout: fixed !important;
+        }
+        table td, table th {
+          word-wrap: break-word !important;
+          overflow-wrap: break-word !important;
+          word-break: break-word !important;
+          white-space: normal !important;
+        }
+        /* Ensure table rows don't break awkwardly */
+        table tbody tr {
+          page-break-inside: avoid !important;
+        }
       }
     </style>
   </head>
