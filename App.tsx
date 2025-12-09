@@ -178,6 +178,7 @@ const App: React.FC = () => {
     ram: members.filter(m => isMemberActiveInYear(m.ram, selectedYear)).length,
   };
 
+  // TEMPORARY: Cleanup function for test database
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden print:h-auto print:overflow-visible">
       

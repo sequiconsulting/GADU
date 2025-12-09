@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.89'; // Removed print functionality from MemberDetail
+  public APP_VERSION = '0.90'; // Added temporary database cleanup utility for test data (will be removed)
   public DB_VERSION = 3;
   private app: any = null;
   private db: any = null;

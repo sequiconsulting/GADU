@@ -70,50 +70,12 @@ export const RolesHistory: React.FC<RolesHistoryProps> = ({ members, selectedYea
   };
 
   const getAllRolesForBranch = (branch: BranchType) => {
-    const allRoles = new Set<string>();
+    // Use the template for the selected year's ritual
     const ritual = getRitualForYear(selectedYear, branch);
-    const roleTemplates = getRolesForRitual(branch, ritual);
+    const orderedRoles = getRolesForRitual(branch, ritual);
     
-    // Collect all roles from all years
-    roleTemplates.forEach(role => allRoles.add(role));
-    
-    // Add any roles from history that might not be in current template
-    yearsToDisplay.forEach(year => {
-      getRolesByYear(branch, year).forEach((_, roleName) => {
-        allRoles.add(roleName);
-      });
-    });
-
-    // Order by the progression list, then add any extras at the end
-    const orderedRoles: string[] = [];
-    const allRolesList = Array.from(allRoles);
-    
-    // Get the correct ordered list based on branch and ritual
-    let orderTemplate: string[] = [];
-    if (branch === 'CRAFT') {
-      orderTemplate = ritual === 'Scozzese' ? CRAFT_SCOZZESE_ROLES : CRAFT_EMULATION_ROLES;
-    } else if (branch === 'MARK') {
-      orderTemplate = ritual === 'Aldersgate' ? MARCHIO_ALDERSGATE_ROLES : MARCHIO_IRLANDESE_ROLES;
-    } else if (branch === 'CHAPTER') {
-      orderTemplate = ritual === 'Aldersgate' ? CAPITOLO_ALDERSGATE_ROLES : CAPITOLO_IRLANDESE_ROLES;
-    } else if (branch === 'RAM') {
-      orderTemplate = RAM_ROLES;
-    }
-
-    // Add roles in order from template
-    orderTemplate.forEach(templateRole => {
-      if (allRolesList.includes(templateRole)) {
-        orderedRoles.push(templateRole);
-      }
-    });
-
-    // Add any remaining roles not in template (shouldn't happen, but just in case)
-    allRolesList.forEach(role => {
-      if (!orderedRoles.includes(role)) {
-        orderedRoles.push(role);
-      }
-    });
-
+    // Return only roles in the current template
+    // (Don't add "phantom" roles from database that aren't in the template)
     return orderedRoles;
   };
 
