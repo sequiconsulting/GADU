@@ -19,6 +19,7 @@ interface UserManagementProps {
   changelog?: UserChangeLogEntry[];
   canManage: boolean; // Can edit users
   canView: boolean;   // Can view users list
+  currentUserEmail?: string; // Current logged-in user (for changelog tracking)
   onUsersChange: (users: AppUser[]) => void;
   onChangelogChange?: (changelog: UserChangeLogEntry[]) => void;
 }
@@ -28,6 +29,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   changelog = [],
   canManage,
   canView,
+  currentUserEmail = 'Admin', // Placeholder, will be actual email when auth is enabled
   onUsersChange,
   onChangelogChange,
 }) => {
@@ -51,6 +53,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       timestamp: new Date().toISOString(),
       action,
       userEmail,
+      performedBy: currentUserEmail,
       details,
     };
 
@@ -314,13 +317,14 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                 <th className="text-left px-3 py-2 font-semibold text-slate-700">Data/Ora</th>
                 <th className="text-left px-3 py-2 font-semibold text-slate-700">Azione</th>
                 <th className="text-left px-3 py-2 font-semibold text-slate-700">Utente</th>
+                <th className="text-left px-3 py-2 font-semibold text-slate-700">Chi ha effettuato</th>
                 <th className="text-left px-3 py-2 font-semibold text-slate-700">Descrizione</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {changelog.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="text-center px-3 py-3 text-slate-500">
+                  <td colSpan={5} className="text-center px-3 py-3 text-slate-500">
                     Nessuna modifica registrata
                   </td>
                 </tr>
@@ -341,6 +345,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                       </span>
                     </td>
                     <td className="px-3 py-2 text-slate-800">{entry.userEmail}</td>
+                    <td className="px-3 py-2 text-slate-800">{entry.performedBy || 'Admin'}</td>
                     <td className="px-3 py-2 text-slate-700">{entry.details}</td>
                   </tr>
                 ))
@@ -377,7 +382,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
         )}
       </div>
 
-      <div className="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+      <div className="mt-8 p-4 bg-slate-50 rounded-lg border border-slate-200">
         <h4 className="font-semibold text-slate-700 mb-2 text-xs">Legenda Privilegi</h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           {AVAILABLE_PRIVILEGES.map(priv => (

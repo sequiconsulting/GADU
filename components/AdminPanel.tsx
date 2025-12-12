@@ -185,6 +185,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
               changelog={settings.userChangelog || []}
               canManage={true}  // In future, check if current user is admin
               canView={true}
+              currentUserEmail="Admin" // Will be replaced with actual current user email when auth is enabled
               onUsersChange={handleUsersChange}
               onChangelogChange={handleUserChangelogChange}
             />
