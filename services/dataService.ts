@@ -149,6 +149,10 @@ class DataService {
     await this.ensureFirebase();
     // Ensure dbVersion is preserved in settings before saving
     const settingsToSave = { ...settings, dbVersion: this.DB_VERSION };
+    // Enforce userChangelog maximum length (keep most recent 100 entries)
+    if (settingsToSave.userChangelog && Array.isArray(settingsToSave.userChangelog)) {
+      settingsToSave.userChangelog = settingsToSave.userChangelog.slice(-100);
+    }
     await this.firebaseFns.setDoc(this.settingsDoc, settingsToSave);
     // Automatically sync version after settings save
     await this.syncVersionToFirestore();
