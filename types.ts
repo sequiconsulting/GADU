@@ -112,6 +112,14 @@ export interface ChangeLogEntry {
   details?: Record<string, any>;
 }
 
+export interface UserChangeLogEntry {
+  timestamp: string;
+  action: string; // 'CREATE', 'UPDATE', 'DELETE', 'PRIVILEGE_CHANGE'
+  userEmail?: string; // User being modified
+  performedBy?: string; // Email of admin who made the change
+  details?: string; // Description of what changed
+}
+
 export interface AppSettings {
   lodgeName: string;
   lodgeNumber: string;
@@ -129,6 +137,8 @@ export interface AppSettings {
   }>;
   // User management (list of users with privileges)
   users?: AppUser[];
+  // User modification changelog (max 100 entries, oldest are overwritten)
+  userChangelog?: UserChangeLogEntry[];
 }
 
 export interface DashboardStats {

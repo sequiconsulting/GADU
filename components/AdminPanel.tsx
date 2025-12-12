@@ -29,7 +29,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
   };
 
   const handleUsersChange = (users: any[]) => {
-    setSettings(prev => ({ ...prev, users }));
+    const updated = { ...settings, users };
+    setSettings(updated);
+    // Auto-save users immediately
+    onSave(updated);
+    setMessage("Utenti aggiornati");
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  const handleUserChangelogChange = (changelog: any[]) => {
+    const updated = { ...settings, userChangelog: changelog };
+    setSettings(updated);
+    // Auto-save changelog immediately
+    onSave(updated);
   };
 
   const handleChange = (field: keyof AppSettings, value: any) => {
@@ -170,19 +182,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
             {/* USERS TAB */}
             <UserManagement
               users={settings.users || []}
+              changelog={settings.userChangelog || []}
               canManage={true}  // In future, check if current user is admin
               canView={true}
               onUsersChange={handleUsersChange}
+              onChangelogChange={handleUserChangelogChange}
             />
-            <div className="flex justify-end items-center gap-4 border-t border-slate-100 pt-6 mt-6">
-              {message && <span className="text-green-600 font-medium text-sm animate-pulse">{message}</span>}
-              <button 
-                onClick={handleSave} 
-                className="bg-masonic-gold hover:bg-yellow-600 text-white px-6 py-2.5 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
-              >
-                <Save size={18} /> Salva Utenti
-              </button>
-            </div>
+            {message && (
+              <div className="flex justify-end mt-6 pt-6 border-t border-slate-100">
+                <span className="text-green-600 font-medium text-sm animate-pulse">{message}</span>
+              </div>
+            )}
           </>
         )}
       </div>
