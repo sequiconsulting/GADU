@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.90'; // Added temporary database cleanup utility for test data (will be removed)
+  public APP_VERSION = '0.91'; // User authentication system prepared (disabled by default)
   public DB_VERSION = 3;
   private app: any = null;
   private db: any = null;

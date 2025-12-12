@@ -2,7 +2,34 @@
 export type BranchType = 'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM';
 export type StatusType = 'ACTIVE' | 'INACTIVE';
 
-// Auth0 User Roles
+// Netlify Authentication & Authorization
+export type UserPrivilege = 'AD' | 'CR' | 'MR' | 'AR' | 'RR' | 'CW' | 'MW' | 'AW' | 'RW';
+
+export interface AppUser {
+  id: string;
+  email: string;
+  name: string;
+  privileges: UserPrivilege[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NetlifyIdentityUser {
+  id: string;
+  aud: string;
+  role: string;
+  email: string;
+  email_confirmed: boolean;
+  app_metadata: {
+    provider: string;
+    roles?: string[];
+  };
+  user_metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+// Legacy Auth0 User Roles (for backwards compatibility, if needed)
 export type UserRole = 
   | 'admin_global' 
   | 'admin_craft' 
@@ -15,11 +42,6 @@ export interface Auth0User {
   name?: string;
   picture?: string;
   'https://gadu.com/roles'?: UserRole[]; // Custom claim with user roles
-}
-
-export interface DegreeEvent {
-  timestamp: string; // ISO 8601 UTC timestamp
-  description: string;
 }
 
 export interface DegreeEvent {
@@ -83,6 +105,13 @@ export interface Member {
   changelog?: ChangeLogEntry[];
 }
 
+export interface ChangeLogEntry {
+  timestamp: string;
+  action: string;
+  user?: string;
+  details?: Record<string, any>;
+}
+
 export interface AppSettings {
   lodgeName: string;
   lodgeNumber: string;
@@ -98,6 +127,8 @@ export interface AppSettings {
     craft: 'Emulation' | 'Scozzese';
     markAndArch: 'Irlandese' | 'Aldersgate';
   }>;
+  // User management (list of users with privileges)
+  users?: AppUser[];
 }
 
 export interface DashboardStats {

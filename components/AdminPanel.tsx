@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { AppSettings, BranchType } from '../types';
 import { Save, Settings } from 'lucide-react';
 import { ITALIAN_PROVINCES, BRANCHES } from '../constants';
+import { UserManagement } from './UserManagement';
 
 interface AdminPanelProps {
   currentSettings: AppSettings;
@@ -15,6 +16,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
   const [settings, setSettings] = useState<AppSettings>(currentSettings);
   const [message, setMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('CRAFT');
+  const [usersTab, setUsersTab] = useState(false);
 
   useEffect(() => {
     setSettings(currentSettings);
@@ -24,6 +26,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
     onSave(settings);
     setMessage("Impostazioni salvate con successo.");
     setTimeout(() => setMessage(null), 3000);
+  };
+
+  const handleUsersChange = (users: any[]) => {
+    setSettings(prev => ({ ...prev, users }));
   };
 
   const handleChange = (field: keyof AppSettings, value: any) => {
@@ -76,9 +82,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
       </div>
 
       <div className="p-6">
-        <div className="mb-8">
-            <h3 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">Dati Loggia</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="flex gap-4 mb-6 border-b border-slate-200">
+          <button
+            onClick={() => setUsersTab(false)}
+            className={`px-4 py-2 font-semibold border-b-2 transition-colors ${
+              !usersTab
+                ? 'border-masonic-gold text-masonic-gold'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Configurazione
+          </button>
+          <button
+            onClick={() => setUsersTab(true)}
+            className={`px-4 py-2 font-semibold border-b-2 transition-colors ${
+              usersTab
+                ? 'border-masonic-gold text-masonic-gold'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Gestione Utenti
+          </button>
+        </div>
+
+        {!usersTab ? (
+          <>
+            {/* CONFIGURAZIONE TAB */}
+            <div className="mb-8">
+              <h3 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">Dati Loggia</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                     <label className="block text-sm font-medium text-slate-600 mb-1">Nome Loggia</label>
                     <input 
@@ -115,23 +147,44 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
                         ))}
                     </select>
                 </div>
+              </div>
             </div>
-        </div>
 
-        <div className="mb-8">
-            <h3 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">Preferenze Rami</h3>
-            {renderPreferences()}
-        </div>
+            <div className="mb-8">
+              <h3 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">Preferenze Rami</h3>
+              {renderPreferences()}
+            </div>
 
-        <div className="flex justify-end items-center gap-4 border-t border-slate-100 pt-6">
-            {message && <span className="text-green-600 font-medium text-sm animate-pulse">{message}</span>}
-            <button 
+            <div className="flex justify-end items-center gap-4 border-t border-slate-100 pt-6">
+              {message && <span className="text-green-600 font-medium text-sm animate-pulse">{message}</span>}
+              <button 
                 onClick={handleSave} 
                 className="bg-masonic-gold hover:bg-yellow-600 text-white px-6 py-2.5 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
-            >
+              >
                 <Save size={18} /> Salva Configurazione
-            </button>
-        </div>
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* USERS TAB */}
+            <UserManagement
+              users={settings.users || []}
+              canManage={true}  // In future, check if current user is admin
+              canView={true}
+              onUsersChange={handleUsersChange}
+            />
+            <div className="flex justify-end items-center gap-4 border-t border-slate-100 pt-6 mt-6">
+              {message && <span className="text-green-600 font-medium text-sm animate-pulse">{message}</span>}
+              <button 
+                onClick={handleSave} 
+                className="bg-masonic-gold hover:bg-yellow-600 text-white px-6 py-2.5 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
+              >
+                <Save size={18} /> Salva Utenti
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
