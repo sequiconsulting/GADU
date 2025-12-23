@@ -74,3 +74,34 @@ Built with modern web technologies, GADU provides an intuitive interface for lod
    ```bash
    git clone https://github.com/sequiconsulting/GADU.git
    cd GADU
+### Data Storage
+
+- Firestore Collections:
+   - `members`: one document per member
+   - `settings/appSettings`: singleton app configuration
+   - `convocazioni`: meeting convocations (per-branch, per-year)
+
+Convocazioni are stored in the dedicated `convocazioni` collection; the legacy `settings.convocazioni` field has been removed as of app version 0.116.
+
+### Automatic Rules Deploy
+
+To auto-deploy Firestore rules on install, set the following environment variables before running `npm install`:
+
+- `FIREBASE_TOKEN`: CI token generated via `firebase login:ci`
+- `FIREBASE_PROJECT`: Firebase project id (defaults to `gadu-staging`)
+
+On install, the script at `scripts/deployRules.js` will deploy `firestore.rules`. You can also deploy manually:
+
+```bash
+npm run deploy:rules
+```
+
+### CI: Deploy on Push
+
+This repo includes a GitHub Action that deploys Firestore rules automatically on pushes to `main`.
+
+Configure repository secrets:
+- `FIREBASE_TOKEN`: CI token from `firebase login:ci`
+- `FIREBASE_PROJECT_ID`: e.g., `gadu-staging`
+
+Workflow file: `.github/workflows/deploy-firestore-rules.yml`

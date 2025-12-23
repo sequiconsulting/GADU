@@ -15,20 +15,36 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingData, setEditingData] = useState<Partial<Convocazione> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const convocazioni = (settings.convocazioni || []).filter(
-    c => c.branchType === activeBranch && c.yearStart === selectedYear
-  );
+  const [convocazioniBranch, setConvocazioniBranch] = useState<Convocazione[]>([]);
+  const convocazioni = convocazioniBranch.filter(c => c.yearStart === selectedYear);
 
-  const getNextNumero = (): number => {
-    // Find max numero across ALL years for this branch
-    const allBranchConvocazioni = (settings.convocazioni || []).filter(c => c.branchType === activeBranch);
-    const maxNumero = allBranchConvocazioni.reduce((max, c) => Math.max(max, c.numeroConvocazione), 0);
-    return maxNumero + 1;
+  const reloadConvocazioni = async (branch: BranchType) => {
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const list = await dataService.getConvocazioniForBranch(branch);
+      setConvocazioniBranch(list);
+    } catch (e: any) {
+      console.error('Error loading convocazioni', e);
+      setErrorMsg(e?.message || 'Errore nel caricamento delle convocazioni.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    reloadConvocazioni(activeBranch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBranch, selectedYear]);
+
+  const getNextNumeroAsync = async (): Promise<number> => {
+    return dataService.getNextConvocazioneNumero(activeBranch);
   };
 
   const isNumeroUnique = (numero: number, excludeId?: string): boolean => {
-    return !(settings.convocazioni || []).some(
+    return !convocazioniBranch.some(
       c => c.branchType === activeBranch && c.numeroConvocazione === numero && c.id !== excludeId
     );
   };
@@ -45,12 +61,13 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
     }
   };
 
-  const handleNewConvocazione = () => {
+  const handleNewConvocazione = async () => {
     setEditingId('new');
-    setEditingData({
+    // Initialize immediately so inputs are editable even if async fetch takes time
+    const initialData: Partial<Convocazione> = {
       branchType: activeBranch,
       yearStart: selectedYear,
-      numeroConvocazione: getNextNumero(),
+      numeroConvocazione: 0,
       dataConvocazione: new Date().toISOString().split('T')[0],
       dataOraApertura: new Date().toISOString().slice(0, 16),
       luogo: '',
@@ -58,7 +75,14 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
       note: '',
       formatoGrafico: 'standard',
       bloccata: false,
-    });
+    };
+    setEditingData(initialData);
+    try {
+      const nextNum = await getNextNumeroAsync();
+      setEditingData(prev => ({ ...(prev || initialData), numeroConvocazione: nextNum }));
+    } catch {
+      // Leave numeroConvocazione as 0; user can edit manually
+    }
   };
 
   const handleEdit = (convocazione: Convocazione) => {
@@ -69,33 +93,35 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
   const handleSave = async () => {
     if (!editingData) return;
     setLoading(true);
+    setErrorMsg(null);
     try {
-      const updated = { ...settings, convocazioni: settings.convocazioni || [] };
       const now = new Date().toISOString();
 
       if (editingId === 'new') {
         const newConvocazione: Convocazione = {
-          id: `conv_${Date.now()}`,
           ...editingData,
           bloccata: true,
           createdAt: now,
           updatedAt: now,
         };
-        updated.convocazioni = [...updated.convocazioni, newConvocazione];
+        await dataService.saveConvocazione(newConvocazione);
       } else {
-        updated.convocazioni = updated.convocazioni.map(c =>
-          c.id === editingId
-            ? { ...editingData, id: editingId, createdAt: c.createdAt, updatedAt: now } as Convocazione
-            : c
-        );
+        const existing = convocazioniBranch.find(c => c.id === editingId);
+        const toSave: Convocazione = {
+          ...(editingData as Convocazione),
+          id: editingId!,
+          createdAt: existing?.createdAt || now,
+          updatedAt: now,
+        };
+        await dataService.saveConvocazione(toSave);
       }
-
-      await dataService.saveSettings(updated);
       setEditingId(null);
       setEditingData(null);
+      await reloadConvocazioni(activeBranch);
       await onUpdate();
-    } catch (e) {
+    } catch (e: any) {
       console.error('Error saving convocazione', e);
+      setErrorMsg(e?.message || 'Errore nel salvataggio su Firestore. Verifica le regole e la collection "convocazioni".');
     } finally {
       setLoading(false);
     }
@@ -105,8 +131,8 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
     if (!confirm('Sei sicuro di voler eliminare questa convocazione?')) return;
     setLoading(true);
     try {
-      const updated = { ...settings, convocazioni: settings.convocazioni?.filter(c => c.id !== id) || [] };
-      await dataService.saveSettings(updated);
+      await dataService.deleteConvocazione(id);
+      await reloadConvocazioni(activeBranch);
       await onUpdate();
     } catch (e) {
       console.error('Error deleting convocazione', e);
@@ -118,13 +144,8 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
   const handleToggleLock = async (convocazione: Convocazione) => {
     setLoading(true);
     try {
-      const updated = { ...settings, convocazioni: settings.convocazioni || [] };
-      updated.convocazioni = updated.convocazioni.map(c =>
-        c.id === convocazione.id
-          ? { ...c, bloccata: !c.bloccata, updatedAt: new Date().toISOString() }
-          : c
-      );
-      await dataService.saveSettings(updated);
+      await dataService.toggleConvocazioneLock(convocazione.id, !convocazione.bloccata);
+      await reloadConvocazioni(activeBranch);
       await onUpdate();
     } catch (e) {
       console.error('Error toggling lock', e);
@@ -163,6 +184,11 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
       </div>
 
       <div className="p-6">
+        {errorMsg && (
+          <div className="mb-4 bg-red-50 border border-red-300 text-red-700 rounded p-3 text-sm">
+            {errorMsg}
+          </div>
+        )}
         {editingId ? (
           <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-4">
             <h3 className="font-semibold text-slate-800">
@@ -175,7 +201,7 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
                 <input
                   type="number"
                   value={editingData?.numeroConvocazione || ''}
-                  onChange={(e) => setEditingData(prev => prev ? { ...prev, numeroConvocazione: parseInt(e.target.value) || 0 } : prev)}
+                  onChange={(e) => setEditingData(prev => ({ ...(prev || {}), numeroConvocazione: parseInt(e.target.value) || 0 }))}
                   className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-masonic-gold"
                   min="1"
                 />
@@ -189,7 +215,7 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
                 <input
                   type="date"
                   value={editingData?.dataConvocazione || ''}
-                  onChange={(e) => setEditingData(prev => prev ? { ...prev, dataConvocazione: e.target.value } : prev)}
+                  onChange={(e) => setEditingData(prev => ({ ...(prev || {}), dataConvocazione: e.target.value }))}
                   className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-masonic-gold"
                 />
               </div>
@@ -199,7 +225,7 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
                 <input
                   type="datetime-local"
                   value={editingData?.dataOraApertura || ''}
-                  onChange={(e) => setEditingData(prev => prev ? { ...prev, dataOraApertura: e.target.value } : prev)}
+                  onChange={(e) => setEditingData(prev => ({ ...(prev || {}), dataOraApertura: e.target.value }))}
                   className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-masonic-gold"
                 />
               </div>
@@ -211,7 +237,7 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
                 <input
                   type="text"
                   value={editingData?.luogo || ''}
-                  onChange={(e) => setEditingData(prev => prev ? { ...prev, luogo: e.target.value } : prev)}
+                  onChange={(e) => setEditingData(prev => ({ ...(prev || {}), luogo: e.target.value }))}
                   className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-masonic-gold text-sm"
                   placeholder="Inserisci il luogo della tornata..."
                 />
@@ -221,7 +247,7 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
                 <label className="block text-sm font-medium text-slate-600 mb-1">Formato Grafico</label>
                 <select
                   value={editingData?.formatoGrafico || 'standard'}
-                  onChange={(e) => setEditingData(prev => prev ? { ...prev, formatoGrafico: e.target.value as any } : prev)}
+                  onChange={(e) => setEditingData(prev => ({ ...(prev || {}), formatoGrafico: e.target.value as any }))}
                   className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-masonic-gold text-sm"
                 >
                   <option value="standard">Standard</option>
@@ -234,7 +260,7 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
               <label className="block text-sm font-medium text-slate-600 mb-1">Ordine del Giorno</label>
               <textarea
                 value={editingData?.ordineDelGiorno || ''}
-                onChange={(e) => setEditingData(prev => prev ? { ...prev, ordineDelGiorno: e.target.value } : prev)}
+                onChange={(e) => setEditingData(prev => ({ ...(prev || {}), ordineDelGiorno: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-masonic-gold text-sm"
                 rows={5}
                 placeholder="Inserisci l'ordine del giorno..."
@@ -245,7 +271,7 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
               <label className="block text-sm font-medium text-slate-600 mb-1">Note</label>
               <textarea
                 value={editingData?.note || ''}
-                onChange={(e) => setEditingData(prev => prev ? { ...prev, note: e.target.value } : prev)}
+                onChange={(e) => setEditingData(prev => ({ ...(prev || {}), note: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg p-2 outline-none focus:border-masonic-gold text-sm"
                 rows={3}
                 placeholder="Note aggiuntive..."

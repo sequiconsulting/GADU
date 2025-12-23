@@ -167,7 +167,6 @@ export interface AppSettings {
   lodgeNumber: string;
   province: string;
   dbVersion: number; // Database schema version for migrations
-  convocazioni?: Convocazione[]; // Meeting convocations list
   // Ritual preferences per year (Masonic year start, e.g., 2025 for 2025-2026)
   yearlyRituals?: Record<number, {
     craft: 'Emulation' | 'Scozzese';

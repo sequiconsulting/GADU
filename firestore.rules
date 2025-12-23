@@ -8,5 +8,10 @@ service cloud.firestore {
     match /settings/appSettings {
       allow read, write: if true;
     }
+
+    // Convocazioni collection: dedicated storage for meeting convocations
+    match /convocazioni/{convId} {
+      allow read, write: if true;
+    }
   }
 }

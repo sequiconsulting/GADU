@@ -1,5 +1,5 @@
 
-import { Member, AppSettings, BranchType, OfficerRole, ChangeLogEntry } from "../types";
+import { Member, AppSettings, BranchType, OfficerRole, ChangeLogEntry, Convocazione } from "../types";
 import { isMemberActiveInYear } from "../constants";
 
 const firebaseConfig = {
@@ -14,11 +14,12 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.114'; // UI: compact Titolo/Capitazione inputs side-by-side
-  public DB_VERSION = 10; // MasonicBranchData: added titoli array
+  public APP_VERSION = '0.118'; // Tornate: use addDoc for creation and show Firestore errors
+  public DB_VERSION = 11; // AppSettings schema change
   private app: any = null;
   private db: any = null;
   private membersCollection: any = null;
+  private convocazioniCollection: any = null;
   private settingsDoc: any = null;
   private firebaseFns: any = null;
   private firebaseInitialized = false;
@@ -32,13 +33,14 @@ class DataService {
     if (this.firebaseInitialized) return;
     const { initializeApp } = await import('firebase/app');
     const firestore = await import('firebase/firestore');
-    const { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch } = firestore;
+    const { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch, query, where, deleteField, addDoc } = firestore;
 
     this.app = initializeApp(firebaseConfig);
     this.db = getFirestore(this.app);
     this.membersCollection = collection(this.db, 'members');
+    this.convocazioniCollection = collection(this.db, 'convocazioni');
     this.settingsDoc = doc(this.db, 'settings', 'appSettings');
-    this.firebaseFns = { collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch };
+    this.firebaseFns = { collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch, query, where, addDoc };
     this.firebaseInitialized = true;
   }
 
@@ -47,13 +49,20 @@ class DataService {
     await this.ensureFirebase();
     try {
       const docSnap = await this.firebaseFns.getDoc(this.settingsDoc);
-      const dbVersion = docSnap.exists() ? docSnap.data().dbVersion : undefined;
+      const data = docSnap.exists() ? docSnap.data() : undefined;
+      const dbVersion = data?.dbVersion;
       
       // If version mismatch, automatically update Firestore to current version
       if (dbVersion !== this.DB_VERSION) {
         console.log(`DB Version mismatch detected: Firestore has ${dbVersion}, code expects ${this.DB_VERSION}. Auto-syncing...`);
         await this.firebaseFns.setDoc(this.settingsDoc, { dbVersion: this.DB_VERSION }, { merge: true });
         console.log(`DB Version synced to ${this.DB_VERSION}`);
+      }
+      // Schema migration: remove legacy convocazioni field from settings
+      if (data && typeof data === 'object' && 'convocazioni' in data) {
+        console.log('Removing legacy settings.convocazioni field...');
+        await this.firebaseFns.setDoc(this.settingsDoc, { convocazioni: deleteField() }, { merge: true });
+        console.log('Legacy convocazioni field removed.');
       }
     } catch (error) {
       console.error("Error syncing DB version:", error);
@@ -168,6 +177,69 @@ class DataService {
     // Automatically sync version after settings save
     await this.syncVersionToFirestore();
     return settingsToSave;
+  }
+
+  // === Convocazioni API ===
+  async getConvocazioniForBranch(branch: BranchType): Promise<Convocazione[]> {
+    if (!this.USE_FIREBASE) return Promise.resolve([]);
+    await this.ensureFirebase();
+    // Fetch all and filter client-side to avoid dependency on Firestore indexes
+    const snap = await this.firebaseFns.getDocs(this.convocazioniCollection);
+    const list: Convocazione[] = [];
+    snap.forEach((docSnap: any) => {
+      const data = docSnap.data();
+      if (data.branchType === branch) {
+        list.push({ id: docSnap.id, ...data } as Convocazione);
+      }
+    });
+    // Sort by numeroConvocazione ascending for consistency
+    list.sort((a, b) => a.numeroConvocazione - b.numeroConvocazione);
+    return list;
+  }
+
+  async getConvocazioni(branch: BranchType, yearStart: number): Promise<Convocazione[]> {
+    const all = await this.getConvocazioniForBranch(branch);
+    return all.filter(c => c.yearStart === yearStart);
+  }
+
+  async saveConvocazione(conv: Convocazione): Promise<Convocazione> {
+    if (!this.USE_FIREBASE) return Promise.resolve(conv);
+    await this.ensureFirebase();
+    const now = new Date().toISOString();
+    let toSave = { ...conv } as Convocazione;
+    if (!toSave.id || toSave.id === 'new') {
+      toSave.createdAt = now;
+      toSave.updatedAt = now;
+      const docRef = await this.firebaseFns.addDoc(this.convocazioniCollection, toSave);
+      toSave.id = docRef.id;
+      return toSave;
+    } else {
+      toSave.updatedAt = now;
+      const ref = this.firebaseFns.doc(this.convocazioniCollection, toSave.id);
+      await this.firebaseFns.setDoc(ref, toSave, { merge: true });
+      return toSave;
+    }
+  }
+
+  async deleteConvocazione(id: string): Promise<void> {
+    if (!this.USE_FIREBASE) return Promise.resolve();
+    await this.ensureFirebase();
+    const ref = this.firebaseFns.doc(this.convocazioniCollection, id);
+    await this.firebaseFns.deleteDoc(ref);
+  }
+
+  async toggleConvocazioneLock(id: string, lock?: boolean): Promise<void> {
+    if (!this.USE_FIREBASE) return Promise.resolve();
+    await this.ensureFirebase();
+    const ref = this.firebaseFns.doc(this.convocazioniCollection, id);
+    const now = new Date().toISOString();
+    await this.firebaseFns.setDoc(ref, { bloccata: lock, updatedAt: now }, { merge: true });
+  }
+
+  async getNextConvocazioneNumero(branch: BranchType): Promise<number> {
+    const all = await this.getConvocazioniForBranch(branch);
+    const max = all.reduce((m, c) => Math.max(m, c.numeroConvocazione || 0), 0);
+    return max + 1;
   }
   
   getEmptyMember(): Member {
