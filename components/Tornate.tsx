@@ -140,7 +140,7 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
       <div className="bg-slate-900 p-6 text-white">
         <div className="flex items-center gap-3 mb-2">
           <BookOpen size={24} className="text-masonic-gold" />
-          <h2 className="text-xl font-serif font-bold">Tornate - Anno {selectedYear}-{selectedYear + 1}</h2>
+          <h2 className="text-xl font-serif font-bold">Tornate - Anno {selectedYear}</h2>
         </div>
         <p className="text-slate-400 text-sm">Gestisci convocazioni e ordini del giorno per ogni ramo.</p>
       </div>

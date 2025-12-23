@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Member, BranchType, StatusType, AppSettings } from '../types';
+import { Member, BranchType, StatusType, AppSettings, CapitazioneTipo } from '../types';
 import { BRANCHES, isMemberActiveInYear, calculateMasonicYearString, STATUS_REASONS, getDegreesByRitual } from '../constants';
 import { HistoryEditor } from './HistoryEditor';
 import { RoleEditor } from './RoleEditor';
@@ -508,7 +508,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                 <div className="w-full">
                                     <div className="flex items-baseline gap-2 flex-wrap">
                                         <h2 className="text-xl font-serif font-bold text-slate-800 leading-none">Scheda {branch.label}</h2>
-                                        <span className="text-xs text-slate-500 font-sans">Anno {defaultYear}-{defaultYear + 1} - A.L. {calculateMasonicYearString(defaultYear)}</span>
+                                        <span className="text-xs text-slate-500 font-sans">Anno {defaultYear}</span>
                                     </div>
                                     <div className="flex items-center gap-2 flex-wrap mt-2">
                                         <label className="flex items-center gap-1.5 p-1.5 bg-yellow-50 border border-yellow-200 rounded cursor-pointer hover:bg-yellow-100/50">
@@ -573,6 +573,35 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                 >
                                     Cambia
                                 </button>
+                             </div>
+
+                             {/* Capitazione Dropdown */}
+                             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 w-full md:w-auto">
+                                <label className="text-xs font-medium text-slate-700 block mb-2">Capitazione</label>
+                                <select
+                                  value={(() => {
+                                    const capitazione = branchData.capitazioni?.find(c => c.year === defaultYear);
+                                    return capitazione?.tipo || 'Ordinaria';
+                                  })()}
+                                  onChange={(e) => {
+                                    const newCapitazioni = [...(branchData.capitazioni || [])];
+                                    const existingIndex = newCapitazioni.findIndex(c => c.year === defaultYear);
+                                    if (existingIndex >= 0) {
+                                      newCapitazioni[existingIndex] = { year: defaultYear, tipo: e.target.value as CapitazioneTipo };
+                                    } else {
+                                      newCapitazioni.push({ year: defaultYear, tipo: e.target.value as CapitazioneTipo });
+                                    }
+                                    updateBranchData(branch.type, { capitazioni: newCapitazioni });
+                                  }}
+                                  className="w-full md:w-64 px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 focus:ring-2 focus:ring-masonic-gold focus:border-transparent"
+                                >
+                                  <option value="Ordinaria">Ordinaria</option>
+                                  <option value="Ridotta Settembre">Ridotta Settembre</option>
+                                  <option value="Doppia Appartenenza">Doppia Appartenenza</option>
+                                  <option value="Ridotta Studenti">Ridotta Studenti</option>
+                                  <option value="Ridotta Ministri di Culto">Ridotta Ministri di Culto</option>
+                                  <option value="Onorario">Onorario</option>
+                                </select>
                              </div>
                         </div>
 

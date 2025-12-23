@@ -132,7 +132,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
   return (
     <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden animate-fadeIn">
       <div className="bg-slate-900 p-6 text-white">
-        <div className="flex items-center gap-3 mb-2"><UserCog size={24} className="text-masonic-gold"/><h2 className="text-xl font-serif font-bold">Gestione Ufficiali - Anno {selectedYear}-{selectedYear+1}</h2></div>
+        <div className="flex items-center gap-3 mb-2"><UserCog size={24} className="text-masonic-gold"/><h2 className="text-xl font-serif font-bold">Gestione Ufficiali - Anno {selectedYear}</h2></div>
         <p className="text-slate-400 text-sm">Assegna rapidamente i ruoli confrontando con l'anno precedente ({prevYear}-{prevYear+1}).</p>
       </div>
       <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto scrollbar-hide">
@@ -202,7 +202,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
             <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
               <p className="text-xs text-red-800 font-semibold">⚠️ ATTENZIONE</p>
               <p className="text-xs text-red-700 mt-1">
-                Questo cambio cancellerà tutti i ruoli assegnati per questo ramo nell'anno {selectedYear}-{selectedYear+1}.
+                Questo cambio cancellerà tutti i ruoli assegnati per questo ramo nell'anno {selectedYear}.
               </p>
             </div>
             <div className="flex gap-3">
@@ -231,7 +231,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
             <thead>
                 <tr className="border-b-2 border-slate-100 text-left">
                     <th className="py-3 pl-2 font-serif text-slate-700 w-1/4">Ruolo / Ufficiale</th>
-                    <th className="py-3 text-slate-500 w-1/4"><div className="flex items-center gap-1"><span>Riferimento Anno {prevYear}-{prevYear+1}</span></div></th>
+                    <th className="py-3 text-slate-500 w-1/4"><div className="flex items-center gap-1"><span>Riferimento Anno {prevYear}</span></div></th>
                     <th className="py-3 text-slate-500 w-1/4"><div className="flex items-center gap-1"><span>Assegnato {selectedYear}-{selectedYear+1}</span></div></th>
                 </tr>
             </thead>
@@ -274,7 +274,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
                 })}
             </tbody>
         </table>
-        {eligibleMembers.length === 0 && <div className="text-center p-8 text-slate-500 italic bg-slate-50 rounded-lg mt-4">Nessun fratello attivo trovato in {branchConfig?.label} per l'anno {selectedYear}-{selectedYear+1}.</div>}
+        {eligibleMembers.length === 0 && <div className="text-center p-8 text-slate-500 italic bg-slate-50 rounded-lg mt-4">Nessun fratello attivo trovato in {branchConfig?.label} per l'anno {selectedYear}.</div>}
       </div>
     </div>
   );

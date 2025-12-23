@@ -316,18 +316,20 @@ const App: React.FC = () => {
             </h2>
           </div>
 
-          <div className="flex items-center gap-4">
+          {currentView !== 'ADMIN' && (
+            <div className="flex items-center gap-4">
              <div className="flex items-center bg-slate-100 rounded-md p-1 border border-slate-200">
                 <button onClick={handleAddPastYear} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ChevronLeft size={16} /></button>
                 <div className="flex items-center px-2 border-l border-r border-slate-200 mx-1">
                   <Calendar size={16} className="text-slate-500 mr-2 hidden sm:block" />
                   <select value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))} className="bg-transparent text-sm font-bold text-slate-700 outline-none cursor-pointer max-w-[150px] sm:max-w-none">
-                    {yearOptions.map(year => <option key={year} value={year}>{year}-{year + 1} | A.L. {getMasonicYear(year)}</option>)}
+                    {yearOptions.map(year => <option key={year} value={year}>{year}</option>)}
                   </select>
                 </div>
                 <button onClick={handleAddFutureYear} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ChevronRight size={16} /></button>
              </div>
-          </div>
+            </div>
+          )}
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 print:p-0 print:overflow-visible print:h-auto">
@@ -399,7 +401,7 @@ const App: React.FC = () => {
                 <h1 className="text-3xl font-serif font-bold">G.A.D.U.</h1>
                 <h2 className="text-xl font-bold mt-1">{appSettings.lodgeName} N. {appSettings.lodgeNumber}</h2>
                 <h3 className="text-lg mt-2 font-serif text-slate-700">Registro Fratelli</h3>
-                <p className="text-sm text-slate-500">Anno {selectedYear}-{selectedYear+1}</p>
+                <p className="text-sm text-slate-500">Anno {selectedYear}</p>
               </div>
 
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden print:shadow-none print:border-none">

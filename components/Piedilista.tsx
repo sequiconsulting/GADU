@@ -200,7 +200,7 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
   return (
     <div className="bg-white p-4 md:p-8 rounded-xl shadow-lg border border-slate-200 animate-fadeIn min-h-[800px] print:shadow-none print:border-none print:p-0">
       <div className="flex flex-col md:flex-row justify-between items-start mb-6 print:hidden gap-4">
-        <div><h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-800">Piedilista</h2><p className="text-slate-500 mt-1">Elenco fratelli attivi per l'anno {selectedYear}-{selectedYear+1}.</p></div>
+        <div><h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-800">Piedilista</h2><p className="text-slate-500 mt-1">Elenco fratelli attivi per l'anno {selectedYear}.</p></div>
         <div className="flex items-center gap-2"><button onClick={() => window.print()} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md w-full md:w-auto justify-center"><Printer size={18} /> Stampa Visualizzato</button><button onClick={handleExportExcel} className="flex items-center gap-2 bg-green-700 text-white px-5 py-2.5 rounded-lg hover:bg-green-600 transition-colors shadow-md w-full md:w-auto justify-center"><Download size={18} /> Esporta</button></div>
       </div>
       <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto mb-8 print:hidden rounded-t-lg scrollbar-hide">
@@ -215,7 +215,7 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
           <h1 className="text-4xl font-serif font-bold mb-2">G.A.D.U.</h1>
           {lodgeName && <h2 className="text-2xl font-bold">{lodgeName} N. {lodgeNumber}</h2>}
           <h3 className="text-xl text-slate-600 mt-2">Piedilista Ufficiale - {viewMode === 'ALL' ? 'Tutti i Rami' : BRANCHES.find(b => b.type === viewMode)?.label}</h3>
-          <p className="text-sm text-slate-600 mt-2">Anno {selectedYear}-{selectedYear+1}</p>
+          <p className="text-sm text-slate-600 mt-2">Anno {selectedYear}</p>
       </div>
       <div className="space-y-4 print:space-y-0">
           {viewMode === 'ALL' ? BRANCHES.map((branch, idx) => {

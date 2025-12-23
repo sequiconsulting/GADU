@@ -52,6 +52,13 @@ export interface OfficerRole {
   installationMeeting?: string; // Number of the meeting where installed
 }
 
+export type CapitazioneTipo = 'Ordinaria' | 'Ridotta Settembre' | 'Doppia Appartenenza' | 'Ridotta Studenti' | 'Ridotta Ministri di Culto' | 'Onorario';
+
+export interface CapitazioneEvent {
+  year: number; // Masonic year start (e.g., 2025 for 2025-2026)
+  tipo: CapitazioneTipo;
+}
+
 export interface StatusEvent {
   date: string; // YYYY-MM-DD
   status: StatusType;
@@ -63,6 +70,9 @@ export interface StatusEvent {
 export interface MasonicBranchData {
   // isActive is replaced by statusEvents calculation
   statusEvents: StatusEvent[];
+  
+  // Capitazione per year (track membership fee type)
+  capitazioni?: CapitazioneEvent[];
   
   // Provenance Data (Specific for Side Degrees)
   isMotherLodgeMember?: boolean; // True if they belong to the main Craft Lodge associated with this app

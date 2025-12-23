@@ -14,8 +14,8 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.108'; // AdminPanel: branch preferences (città, indirizzo, motto, logos)
-  public DB_VERSION = 6; // AppSettings: added branchPreferences
+  public APP_VERSION = '0.110'; // Year display: changed from '2025-2026' to just '2025' throughout app; hide year selector in Admin
+  public DB_VERSION = 7; // No schema changes
   private app: any = null;
   private db: any = null;
   private membersCollection: any = null;

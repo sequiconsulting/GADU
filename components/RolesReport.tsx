@@ -75,7 +75,7 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
       <div className="flex justify-between items-end mb-4 print:hidden">
         <div>
           <h2 className="text-2xl font-serif font-bold text-slate-800">Organigramma e Ruoli</h2>
-          <p className="text-slate-500">Anno {selectedYear}-{selectedYear+1} - Anno Massonico {calculateMasonicYearString(selectedYear)}</p>
+          <p className="text-slate-500">Anno {selectedYear}</p>
         </div>
         <div className="flex items-center gap-2">
           <button 
@@ -97,7 +97,7 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
       <div className="hidden print:block mb-8 text-center">
           <h1 className="text-3xl font-serif font-bold">G.A.D.U.</h1>
           {lodgeName && <h2 className="text-2xl font-bold mt-1">{lodgeName} N. {lodgeNumber}</h2>}
-          <h3 className="text-xl mt-2 font-serif text-slate-700">Organigramma - Anno {selectedYear}-{selectedYear+1}</h3>
+          <h3 className="text-xl mt-2 font-serif text-slate-700">Organigramma - Anno {selectedYear}</h3>
           <p className="text-sm text-slate-500">A.L. {calculateMasonicYearString(selectedYear)}</p>
       </div>
 
@@ -135,7 +135,7 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
                   </table>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center text-slate-400 py-8 italic text-sm">
-                    Nessun ufficiale registrato per l'anno {selectedYear}-{selectedYear+1}.
+                    Nessun ufficiale registrato per l'anno {selectedYear}.
                   </div>
                 )}
               </div>
