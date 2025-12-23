@@ -110,11 +110,28 @@ export interface UserChangeLogEntry {
   details?: string; // Description of what changed
 }
 
+export interface Convocazione {
+  id: string;
+  branchType: BranchType;
+  yearStart: number; // Masonic year start (e.g., 2025 for 2025-2026)
+  numeroConvocazione: number; // Auto-incremented per branch/year
+  dataConvocazione: string; // ISO YYYY-MM-DD
+  dataOraApertura: string; // ISO YYYY-MM-DDTHH:mm
+  luogo: string; // Meeting location
+  ordineDelGiorno: string;
+  note: string; // Additional notes
+  formatoGrafico: 'standard' | 'alternativo';
+  bloccata: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AppSettings {
   lodgeName: string;
   lodgeNumber: string;
   province: string;
   dbVersion: number; // Database schema version for migrations
+  convocazioni?: Convocazione[]; // Meeting convocations list
   // Ritual preferences per year (Masonic year start, e.g., 2025 for 2025-2026)
   yearlyRituals?: Record<number, {
     craft: 'Emulation' | 'Scozzese';

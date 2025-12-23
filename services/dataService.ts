@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.104'; // Reload settings from Firestore after user saves to avoid stale UI
+  public APP_VERSION = '0.107'; // Tornate: added luogo/note fields, three print variants, removed piedilista/nomiCriptati checkboxes
   public DB_VERSION = 5; // No schema changes
   private app: any = null;
   private db: any = null;

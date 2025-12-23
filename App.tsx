@@ -12,9 +12,10 @@ const AdminPanel = React.lazy(() => import('./components/AdminPanel').then(m => 
 const Legend = React.lazy(() => import('./components/Legend').then(m => ({ default: m.Legend })));
 const RelazioneAnnuale = React.lazy(() => import('./components/RelazioneAnnuale').then(m => ({ default: m.RelazioneAnnuale })));
 const RolesHistory = React.lazy(() => import('./components/RolesHistory').then(m => ({ default: m.RolesHistory })));
+const Tornate = React.lazy(() => import('./components/Tornate').then(m => ({ default: m.Tornate })));
 import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation, getDegreesByRitual } from './constants';
 
-type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'ROLES_HISTORY' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE';
+type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'ROLES_HISTORY' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE' | 'TORNATE';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('DASHBOARD');
@@ -106,7 +107,7 @@ const App: React.FC = () => {
     if (['ROLE_ASSIGNMENT', 'ROLES_HISTORY', 'REPORT'].includes(view)) {
         setIsRolesMenuOpen(true);
     }
-    if (['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE'].includes(view)) {
+    if (['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'TORNATE'].includes(view)) {
         setIsSecretaryMenuOpen(true);
     }
   };
@@ -258,14 +259,14 @@ const App: React.FC = () => {
           </div>
 
           <div>
-            <button onClick={() => setIsSecretaryMenuOpen(!isSecretaryMenuOpen)} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isSecretaryMenuOpen || ['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE'].includes(currentView) ? 'text-white' : ''}`}>
+            <button onClick={() => setIsSecretaryMenuOpen(!isSecretaryMenuOpen)} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isSecretaryMenuOpen || ['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'TORNATE'].includes(currentView) ? 'text-white' : ''}`}>
                <div className="flex items-center gap-3"><FileText size={20} /> <span className="font-medium">Segreteria</span></div>
                {isSecretaryMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
             </button>
             {isSecretaryMenuOpen && (
                 <div className="ml-8 mt-1 space-y-1 border-l border-slate-700 pl-2">
-                    <button onClick={() => handleViewChange('PROCEDURES')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'PROCEDURES' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
-                        <FileText size={16} /> Procedure
+                    <button onClick={() => handleViewChange('TORNATE')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'TORNATE' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
+                        <FileText size={16} /> Tornate
                     </button>
                     <button onClick={() => handleViewChange('CAPITAZIONI')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'CAPITAZIONI' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
                         <DollarSign size={16} /> Capitazioni
@@ -309,6 +310,7 @@ const App: React.FC = () => {
                 {currentView === 'ADMIN' && 'Amministrazione'}
                 {currentView === 'LEGEND' && 'Legenda e Requisiti'}
                 {currentView === 'PROCEDURES' && 'Procedure'}
+                {currentView === 'TORNATE' && 'Tornate'}
                 {currentView === 'CAPITAZIONI' && 'Capitazioni'}
                 {currentView === 'RELAZIONE_ANNUALE' && 'Relazione Annuale'}
             </h2>
@@ -551,6 +553,11 @@ const App: React.FC = () => {
               <h3 className="text-xl font-semibold text-slate-600">Capitazioni</h3>
               <p className="text-slate-500 mt-2">Sezione in sviluppo</p>
             </div>
+          )}
+          {currentView === 'TORNATE' && (
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento tornate...</div>}>
+              <Tornate settings={appSettings} selectedYear={selectedYear} onUpdate={loadData} />
+            </React.Suspense>
           )}
           {currentView === 'RELAZIONE_ANNUALE' && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento relazione...</div>}>
