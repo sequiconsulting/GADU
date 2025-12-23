@@ -143,6 +143,12 @@ export interface BranchPreferences {
   logoObbedienzaUrl?: string;
   logoRegionaleUrl?: string;
   logoLoggiaUrl?: string;
+  defaultQuote?: {
+    quotaGLGC: Record<CapitazioneTipo, number>;
+    quotaRegionale: Record<CapitazioneTipo, number>;
+    quotaLoggia: Record<CapitazioneTipo, number>;
+    quotaCerimonia: Record<CapitazioneTipo, number>;
+  };
 }
 
 export interface AppSettings {
