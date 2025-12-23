@@ -14,8 +14,8 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.112'; // AdminPanel: quote can be different per capitazione type (Regionale, Loggia, Cerimonia)
-  public DB_VERSION = 9; // BranchPreferences: defaultQuote all fields now Record<CapitazioneTipo, number>
+  public APP_VERSION = '0.114'; // UI: compact Titolo/Capitazione inputs side-by-side
+  public DB_VERSION = 10; // MasonicBranchData: added titoli array
   private app: any = null;
   private db: any = null;
   private membersCollection: any = null;

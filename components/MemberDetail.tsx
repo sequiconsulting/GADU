@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Member, BranchType, StatusType, AppSettings, CapitazioneTipo } from '../types';
+import { Member, BranchType, StatusType, AppSettings, CapitazioneTipo, TitoloCraftMarchio, TitoloArcoRam } from '../types';
 import { BRANCHES, isMemberActiveInYear, calculateMasonicYearString, STATUS_REASONS, getDegreesByRitual } from '../constants';
 import { HistoryEditor } from './HistoryEditor';
 import { RoleEditor } from './RoleEditor';
@@ -539,9 +539,9 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                 </div>
                              </div>
 
-                             {/* Capitazione Dropdown */}
-                             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 w-full md:w-auto">
-                                <label className="text-xs font-medium text-slate-700 block mb-2">Capitazione</label>
+                              {/* Capitazione Dropdown */}
+                              <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 w-auto">
+                                <label className="text-xs font-medium text-slate-700 block mb-1">Capitazione</label>
                                 <select
                                   value={(() => {
                                     const capitazione = branchData.capitazioni?.find(c => c.year === defaultYear);
@@ -557,7 +557,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                     }
                                     updateBranchData(branch.type, { capitazioni: newCapitazioni });
                                   }}
-                                  className="w-full md:w-64 px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 focus:ring-2 focus:ring-masonic-gold focus:border-transparent"
+                                  className="w-40 px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 focus:ring-2 focus:ring-masonic-gold focus:border-transparent"
                                 >
                                   <option value="Ordinaria">Ordinaria</option>
                                   <option value="Ridotta Settembre">Ridotta Settembre</option>
@@ -566,6 +566,61 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                   <option value="Ridotta Ministri di Culto">Ridotta Ministri di Culto</option>
                                   <option value="Onorario">Onorario</option>
                                 </select>
+                             </div>
+
+                              {/* Titolo Dropdown */}
+                              <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 w-auto">
+                                <label className="text-xs font-medium text-slate-700 block mb-1">Titolo</label>
+                                {(() => {
+                                  const hasMI = branch.type === 'CRAFT' || branch.type === 'MARK'
+                                    ? branchData.degrees?.some(d => d.degreeName === 'MI')
+                                    : branchData.degrees?.some(d => d.degreeName === 'Installato' || d.degreeName === 'Comandante');
+                                  
+                                  const currentTitolo = branchData.titoli?.find(t => t.year === defaultYear);
+                                  const defaultTitolo = branch.type === 'CRAFT' || branch.type === 'MARK'
+                                    ? (hasMI ? 'Ven. Fr.' : 'Fr.')
+                                    : (hasMI ? 'Ecc. Comp.' : 'Comp.');
+                                  
+                                  const titoloValue = currentTitolo?.titolo || defaultTitolo;
+                                  
+                                  if (!hasMI) {
+                                    return (
+                                      <div className="w-40 px-2 py-1 border border-slate-300 rounded text-xs text-slate-600 bg-slate-100">
+                                        {titoloValue}
+                                      </div>
+                                    );
+                                  }
+                                  
+                                  return (
+                                    <select
+                                      value={titoloValue}
+                                      onChange={(e) => {
+                                        const newTitoli = [...(branchData.titoli || [])];
+                                        const existingIndex = newTitoli.findIndex(t => t.year === defaultYear);
+                                        const newValue = e.target.value as TitoloCraftMarchio | TitoloArcoRam;
+                                        if (existingIndex >= 0) {
+                                          newTitoli[existingIndex] = { year: defaultYear, titolo: newValue };
+                                        } else {
+                                          newTitoli.push({ year: defaultYear, titolo: newValue });
+                                        }
+                                        updateBranchData(branch.type, { titoli: newTitoli });
+                                      }}
+                                      className="w-40 px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 focus:ring-2 focus:ring-masonic-gold focus:border-transparent"
+                                    >
+                                      {branch.type === 'CRAFT' || branch.type === 'MARK' ? (
+                                        <>
+                                          <option value="Ven. Fr.">Ven. Fr.</option>
+                                          <option value="Ven.mo Fr.">Ven.mo Fr.</option>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <option value="Ecc. Comp.">Ecc. Comp.</option>
+                                          <option value="Ecc.mo Comp.">Ecc.mo Comp.</option>
+                                        </>
+                                      )}
+                                    </select>
+                                  );
+                                })()}
                              </div>
 
                              <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200 w-full md:w-auto justify-between md:justify-start flex-col md:flex-row shrink-0">

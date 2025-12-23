@@ -59,6 +59,14 @@ export interface CapitazioneEvent {
   tipo: CapitazioneTipo;
 }
 
+export type TitoloCraftMarchio = 'Fr.' | 'Ven. Fr.' | 'Ven.mo Fr.';
+export type TitoloArcoRam = 'Comp.' | 'Ecc. Comp.' | 'Ecc.mo Comp.';
+
+export interface TitoloEvent {
+  year: number; // Masonic year start
+  titolo: TitoloCraftMarchio | TitoloArcoRam;
+}
+
 export interface StatusEvent {
   date: string; // YYYY-MM-DD
   status: StatusType;
@@ -73,6 +81,9 @@ export interface MasonicBranchData {
   
   // Capitazione per year (track membership fee type)
   capitazioni?: CapitazioneEvent[];
+  
+  // Titolo per year
+  titoli?: TitoloEvent[];
   
   // Provenance Data (Specific for Side Degrees)
   isMotherLodgeMember?: boolean; // True if they belong to the main Craft Lodge associated with this app
