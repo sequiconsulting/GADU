@@ -1,5 +1,5 @@
 
-import { Member, AppSettings, BranchType, OfficerRole, ChangeLogEntry, Convocazione } from "../types";
+import { Member, AppSettings, BranchType, OfficerRole, ChangeLogEntry, Convocazione, AppUser, UserPrivilege } from "../types";
 import { isMemberActiveInYear } from "../constants";
 
 const firebaseConfig = {
@@ -14,7 +14,7 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.118'; // Tornate: use addDoc for creation and show Firestore errors
+  public APP_VERSION = '0.121'; // RelazioneAnnuale: calcolo Quota per capitazione/ramo
   public DB_VERSION = 11; // AppSettings schema change
   private app: any = null;
   private db: any = null;
@@ -177,6 +177,45 @@ class DataService {
     // Automatically sync version after settings save
     await this.syncVersionToFirestore();
     return settingsToSave;
+  }
+
+  async bootstrapLodge(settings: { lodgeName: string; lodgeNumber: string; province: string }, admin: { email: string; name: string; privileges: UserPrivilege[] }): Promise<void> {
+    if (!this.USE_FIREBASE) return Promise.resolve();
+    await this.ensureFirebase();
+    const now = new Date().toISOString();
+    const docSnap = await this.firebaseFns.getDoc(this.settingsDoc);
+    const existing = docSnap.exists() ? (docSnap.data() as AppSettings) : undefined;
+
+    const adminUser: AppUser = {
+      id: `user_${Date.now()}`,
+      email: admin.email,
+      name: admin.name,
+      privileges: admin.privileges,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const newSettings: AppSettings = {
+      lodgeName: settings.lodgeName,
+      lodgeNumber: settings.lodgeNumber,
+      province: settings.province,
+      dbVersion: this.DB_VERSION,
+      users: [adminUser],
+      userChangelog: [
+        {
+          timestamp: now,
+          action: 'CREATE',
+          userEmail: admin.email,
+          performedBy: admin.email,
+          details: `Bootstrap lodge and initial admin (${admin.name})`,
+        },
+      ],
+      branchPreferences: existing?.branchPreferences || undefined,
+      yearlyRituals: existing?.yearlyRituals || undefined,
+    };
+
+    await this.firebaseFns.setDoc(this.settingsDoc, newSettings, { merge: false });
+    await this.syncVersionToFirestore();
   }
 
   // === Convocazioni API ===

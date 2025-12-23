@@ -13,6 +13,7 @@ const Legend = React.lazy(() => import('./components/Legend').then(m => ({ defau
 const RelazioneAnnuale = React.lazy(() => import('./components/RelazioneAnnuale').then(m => ({ default: m.RelazioneAnnuale })));
 const RolesHistory = React.lazy(() => import('./components/RolesHistory').then(m => ({ default: m.RolesHistory })));
 const Tornate = React.lazy(() => import('./components/Tornate').then(m => ({ default: m.Tornate })));
+const SetupAdmin = React.lazy(() => import('./components/SetupAdmin').then(m => ({ default: m.SetupAdmin })));
 import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation, getDegreesByRitual } from './constants';
 
 type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'ROLES_HISTORY' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE' | 'TORNATE';
@@ -176,7 +177,21 @@ const App: React.FC = () => {
     ram: members.filter(m => isMemberActiveInYear(m.ram, selectedYear)).length,
   };
 
-  // TEMPORARY: Cleanup function for test database
+  // Secret setup admin page via URL param ?setup=TOKEN
+  const setupToken = new URLSearchParams(window.location.search).get('setup');
+  const envToken = (import.meta as any).env?.VITE_SETUP_SECRET;
+  if (envToken && setupToken === envToken) {
+    return (
+      <React.Suspense fallback={<div className="p-6">Caricamento…</div>}>
+        <SetupAdmin onComplete={() => {
+          // After bootstrap, reload app normally
+          window.history.replaceState({}, '', window.location.pathname);
+        }} />
+      </React.Suspense>
+    );
+  }
+
+  // App shell
   return (
     <div className="flex h-screen bg-slate-100 font-sans text-slate-800 overflow-hidden print:h-auto print:overflow-visible">
       

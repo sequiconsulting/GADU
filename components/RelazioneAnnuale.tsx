@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Member, BranchType, MasonicBranchData, StatusEvent, AppSettings } from '../types';
+import { Member, BranchType, MasonicBranchData, StatusEvent, AppSettings, CapitazioneTipo } from '../types';
 import { BRANCHES, calculateMasonicYearString, getDegreeAbbreviation, isMemberActiveInYear } from '../constants';
 import { Printer, Download } from 'lucide-react';
 import { dataService } from '../services/dataService';
@@ -129,6 +129,24 @@ const sortByName = (items: MemberBranchContext[]) => {
 const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYear, settings }) => {
   const [activeBranch, setActiveBranch] = useState<BranchType>('CRAFT');
 
+  const getCapitazioneForYear = (branchData: MasonicBranchData, year: number): string => {
+    const ev = branchData.capitazioni?.find(c => c.year === year);
+    return ev?.tipo || '—';
+  };
+
+  const euroFmt = useMemo(() => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }), []);
+
+  const getQuotaForYear = (branchData: MasonicBranchData, year: number): number | null => {
+    const tipo = branchData.capitazioni?.find(c => c.year === year)?.tipo as CapitazioneTipo | undefined;
+    const prefs = settings.branchPreferences?.[activeBranch]?.defaultQuote;
+    if (!tipo || !prefs) return null;
+    const total = (prefs.quotaGLGC?.[tipo] ?? 0)
+      + (prefs.quotaRegionale?.[tipo] ?? 0)
+      + (prefs.quotaLoggia?.[tipo] ?? 0)
+      + (prefs.quotaCerimonia?.[tipo] ?? 0);
+    return total || null;
+  };
+
   const branchReports = useMemo(() => {
     const yearStart = `${selectedYear}-01-01`;
     const yearEnd = `${selectedYear}-12-31`;
@@ -243,8 +261,8 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
                 <td className="px-3 py-2 font-medium">{row.member.lastName}</td>
                 <td className="px-3 py-2">{row.member.firstName}</td>
                 <td className="px-3 py-2">{getLatestDegree(row.branchData, activeBranch)}</td>
-                <td className="px-3 py-2 text-slate-400">—</td>
-                <td className="px-3 py-2 text-slate-400">—</td>
+                <td className="px-3 py-2">{getCapitazioneForYear(row.branchData, selectedYear)}</td>
+                <td className="px-3 py-2">{(() => { const q = getQuotaForYear(row.branchData, selectedYear); return q != null ? euroFmt.format(q) : '—'; })()}</td>
               </tr>
             ))}
           </tbody>
@@ -393,8 +411,8 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
         'Cognome': ctx.member.lastName,
         'Nome': ctx.member.firstName,
         'Grado': getLatestDegree(ctx.branchData, activeBranch),
-        'Tipo Capitazione': '—',
-        'Quota': '—'
+        'Tipo Capitazione': getCapitazioneForYear(ctx.branchData, selectedYear),
+        'Quota': (() => { const q = getQuotaForYear(ctx.branchData, selectedYear); return q != null ? q : '—'; })()
       });
     });
     exportData.push({ 'Cognome': `TOTALE: ${currentReport.activeAtStart.length}` });
@@ -517,7 +535,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
         'Cognome': ctx.member.lastName,
         'Nome': ctx.member.firstName,
         'Grado': getLatestDegree(ctx.branchData, activeBranch),
-        'Tipo Capitazione': '—',
+        'Tipo Capitazione': getCapitazioneForYear(ctx.branchData, selectedYear),
         'Quota': '—'
       });
     });
@@ -593,7 +611,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
       {renderMembersTable('Tabella 10 · Situazione al 31 dicembre', currentReport.activeAtEnd)}
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm px-4 py-3 text-xs text-amber-700">
-        Le colonne "Tipo Capitazione" e "Quota" non sono ancora presenti nel database G.A.D.U.; i valori riportati sono segnaposto.
+        La colonna "Quota" è calcolata in base alle preferenze del ramo e al "Tipo Capitazione" impostato per l'anno selezionato. Modifica gli importi in Impostazioni → Preferenze di Ramo.
       </div>
     </div>
   );
