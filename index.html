@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>G.A.D.U. - Gestione Associazioni Decisamente User-friendly</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+      @media print {
+        @page {
+          size: A4 portrait;
+          margin: 1cm;
+        }
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        body {
+          background-color: white !important;
+        }
+        /* Hide scrollbars in print to prevent ugly bars on PDF */
+        ::-webkit-scrollbar {
+          display: none !important;
+        }
+        /* Ensure inputs look like text */
+        input, select, textarea {
+          border: none !important;
+          box-shadow: none !important;
+          background: transparent !important;
+          appearance: none !important;
+        }
+        /* Override all break settings to allow natural flow */
+        div {
+          page-break-inside: auto !important;
+          page-break-before: auto !important;
+          page-break-after: auto !important;
+        }
+        /* Header should not break from following content */
+        .flex.items-center.gap-3 {
+          page-break-after: avoid !important;
+        }
+        /* Rows should not break */
+        tbody tr {
+          page-break-inside: avoid !important;
+        }
+        /* Force page break for non-first branches */
+        .print-page-break-before {
+          page-break-before: always !important;
+        }
+        /* Force page break for RolesReport branches (non-first) */
+        .print-branch-container:nth-of-type(n+2) {
+          page-break-before: always !important;
+        }
+        /* Member Detail print: hide all non-active tabs */
+        [role="tabpanel"] {
+          display: none !important;
+        }
+        [role="tabpanel"][aria-hidden="false"],
+        [data-print-visible="true"] {
+          display: block !important;
+        }
+        /* Page break between member detail sections */
+        [data-print-section] {
+          page-break-after: always !important;
+        }
+        [data-print-section]:last-child {
+          page-break-after: auto !important;
+        }
+        /* Hide tab navigation during print */
+        .flex.border-b.border-slate-200.bg-slate-50.overflow-x-auto {
+          display: none !important;
+        }
+        /* Hide edit controls and buttons during print */
+        .print\\:hidden {
+          display: none !important;
+        }
+        /* Ensure all branch sections are visible during print */
+        div[data-print-section] {
+          display: block !important;
+        }
+        /* RolesHistory table formatting for print */
+        table {
+          width: 100% !important;
+          table-layout: fixed !important;
+        }
+        table td, table th {
+          word-wrap: break-word !important;
+          overflow-wrap: break-word !important;
+          word-break: break-word !important;
+          white-space: normal !important;
+        }
+        /* Ensure table rows don't break awkwardly */
+        table tbody tr {
+          page-break-inside: avoid !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

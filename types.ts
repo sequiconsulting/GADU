@@ -1,0 +1,135 @@
+
+export type BranchType = 'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM';
+export type StatusType = 'ACTIVE' | 'INACTIVE';
+
+// Netlify Authentication & Authorization
+export type UserPrivilege = 'AD' | 'CR' | 'MR' | 'AR' | 'RR' | 'CW' | 'MW' | 'AW' | 'RW';
+
+export interface AppUser {
+  id: string;
+  email: string;
+  name: string;
+  privileges: UserPrivilege[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NetlifyIdentityUser {
+  id: string;
+  aud: string;
+  role: string;
+  email: string;
+  email_confirmed: boolean;
+  app_metadata: {
+    provider: string;
+    roles?: string[];
+  };
+  user_metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  token?: {
+    access_token: string;
+    expires_at: number;
+    refresh_token?: string;
+    token_type: string;
+  };
+}
+
+export interface DegreeEvent {
+  degreeName: string;
+  date: string; // ISO string YYYY-MM-DD
+  meetingNumber: string;
+  location?: string;
+}
+
+export interface OfficerRole {
+  id: string;
+  yearStart: number; // e.g., 2025 (implies 2025-2026)
+  roleName: string;
+  branch: BranchType;
+  startDate?: string; // ISO YYYY-MM-DD for mid-year start
+  endDate?: string;   // ISO YYYY-MM-DD for mid-year end
+  installationMeeting?: string; // Number of the meeting where installed
+}
+
+export interface StatusEvent {
+  date: string; // YYYY-MM-DD
+  status: StatusType;
+  reason?: string; // Reason for activation/deactivation (e.g., 'Iniziazione', 'Dimissioni')
+  note?: string;
+  lodge?: string; // Lodge name for transfers (Trasferimento Italia/Estero)
+}
+
+export interface MasonicBranchData {
+  // isActive is replaced by statusEvents calculation
+  statusEvents: StatusEvent[];
+  
+  // Provenance Data (Specific for Side Degrees)
+  isMotherLodgeMember?: boolean; // True if they belong to the main Craft Lodge associated with this app
+  otherLodgeName?: string;       // Name of the other lodge if not Mother Lodge
+  isFounder?: boolean;           // Is a founding member of this specific body
+  isHonorary?: boolean;          // Is an honorary member
+  isDualAppartenance?: boolean;  // Has dual membership in this body
+  
+  initiationDate?: string; // Or Advancement/Exaltation/Elevation
+  degrees: DegreeEvent[];
+  roles: OfficerRole[];
+}
+
+export interface Member {
+  id: string;
+  matricula: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  city: string;
+  
+  // Branch specific data
+  craft: MasonicBranchData;
+  mark: MasonicBranchData;
+  chapter: MasonicBranchData;
+  ram: MasonicBranchData;
+  
+  // Changelog
+  changelog?: ChangeLogEntry[];
+}
+
+export interface ChangeLogEntry {
+  timestamp: string;
+  action: string;
+  user?: string;
+  details?: Record<string, any>;
+}
+
+export interface UserChangeLogEntry {
+  timestamp: string;
+  action: string; // 'CREATE', 'UPDATE', 'DELETE', 'PRIVILEGE_CHANGE'
+  userEmail?: string; // User being modified
+  performedBy?: string; // Email of admin who made the change
+  details?: string; // Description of what changed
+}
+
+export interface AppSettings {
+  lodgeName: string;
+  lodgeNumber: string;
+  province: string;
+  dbVersion: number; // Database schema version for migrations
+  // Ritual preferences per year (Masonic year start, e.g., 2025 for 2025-2026)
+  yearlyRituals?: Record<number, {
+    craft: 'Emulation' | 'Scozzese';
+    markAndArch: 'Irlandese' | 'Aldersgate';
+  }>;
+  // User management (list of users with privileges)
+  users?: AppUser[];
+  // User modification changelog (max 100 entries, oldest are overwritten)
+  userChangelog?: UserChangeLogEntry[];
+}
+
+export interface DashboardStats {
+  totalMembers: number;
+  craftMembers: number;
+  markMembers: number;
+  chapterMembers: number;
+  ramMembers: number;
+}
