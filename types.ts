@@ -126,6 +126,15 @@ export interface Convocazione {
   updatedAt: string;
 }
 
+export interface BranchPreferences {
+  città?: string;
+  indirizzo?: string;
+  motto?: string;
+  logoObbedienzaUrl?: string;
+  logoRegionaleUrl?: string;
+  logoLoggiaUrl?: string;
+}
+
 export interface AppSettings {
   lodgeName: string;
   lodgeNumber: string;
@@ -141,6 +150,8 @@ export interface AppSettings {
   users?: AppUser[];
   // User modification changelog (max 100 entries, oldest are overwritten)
   userChangelog?: UserChangeLogEntry[];
+  // Branch preferences (casa massonica, motto, logos)
+  branchPreferences?: Record<'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM', BranchPreferences>;
 }
 
 export interface DashboardStats {

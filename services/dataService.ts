@@ -14,8 +14,8 @@ const firebaseConfig = {
 
 class DataService {
   private USE_FIREBASE = true;
-  public APP_VERSION = '0.107'; // Tornate: added luogo/note fields, three print variants, removed piedilista/nomiCriptati checkboxes
-  public DB_VERSION = 5; // No schema changes
+  public APP_VERSION = '0.108'; // AdminPanel: branch preferences (città, indirizzo, motto, logos)
+  public DB_VERSION = 6; // AppSettings: added branchPreferences
   private app: any = null;
   private db: any = null;
   private membersCollection: any = null;

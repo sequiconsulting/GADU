@@ -77,6 +77,7 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
         const newConvocazione: Convocazione = {
           id: `conv_${Date.now()}`,
           ...editingData,
+          bloccata: true,
           createdAt: now,
           updatedAt: now,
         };
@@ -357,7 +358,7 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
                         </button>
                         <button
                           onClick={() => handleDelete(conv.id)}
-                          disabled={loading}
+                          disabled={conv.bloccata || loading}
                           className="text-red-600 hover:text-red-800 disabled:opacity-50 transition-colors"
                           title="Elimina"
                         >
