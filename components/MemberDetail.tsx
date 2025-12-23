@@ -539,6 +539,35 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                 </div>
                              </div>
 
+                             {/* Capitazione Dropdown */}
+                             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 w-full md:w-auto">
+                                <label className="text-xs font-medium text-slate-700 block mb-2">Capitazione</label>
+                                <select
+                                  value={(() => {
+                                    const capitazione = branchData.capitazioni?.find(c => c.year === defaultYear);
+                                    return capitazione?.tipo || 'Ordinaria';
+                                  })()}
+                                  onChange={(e) => {
+                                    const newCapitazioni = [...(branchData.capitazioni || [])];
+                                    const existingIndex = newCapitazioni.findIndex(c => c.year === defaultYear);
+                                    if (existingIndex >= 0) {
+                                      newCapitazioni[existingIndex] = { year: defaultYear, tipo: e.target.value as CapitazioneTipo };
+                                    } else {
+                                      newCapitazioni.push({ year: defaultYear, tipo: e.target.value as CapitazioneTipo });
+                                    }
+                                    updateBranchData(branch.type, { capitazioni: newCapitazioni });
+                                  }}
+                                  className="w-full md:w-64 px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 focus:ring-2 focus:ring-masonic-gold focus:border-transparent"
+                                >
+                                  <option value="Ordinaria">Ordinaria</option>
+                                  <option value="Ridotta Settembre">Ridotta Settembre</option>
+                                  <option value="Doppia Appartenenza">Doppia Appartenenza</option>
+                                  <option value="Ridotta Studenti">Ridotta Studenti</option>
+                                  <option value="Ridotta Ministri di Culto">Ridotta Ministri di Culto</option>
+                                  <option value="Onorario">Onorario</option>
+                                </select>
+                             </div>
+
                              <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200 w-full md:w-auto justify-between md:justify-start flex-col md:flex-row shrink-0">
                                 <div>
                                   <div className={`text-sm font-bold flex items-center gap-1 ${isActiveCurrentYear ? 'text-green-700' : 'text-red-600'}`}>
@@ -573,35 +602,6 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                 >
                                     Cambia
                                 </button>
-                             </div>
-
-                             {/* Capitazione Dropdown */}
-                             <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 w-full md:w-auto">
-                                <label className="text-xs font-medium text-slate-700 block mb-2">Capitazione</label>
-                                <select
-                                  value={(() => {
-                                    const capitazione = branchData.capitazioni?.find(c => c.year === defaultYear);
-                                    return capitazione?.tipo || 'Ordinaria';
-                                  })()}
-                                  onChange={(e) => {
-                                    const newCapitazioni = [...(branchData.capitazioni || [])];
-                                    const existingIndex = newCapitazioni.findIndex(c => c.year === defaultYear);
-                                    if (existingIndex >= 0) {
-                                      newCapitazioni[existingIndex] = { year: defaultYear, tipo: e.target.value as CapitazioneTipo };
-                                    } else {
-                                      newCapitazioni.push({ year: defaultYear, tipo: e.target.value as CapitazioneTipo });
-                                    }
-                                    updateBranchData(branch.type, { capitazioni: newCapitazioni });
-                                  }}
-                                  className="w-full md:w-64 px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 focus:ring-2 focus:ring-masonic-gold focus:border-transparent"
-                                >
-                                  <option value="Ordinaria">Ordinaria</option>
-                                  <option value="Ridotta Settembre">Ridotta Settembre</option>
-                                  <option value="Doppia Appartenenza">Doppia Appartenenza</option>
-                                  <option value="Ridotta Studenti">Ridotta Studenti</option>
-                                  <option value="Ridotta Ministri di Culto">Ridotta Ministri di Culto</option>
-                                  <option value="Onorario">Onorario</option>
-                                </select>
                              </div>
                         </div>
 
