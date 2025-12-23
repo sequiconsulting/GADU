@@ -163,114 +163,111 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
             />
           </div>
 
-          {/* Logo Obbedienza */}
+          {/* Logos */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-2">Logo Obbedienza</label>
-            <div className="flex items-end gap-4">
-              <div className="flex-1">
-                <label className="flex items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-4 cursor-pointer hover:border-slate-400 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload('logoObbedienzaUrl')}
-                    className="hidden"
-                  />
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <Upload size={18} />
-                    <span className="text-sm">Carica immagine</span>
-                  </div>
-                </label>
-              </div>
-              {currentBranchPrefs.logoObbedienzaUrl && (
-                <div className="flex items-center gap-2">
-                  <img
-                    src={currentBranchPrefs.logoObbedienzaUrl}
-                    alt="Logo Obbedienza"
-                    className="h-12 w-12 object-contain border border-slate-200 rounded"
-                  />
-                  <button
-                    onClick={() => handleClearLogo('logoObbedienzaUrl')}
-                    className="text-red-600 hover:text-red-800 p-1"
-                    title="Cancella logo"
-                  >
-                    <X size={18} />
-                  </button>
+            <label className="block text-xs font-medium text-slate-600 mb-4">Logos</label>
+            <div className="grid grid-cols-3 gap-6">
+              {/* Logo Obbedienza */}
+              <div className="flex flex-col items-center space-y-3">
+                <div className="w-full aspect-square border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center hover:border-slate-400 transition-colors bg-slate-50 relative overflow-hidden group">
+                  {currentBranchPrefs.logoObbedienzaUrl ? (
+                    <>
+                      <img
+                        src={currentBranchPrefs.logoObbedienzaUrl}
+                        alt="Logo Obbedienza"
+                        className="h-full w-full object-contain p-2"
+                      />
+                      <button
+                        onClick={() => handleClearLogo('logoObbedienzaUrl')}
+                        className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Cancella logo"
+                      >
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload('logoObbedienzaUrl')}
+                        className="hidden"
+                      />
+                      <Upload size={24} className="text-slate-400 mb-2" />
+                      <span className="text-xs text-slate-500 text-center px-2">Carica logo</span>
+                    </label>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+                <span className="text-xs font-medium text-slate-600">Logo Obbedienza</span>
+              </div>
 
-          {/* Logo Regionale */}
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-2">Logo Regionale</label>
-            <div className="flex items-end gap-4">
-              <div className="flex-1">
-                <label className="flex items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-4 cursor-pointer hover:border-slate-400 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload('logoRegionaleUrl')}
-                    className="hidden"
-                  />
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <Upload size={18} />
-                    <span className="text-sm">Carica immagine</span>
-                  </div>
-                </label>
-              </div>
-              {currentBranchPrefs.logoRegionaleUrl && (
-                <div className="flex items-center gap-2">
-                  <img
-                    src={currentBranchPrefs.logoRegionaleUrl}
-                    alt="Logo Regionale"
-                    className="h-12 w-12 object-contain border border-slate-200 rounded"
-                  />
-                  <button
-                    onClick={() => handleClearLogo('logoRegionaleUrl')}
-                    className="text-red-600 hover:text-red-800 p-1"
-                    title="Cancella logo"
-                  >
-                    <X size={18} />
-                  </button>
+              {/* Logo Regionale */}
+              <div className="flex flex-col items-center space-y-3">
+                <div className="w-full aspect-square border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center hover:border-slate-400 transition-colors bg-slate-50 relative overflow-hidden group">
+                  {currentBranchPrefs.logoRegionaleUrl ? (
+                    <>
+                      <img
+                        src={currentBranchPrefs.logoRegionaleUrl}
+                        alt="Logo Regionale"
+                        className="h-full w-full object-contain p-2"
+                      />
+                      <button
+                        onClick={() => handleClearLogo('logoRegionaleUrl')}
+                        className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Cancella logo"
+                      >
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload('logoRegionaleUrl')}
+                        className="hidden"
+                      />
+                      <Upload size={24} className="text-slate-400 mb-2" />
+                      <span className="text-xs text-slate-500 text-center px-2">Carica logo</span>
+                    </label>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+                <span className="text-xs font-medium text-slate-600">Logo Regionale</span>
+              </div>
 
-          {/* Logo Loggia */}
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-2">Logo Loggia</label>
-            <div className="flex items-end gap-4">
-              <div className="flex-1">
-                <label className="flex items-center justify-center border-2 border-dashed border-slate-300 rounded-lg p-4 cursor-pointer hover:border-slate-400 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload('logoLoggiaUrl')}
-                    className="hidden"
-                  />
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <Upload size={18} />
-                    <span className="text-sm">Carica immagine</span>
-                  </div>
-                </label>
-              </div>
-              {currentBranchPrefs.logoLoggiaUrl && (
-                <div className="flex items-center gap-2">
-                  <img
-                    src={currentBranchPrefs.logoLoggiaUrl}
-                    alt="Logo Loggia"
-                    className="h-12 w-12 object-contain border border-slate-200 rounded"
-                  />
-                  <button
-                    onClick={() => handleClearLogo('logoLoggiaUrl')}
-                    className="text-red-600 hover:text-red-800 p-1"
-                    title="Cancella logo"
-                  >
-                    <X size={18} />
-                  </button>
+              {/* Logo Loggia */}
+              <div className="flex flex-col items-center space-y-3">
+                <div className="w-full aspect-square border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center hover:border-slate-400 transition-colors bg-slate-50 relative overflow-hidden group">
+                  {currentBranchPrefs.logoLoggiaUrl ? (
+                    <>
+                      <img
+                        src={currentBranchPrefs.logoLoggiaUrl}
+                        alt="Logo Loggia"
+                        className="h-full w-full object-contain p-2"
+                      />
+                      <button
+                        onClick={() => handleClearLogo('logoLoggiaUrl')}
+                        className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Cancella logo"
+                      >
+                        <X size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload('logoLoggiaUrl')}
+                        className="hidden"
+                      />
+                      <Upload size={24} className="text-slate-400 mb-2" />
+                      <span className="text-xs text-slate-500 text-center px-2">Carica logo</span>
+                    </label>
+                  )}
                 </div>
-              )}
+                <span className="text-xs font-medium text-slate-600">Logo Loggia</span>
+              </div>
             </div>
           </div>
         </div>
