@@ -157,7 +157,7 @@ class DataService {
 
       const craft = branchTemplate();
       craft.statusEvents = craftActiveStatus(today);
-      craft.degrees = [degree('Apprendista', today)];
+      craft.degrees = [degree('Apprendista Ammesso', today)];
       if (craftRole) {
         craft.roles = [{ id: `role_${id}_craft`, yearStart: year, roleName: craftRole, branch: 'CRAFT' }];
       }
@@ -165,21 +165,21 @@ class DataService {
       const chapter = branchTemplate();
       if (chapterRole) {
         chapter.statusEvents = craftActiveStatus(today);
-        chapter.degrees = [degree("Compagno dell Arco Reale", today)];
+        chapter.degrees = [degree("Compagno dell'Arco Reale", today)];
         chapter.roles = [{ id: `role_${id}_chapter`, yearStart: year, roleName: chapterRole, branch: 'CHAPTER' }];
       }
 
       const mark = branchTemplate();
       if (markRole) {
         mark.statusEvents = craftActiveStatus(today);
-        mark.degrees = [degree('Mark Master Mason', today)];
+        mark.degrees = [degree('Uomo del Marchio', today)];
         mark.roles = [{ id: `role_${id}_mark`, yearStart: year, roleName: markRole, branch: 'MARK' }];
       }
 
       const ram = branchTemplate();
       if (ramRole) {
         ram.statusEvents = craftActiveStatus(today);
-        ram.degrees = [degree('Royal Ark Mariner', today)];
+        ram.degrees = [degree("Marinaio dell'Arca Reale", today)];
         ram.roles = [{ id: `role_${id}_ram`, yearStart: year, roleName: ramRole, branch: 'RAM' }];
       }
 
@@ -202,14 +202,19 @@ class DataService {
     const firstNames = ['Giovanni', 'Marco', 'Luca', 'Andrea', 'Paolo', 'Francesco', 'Alessandro', 'Matteo', 'Lorenzo', 'Davide', 'Simone', 'Federico', 'Riccardo', 'Giuseppe', 'Antonio', 'Stefano', 'Roberto', 'Michele', 'Giorgio', 'Claudio'];
     const lastNames = ['Rossi', 'Bianchi', 'Conti', 'Ferrari', 'Russo', 'Romano', 'Colombo', 'Ricci', 'Marino', 'Greco', 'Bruno', 'Gallo', 'Costa', 'Fontana', 'Esposito', 'Gentile', 'Caruso', 'Ferrara', 'Marchetti', 'Villa'];
     const cities = ['Milano', 'Torino', 'Bologna', 'Roma', 'Firenze', 'Genova', 'Napoli', 'Venezia', 'Verona', 'Brescia'];
-    const craftRoles = ['Maestro Venerabile', 'Primo Sorvegliante', 'Secondo Sorvegliante', 'Oratore', 'Segretario', 'Tesoriere', 'Esperto', 'Maestro delle Cerimonie', 'Primo Diacono', 'Secondo Diacono'];
+    
+    // Use roles from constants.ts (Emulation default for Craft, Irlandese for Mark/Chapter/RAM)
+    const craftRoles = ['Maestro Venerabile', 'IEM', 'Primo Sorvegliante', 'Secondo Sorvegliante', 'Cappellano', 'Tesoriere', 'Segretario', 'Assistente Segretario', 'Direttore delle Cerimonie', 'Elemosiniere'];
+    const chapterRoles = ['Re Eccellente', 'Sommo Sacerdote', 'Primo Scriba', 'Scriba E.', 'Scriba N.'];
+    const markRoles = ['Maestro Venerabile', 'Primo Sorvegliante', 'Secondo Sorvegliante', 'Maestro Supervisore', 'Primo Supervisore'];
+    const ramRoles = ['Venerabile Comandante Noè', 'Iafet (Primo Sorvegliante)', 'Sem (Secondo Sorvegliante)'];
     
     const members: Member[] = [];
     for (let i = 1; i <= 50; i++) {
       const firstName = firstNames[i % firstNames.length];
       const lastName = lastNames[Math.floor(i / 2.5) % lastNames.length];
       const city = cities[i % cities.length];
-      const matricula = `105-${String(i).padStart(3, '0')}`;
+      const matricula = String(100000 + i);
       const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i}@example.com`;
       
       let craftRole: string | undefined;
@@ -221,13 +226,13 @@ class DataService {
         craftRole = craftRoles[i - 1];
       }
       if (i <= 5) {
-        chapterRole = ['Primo Grande Sorvegliante', 'Secondo Grande Sorvegliante', 'Maestro del Capitolo', 'Grande Scriba', 'Tesoriere del Capitolo'][i - 1];
+        chapterRole = chapterRoles[i - 1];
       }
       if (i <= 5) {
-        markRole = ['Maestro del Marchio', 'Sovrintendente', 'Maestro Segretario', 'Tesoriere del Marchio', 'Sovrintendente dei Lavori'][i - 1];
+        markRole = markRoles[i - 1];
       }
       if (i <= 3) {
-        ramRole = ['Comandante', 'Direttore dei Lavori', 'Tesoriere'][i - 1];
+        ramRole = ramRoles[i - 1];
       }
       
       members.push(makeMember(`seed-${i}`, matricula, firstName, lastName, city, email, craftRole, chapterRole, markRole, ramRole));
