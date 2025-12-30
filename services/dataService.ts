@@ -128,7 +128,6 @@ class DataService {
     const year = baseDate.getFullYear();
 
     const craftActiveStatus = (date: string) => [{ date, status: 'ACTIVE', reason: 'Iniziazione' }];
-    const degree = (name: string, date: string) => ({ degreeName: name, date, meetingNumber: '1', location: 'Milano' });
 
     const makeMember = (
       id: string,
@@ -137,9 +136,13 @@ class DataService {
       lastName: string,
       city: string,
       email: string,
+      craftDegree?: string,
       craftRole?: string,
+      chapterDegree?: string,
       chapterRole?: string,
+      markDegree?: string,
       markRole?: string,
+      ramDegree?: string,
       ramRole?: string,
     ): Member => {
       const today = new Date().toISOString().split('T')[0];
@@ -157,30 +160,44 @@ class DataService {
 
       const craft = branchTemplate();
       craft.statusEvents = craftActiveStatus(today);
-      craft.degrees = [degree('Apprendista Ammesso', today)];
+      if (craftDegree) {
+        craft.degrees = [{ degreeName: craftDegree, date: today, meetingNumber: '1', location: 'Milano' }];
+      }
       if (craftRole) {
         craft.roles = [{ id: `role_${id}_craft`, yearStart: year, roleName: craftRole, branch: 'CRAFT' }];
       }
 
       const chapter = branchTemplate();
-      if (chapterRole) {
+      if (chapterDegree || chapterRole) {
         chapter.statusEvents = craftActiveStatus(today);
-        chapter.degrees = [degree("Compagno dell'Arco Reale", today)];
-        chapter.roles = [{ id: `role_${id}_chapter`, yearStart: year, roleName: chapterRole, branch: 'CHAPTER' }];
+        if (chapterDegree) {
+          chapter.degrees = [{ degreeName: chapterDegree, date: today, meetingNumber: '1', location: 'Milano' }];
+        }
+        if (chapterRole) {
+          chapter.roles = [{ id: `role_${id}_chapter`, yearStart: year, roleName: chapterRole, branch: 'CHAPTER' }];
+        }
       }
 
       const mark = branchTemplate();
-      if (markRole) {
+      if (markDegree || markRole) {
         mark.statusEvents = craftActiveStatus(today);
-        mark.degrees = [degree('Uomo del Marchio', today)];
-        mark.roles = [{ id: `role_${id}_mark`, yearStart: year, roleName: markRole, branch: 'MARK' }];
+        if (markDegree) {
+          mark.degrees = [{ degreeName: markDegree, date: today, meetingNumber: '1', location: 'Milano' }];
+        }
+        if (markRole) {
+          mark.roles = [{ id: `role_${id}_mark`, yearStart: year, roleName: markRole, branch: 'MARK' }];
+        }
       }
 
       const ram = branchTemplate();
-      if (ramRole) {
+      if (ramDegree || ramRole) {
         ram.statusEvents = craftActiveStatus(today);
-        ram.degrees = [degree("Marinaio dell'Arca Reale", today)];
-        ram.roles = [{ id: `role_${id}_ram`, yearStart: year, roleName: ramRole, branch: 'RAM' }];
+        if (ramDegree) {
+          ram.degrees = [{ degreeName: ramDegree, date: today, meetingNumber: '1', location: 'Milano' }];
+        }
+        if (ramRole) {
+          ram.roles = [{ id: `role_${id}_ram`, yearStart: year, roleName: ramRole, branch: 'RAM' }];
+        }
       }
 
       return {
@@ -203,10 +220,17 @@ class DataService {
     const lastNames = ['Rossi', 'Bianchi', 'Conti', 'Ferrari', 'Russo', 'Romano', 'Colombo', 'Ricci', 'Marino', 'Greco', 'Bruno', 'Gallo', 'Costa', 'Fontana', 'Esposito', 'Gentile', 'Caruso', 'Ferrara', 'Marchetti', 'Villa'];
     const cities = ['Milano', 'Torino', 'Bologna', 'Roma', 'Firenze', 'Genova', 'Napoli', 'Venezia', 'Verona', 'Brescia'];
     
-    // Use roles from constants.ts (Emulation default for Craft, Irlandese for Mark/Chapter/RAM)
-    const craftRoles = ['Maestro Venerabile', 'IEM', 'Primo Sorvegliante', 'Secondo Sorvegliante', 'Cappellano', 'Tesoriere', 'Segretario', 'Assistente Segretario', 'Direttore delle Cerimonie', 'Elemosiniere'];
-    const chapterRoles = ['Re Eccellente', 'Sommo Sacerdote', 'Primo Scriba', 'Scriba E.', 'Scriba N.'];
-    const markRoles = ['Maestro Venerabile', 'Primo Sorvegliante', 'Secondo Sorvegliante', 'Maestro Supervisore', 'Primo Supervisore'];
+    // Solo rituali di default: Emulation (Craft), Irlandese (Mark/Chapter), RAM
+    const craftEmulationDegrees = ['Apprendista Ammesso', 'Compagno di Mestiere', 'Maestro Muratore', 'Maestro Installato'];
+    const craftEmulationRoles = ['Maestro Venerabile', 'IEM', 'Primo Sorvegliante', 'Secondo Sorvegliante', 'Cappellano', 'Tesoriere', 'Segretario', 'Assistente Segretario', 'Direttore delle Cerimonie', 'Elemosiniere'];
+    
+    const markIrlandeseDegrees = ['Uomo del Marchio', 'Maestro del Marchio', 'Maestro Installato del Marchio'];
+    const markIrlandeseRoles = ['Maestro Venerabile', 'Primo Sorvegliante', 'Secondo Sorvegliante', 'Maestro Supervisore', 'Primo Supervisore'];
+    
+    const chapterIrlandeseDegrees = ["Compagno dell'Arco Reale", "Principale dell'Arco Reale"];
+    const chapterIrlandeseRoles = ['Re Eccellente', 'Sommo Sacerdote', 'Primo Scriba', 'Scriba E.', 'Scriba N.'];
+    
+    const ramDegrees = ["Marinaio dell'Arca Reale", 'Comandante del RAM'];
     const ramRoles = ['Venerabile Comandante Noè', 'Iafet (Primo Sorvegliante)', 'Sem (Secondo Sorvegliante)'];
     
     const members: Member[] = [];
@@ -217,25 +241,31 @@ class DataService {
       const matricula = String(100000 + i);
       const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i}@example.com`;
       
-      let craftRole: string | undefined;
+      const craftDegree = craftEmulationDegrees[0];
+      const craftRole = i <= 10 ? craftEmulationRoles[i - 1] : undefined;
+      
+      let chapterDegree: string | undefined;
       let chapterRole: string | undefined;
-      let markRole: string | undefined;
-      let ramRole: string | undefined;
-      
       if (i <= 10) {
-        craftRole = craftRoles[i - 1];
-      }
-      if (i <= 5) {
-        chapterRole = chapterRoles[i - 1];
-      }
-      if (i <= 5) {
-        markRole = markRoles[i - 1];
-      }
-      if (i <= 3) {
-        ramRole = ramRoles[i - 1];
+        chapterDegree = chapterIrlandeseDegrees[0];
+        chapterRole = i <= 5 ? chapterIrlandeseRoles[i - 1] : undefined;
       }
       
-      members.push(makeMember(`seed-${i}`, matricula, firstName, lastName, city, email, craftRole, chapterRole, markRole, ramRole));
+      let markDegree: string | undefined;
+      let markRole: string | undefined;
+      if (i <= 10) {
+        markDegree = markIrlandeseDegrees[0];
+        markRole = i <= 5 ? markIrlandeseRoles[i - 1] : undefined;
+      }
+      
+      let ramDegree: string | undefined;
+      let ramRole: string | undefined;
+      if (i <= 6) {
+        ramDegree = ramDegrees[0];
+        ramRole = i <= 3 ? ramRoles[i - 1] : undefined;
+      }
+      
+      members.push(makeMember(`seed-${i}`, matricula, firstName, lastName, city, email, craftDegree, craftRole, chapterDegree, chapterRole, markDegree, markRole, ramDegree, ramRole));
     }
     
     return members;
@@ -318,7 +348,11 @@ class DataService {
     if (memberToSave.changelog && Array.isArray(memberToSave.changelog)) {
       memberToSave.changelog = memberToSave.changelog.slice(-100);
     }
-    const row = { id: memberToSave.id, data: memberToSave };
+    
+    // Rimuovi l'id dall'oggetto data per evitare duplicati
+    const { id, ...dataWithoutId } = memberToSave;
+    const row = { id, data: dataWithoutId };
+    
     const { error } = await client.from('members').upsert(row);
     if (error) throw error;
     return memberToSave;

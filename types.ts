@@ -59,7 +59,7 @@ export interface CapitazioneEvent {
   tipo: CapitazioneTipo;
 }
 
-export type TitoloCraftMarchio = 'Fr.' | 'Ven. Fr.' | 'Ven.mo Fr.';
+export type TitoloCraftMarchio = 'Fr.' | 'Ven. Fr.' | 'Ven.mo Fr.' | 'MVM Fr.';
 export type TitoloArcoRam = 'Comp.' | 'Ecc. Comp.' | 'Ecc.mo Comp.';
 
 export interface TitoloEvent {

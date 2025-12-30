@@ -572,18 +572,37 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                               <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 w-auto">
                                 <label className="text-xs font-medium text-slate-700 block mb-1">Titolo</label>
                                 {(() => {
-                                  const hasMI = branch.type === 'CRAFT' || branch.type === 'MARK'
-                                    ? branchData.degrees?.some(d => d.degreeName === 'MI')
-                                    : branchData.degrees?.some(d => d.degreeName === 'Installato' || d.degreeName === 'Comandante');
+                                  // Determina se il membro ha il grado che abilita il titolo speciale
+                                  let hasSpecialDegree = false;
+                                  let defaultTitolo: TitoloCraftMarchio | TitoloArcoRam = 'Fr.';
+                                  let specialTitolo: TitoloCraftMarchio | TitoloArcoRam = 'Ven. Fr.';
+                                  
+                                  if (branch.type === 'CRAFT') {
+                                    // Craft: MI (Maestro Installato) -> Ven. Fr. / Ven.mo Fr.
+                                    hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === 'Maestro Installato') || false;
+                                    defaultTitolo = 'Fr.';
+                                    specialTitolo = 'Ven. Fr.';
+                                  } else if (branch.type === 'MARK') {
+                                    // Mark: MIM (Maestro Installato del Marchio) -> MVM Fr.
+                                    hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === 'Maestro Installato del Marchio') || false;
+                                    defaultTitolo = 'Fr.';
+                                    specialTitolo = 'MVM Fr.';
+                                  } else if (branch.type === 'CHAPTER') {
+                                    // Chapter: Principale dell'Arco Reale -> Ecc. Comp. / Ecc.mo Comp.
+                                    hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === "Principale dell'Arco Reale") || false;
+                                    defaultTitolo = 'Comp.';
+                                    specialTitolo = 'Ecc. Comp.';
+                                  } else if (branch.type === 'RAM') {
+                                    // RAM: Comandante del RAM -> Ecc. Comp. / Ecc.mo Comp.
+                                    hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === 'Comandante del RAM') || false;
+                                    defaultTitolo = 'Comp.';
+                                    specialTitolo = 'Ecc. Comp.';
+                                  }
                                   
                                   const currentTitolo = branchData.titoli?.find(t => t.year === defaultYear);
-                                  const defaultTitolo = branch.type === 'CRAFT' || branch.type === 'MARK'
-                                    ? (hasMI ? 'Ven. Fr.' : 'Fr.')
-                                    : (hasMI ? 'Ecc. Comp.' : 'Comp.');
+                                  const titoloValue = currentTitolo?.titolo || (hasSpecialDegree ? specialTitolo : defaultTitolo);
                                   
-                                  const titoloValue = currentTitolo?.titolo || defaultTitolo;
-                                  
-                                  if (!hasMI) {
+                                  if (!hasSpecialDegree) {
                                     return (
                                       <div className="w-40 px-2 py-1 border border-slate-300 rounded text-xs text-slate-600 bg-slate-100">
                                         {titoloValue}
@@ -607,10 +626,14 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                       }}
                                       className="w-40 px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 focus:ring-2 focus:ring-masonic-gold focus:border-transparent"
                                     >
-                                      {branch.type === 'CRAFT' || branch.type === 'MARK' ? (
+                                      {branch.type === 'CRAFT' ? (
                                         <>
                                           <option value="Ven. Fr.">Ven. Fr.</option>
                                           <option value="Ven.mo Fr.">Ven.mo Fr.</option>
+                                        </>
+                                      ) : branch.type === 'MARK' ? (
+                                        <>
+                                          <option value="MVM Fr.">MVM Fr.</option>
                                         </>
                                       ) : (
                                         <>
