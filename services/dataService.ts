@@ -1,238 +1,379 @@
 
-import { Member, AppSettings, BranchType, OfficerRole, ChangeLogEntry, Convocazione, AppUser, UserPrivilege } from "../types";
-import { isMemberActiveInYear } from "../constants";
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { Member, AppSettings, BranchType, Convocazione } from '../types';
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCz0_p2klHvYZJ5xXWJE_eSrKy4pAz4Poc",
-  authDomain: "gadu-staging.firebaseapp.com",
-  projectId: "gadu-staging",
-  storageBucket: "gadu-staging.firebasestorage.app",
-  messagingSenderId: "88758278794",
-  appId: "1:88758278794:web:ac41da27e151d31bbf6b73",
-  measurementId: "G-2FC590JYSL"
-};
+type MemberRow = { id: string; data: Member };
+type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_version: number };
+type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
-  private USE_FIREBASE = true;
-  public APP_VERSION = '0.121'; // RelazioneAnnuale: calcolo Quota per capitazione/ramo
-  public DB_VERSION = 11; // AppSettings schema change
-  private app: any = null;
-  private db: any = null;
-  private membersCollection: any = null;
-  private convocazioniCollection: any = null;
-  private settingsDoc: any = null;
-  private firebaseFns: any = null;
-  private firebaseInitialized = false;
+  public APP_VERSION = '0.124';
+  public DB_VERSION = 12;
+  public SUPABASE_SCHEMA_VERSION = 1;
+
+  private supabase: SupabaseClient | null = null;
+  private initPromise: Promise<void>;
 
   constructor() {
-    this.init();
+    this.initPromise = this.ensureInitialized();
   }
 
-  private async ensureFirebase() {
-    if (!this.USE_FIREBASE) return;
-    if (this.firebaseInitialized) return;
-    const { initializeApp } = await import('firebase/app');
-    const firestore = await import('firebase/firestore');
-    const { getFirestore, collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch, query, where, deleteField, addDoc } = firestore;
-
-    this.app = initializeApp(firebaseConfig);
-    this.db = getFirestore(this.app);
-    this.membersCollection = collection(this.db, 'members');
-    this.convocazioniCollection = collection(this.db, 'convocazioni');
-    this.settingsDoc = doc(this.db, 'settings', 'appSettings');
-    this.firebaseFns = { collection, getDocs, doc, getDoc, setDoc, deleteDoc, writeBatch, query, where, addDoc };
-    this.firebaseInitialized = true;
+  private readEnv(key: string): string | undefined {
+    const env = (import.meta as any)?.env || {};
+    return env[key];
   }
 
-  private async syncVersionToFirestore(): Promise<void> {
-    if (!this.USE_FIREBASE) return;
-    await this.ensureFirebase();
-    try {
-      const docSnap = await this.firebaseFns.getDoc(this.settingsDoc);
-      const data = docSnap.exists() ? docSnap.data() : undefined;
-      const dbVersion = data?.dbVersion;
-      
-      // If version mismatch, automatically update Firestore to current version
-      if (dbVersion !== this.DB_VERSION) {
-        console.log(`DB Version mismatch detected: Firestore has ${dbVersion}, code expects ${this.DB_VERSION}. Auto-syncing...`);
-        await this.firebaseFns.setDoc(this.settingsDoc, { dbVersion: this.DB_VERSION }, { merge: true });
-        console.log(`DB Version synced to ${this.DB_VERSION}`);
-      }
-      // Schema migration: remove legacy convocazioni field from settings
-      if (data && typeof data === 'object' && 'convocazioni' in data) {
-        console.log('Removing legacy settings.convocazioni field...');
-        await this.firebaseFns.setDoc(this.settingsDoc, { convocazioni: deleteField() }, { merge: true });
-        console.log('Legacy convocazioni field removed.');
-      }
-    } catch (error) {
-      console.error("Error syncing DB version:", error);
+  private ensureSupabaseClient(): SupabaseClient {
+    if (this.supabase) return this.supabase;
+    const url = this.readEnv('VITE_SUPABASE_URL') || this.readEnv('NEXT_PUBLIC_SUPABASE_URL') || 'https://jqelokmsjosjwmrbwnyz.supabase.co';
+    const anonKey =
+      this.readEnv('VITE_SUPABASE_ANON_KEY') ||
+      this.readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY') ||
+      this.readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY') ||
+      'sb_publishable_OB7Uozbjy1Fc7z5QpOjGAA_SpS-TuFt';
+
+    if (!url || !anonKey) {
+      throw new Error('Supabase configuration missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (or NEXT_PUBLIC_* equivalents).');
     }
+
+    this.supabase = createClient(url, anonKey, { auth: { persistSession: true } });
+    return this.supabase;
   }
 
-  private init() {
-    if (this.USE_FIREBASE) {
-      console.log("Firebase mode enabled.");
+  private async ensureInitialized(): Promise<void> {
+    this.ensureSupabaseClient();
+    await this.ensureSchemaAndSeed();
+  }
+
+  private mapSchemaError(error: any): never {
+    const message = error?.message || '';
+    if (message.includes('relation') || error?.code === 'PGRST116') {
+      throw new Error('Supabase schema is missing. Run supabase-schema.sql in your Supabase SQL editor, then reload the app.');
+    }
+    throw error;
+  }
+
+  private async ensureSchemaAndSeed(): Promise<void> {
+    const client = this.ensureSupabaseClient();
+
+    const { data: settingsRow, error: settingsError } = await client
+      .from('app_settings')
+      .select('id, data, db_version, schema_version')
+      .eq('id', 'app')
+      .maybeSingle();
+
+    if (settingsError) {
+      this.mapSchemaError(settingsError);
+    }
+
+    if (!settingsRow) {
+      const defaultSettings: AppSettings = {
+        lodgeName: 'Loggia Supabase Demo',
+        lodgeNumber: '105',
+        province: 'MI',
+        dbVersion: this.DB_VERSION,
+        users: [],
+        userChangelog: [],
+      };
+      await client.from('app_settings').insert({
+        id: 'app',
+        data: defaultSettings,
+        db_version: this.DB_VERSION,
+        schema_version: this.SUPABASE_SCHEMA_VERSION,
+      });
     } else {
-      console.log("Local mode enabled. Firebase is not in use.");
+      const updates: Partial<SettingsRow> = {};
+      if (settingsRow.db_version !== this.DB_VERSION) updates.db_version = this.DB_VERSION;
+      if (settingsRow.schema_version !== this.SUPABASE_SCHEMA_VERSION) updates.schema_version = this.SUPABASE_SCHEMA_VERSION;
+      if (Object.keys(updates).length > 0) {
+        await client.from('app_settings').update(updates).eq('id', 'app');
+      }
+    }
+
+    const { count, error: countError } = await client
+      .from('members')
+      .select('id', { count: 'exact', head: true });
+
+    if (countError) {
+      this.mapSchemaError(countError);
+    }
+
+    if ((count ?? 0) === 0) {
+      const demoMembers = this.buildDemoMembers();
+      await client.from('members').insert(demoMembers.map(m => ({ data: m })));
+    }
+
+    const { count: convCount, error: convCountError } = await client
+      .from('convocazioni')
+      .select('id', { count: 'exact', head: true });
+
+    if (convCountError) {
+      this.mapSchemaError(convCountError);
+    }
+
+    if ((convCount ?? 0) === 0) {
+      const demoConvocazioni = this.buildDemoConvocazioni();
+      await client.from('convocazioni').insert(
+        demoConvocazioni.map(c => ({
+          branch_type: c.branchType,
+          year_start: c.yearStart,
+          data: c,
+        }))
+      );
     }
   }
 
-  async getMembers(): Promise<Member[]> {
-    if (!this.USE_FIREBASE) {
-      return Promise.resolve([]);
-    }
-    await this.ensureFirebase();
-    const querySnapshot = await this.firebaseFns.getDocs(this.membersCollection);
+  private buildDemoMembers(): Member[] {
+    const baseDate = new Date();
+    const year = baseDate.getFullYear();
+
+    const craftActiveStatus = (date: string) => [{ date, status: 'ACTIVE', reason: 'Iniziazione' }];
+    const degree = (name: string, date: string) => ({ degreeName: name, date, meetingNumber: '1', location: 'Milano' });
+
+    const makeMember = (
+      id: string,
+      matricula: string,
+      firstName: string,
+      lastName: string,
+      city: string,
+      email: string,
+      craftRole?: string,
+      chapterRole?: string,
+      markRole?: string,
+      ramRole?: string,
+    ): Member => {
+      const today = new Date().toISOString().split('T')[0];
+      const branchTemplate = () => ({
+        statusEvents: [],
+        degrees: [],
+        roles: [],
+        isMotherLodgeMember: true,
+        otherLodgeName: '',
+        isFounder: false,
+        isHonorary: false,
+        isDualAppartenance: false,
+        initiationDate: today,
+      });
+
+      const craft = branchTemplate();
+      craft.statusEvents = craftActiveStatus(today);
+      craft.degrees = [degree('Apprendista', today)];
+      if (craftRole) {
+        craft.roles = [{ id: `role_${id}_craft`, yearStart: year, roleName: craftRole, branch: 'CRAFT' }];
+      }
+
+      const chapter = branchTemplate();
+      if (chapterRole) {
+        chapter.statusEvents = craftActiveStatus(today);
+        chapter.degrees = [degree("Compagno dell Arco Reale", today)];
+        chapter.roles = [{ id: `role_${id}_chapter`, yearStart: year, roleName: chapterRole, branch: 'CHAPTER' }];
+      }
+
+      const mark = branchTemplate();
+      if (markRole) {
+        mark.statusEvents = craftActiveStatus(today);
+        mark.degrees = [degree('Mark Master Mason', today)];
+        mark.roles = [{ id: `role_${id}_mark`, yearStart: year, roleName: markRole, branch: 'MARK' }];
+      }
+
+      const ram = branchTemplate();
+      if (ramRole) {
+        ram.statusEvents = craftActiveStatus(today);
+        ram.degrees = [degree('Royal Ark Mariner', today)];
+        ram.roles = [{ id: `role_${id}_ram`, yearStart: year, roleName: ramRole, branch: 'RAM' }];
+      }
+
+      return {
+        id,
+        matricula,
+        firstName,
+        lastName,
+        city,
+        email,
+        phone: '3330000000',
+        craft,
+        mark,
+        chapter,
+        ram,
+        changelog: [],
+      };
+    };
+
+    const firstNames = ['Giovanni', 'Marco', 'Luca', 'Andrea', 'Paolo', 'Francesco', 'Alessandro', 'Matteo', 'Lorenzo', 'Davide', 'Simone', 'Federico', 'Riccardo', 'Giuseppe', 'Antonio', 'Stefano', 'Roberto', 'Michele', 'Giorgio', 'Claudio'];
+    const lastNames = ['Rossi', 'Bianchi', 'Conti', 'Ferrari', 'Russo', 'Romano', 'Colombo', 'Ricci', 'Marino', 'Greco', 'Bruno', 'Gallo', 'Costa', 'Fontana', 'Esposito', 'Gentile', 'Caruso', 'Ferrara', 'Marchetti', 'Villa'];
+    const cities = ['Milano', 'Torino', 'Bologna', 'Roma', 'Firenze', 'Genova', 'Napoli', 'Venezia', 'Verona', 'Brescia'];
+    const craftRoles = ['Maestro Venerabile', 'Primo Sorvegliante', 'Secondo Sorvegliante', 'Oratore', 'Segretario', 'Tesoriere', 'Esperto', 'Maestro delle Cerimonie', 'Primo Diacono', 'Secondo Diacono'];
+    
     const members: Member[] = [];
-    querySnapshot.forEach((doc) => {
-      members.push({ id: doc.id, ...doc.data() } as Member);
-    });
+    for (let i = 1; i <= 50; i++) {
+      const firstName = firstNames[i % firstNames.length];
+      const lastName = lastNames[Math.floor(i / 2.5) % lastNames.length];
+      const city = cities[i % cities.length];
+      const matricula = `105-${String(i).padStart(3, '0')}`;
+      const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i}@example.com`;
+      
+      let craftRole: string | undefined;
+      let chapterRole: string | undefined;
+      let markRole: string | undefined;
+      let ramRole: string | undefined;
+      
+      if (i <= 10) {
+        craftRole = craftRoles[i - 1];
+      }
+      if (i <= 5) {
+        chapterRole = ['Primo Grande Sorvegliante', 'Secondo Grande Sorvegliante', 'Maestro del Capitolo', 'Grande Scriba', 'Tesoriere del Capitolo'][i - 1];
+      }
+      if (i <= 5) {
+        markRole = ['Maestro del Marchio', 'Sovrintendente', 'Maestro Segretario', 'Tesoriere del Marchio', 'Sovrintendente dei Lavori'][i - 1];
+      }
+      if (i <= 3) {
+        ramRole = ['Comandante', 'Direttore dei Lavori', 'Tesoriere'][i - 1];
+      }
+      
+      members.push(makeMember(`seed-${i}`, matricula, firstName, lastName, city, email, craftRole, chapterRole, markRole, ramRole));
+    }
+    
     return members;
   }
 
+  private buildDemoConvocazioni(): Convocazione[] {
+    const now = new Date();
+    const isoAt = (daysFromNow: number) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() + daysFromNow);
+      return d.toISOString();
+    };
+
+    const makeConvocazione = (
+      branchType: BranchType,
+      numeroConvocazione: number,
+      daysFromNow: number,
+      luogo: string,
+      ordineDelGiorno: string,
+    ): Convocazione => {
+      const stamp = isoAt(daysFromNow);
+      const dateOnly = stamp.split('T')[0];
+      const dateTime = stamp.slice(0, 16);
+      return {
+        id: `seed-${branchType.toLowerCase()}-${numeroConvocazione}`,
+        branchType,
+        yearStart: now.getFullYear(),
+        numeroConvocazione,
+        dataConvocazione: dateOnly,
+        dataOraApertura: dateTime,
+        luogo,
+        ordineDelGiorno,
+        note: '',
+        formatoGrafico: 'standard',
+        bloccata: true,
+        createdAt: stamp,
+        updatedAt: stamp,
+      };
+    };
+
+    return [
+      makeConvocazione('CRAFT', 1, 7, 'Milano', 'Lavori rituali e pianificazione lavori di loggia.'),
+      makeConvocazione('CRAFT', 2, 35, 'Milano', 'Esaltazione candidati e revisione bilancio.'),
+      makeConvocazione('MARK', 1, 14, 'Torino', 'Installazione ufficiali e programmazione grado Mark.'),
+      makeConvocazione('CHAPTER', 1, 21, 'Bologna', 'Capitolo ordinario con discussione studi simbolici.'),
+      makeConvocazione('RAM', 1, 28, 'Genova', 'Lavori rituali RAM e assegnazione incarichi.'),
+    ];
+  }
+
+  private async ensureReady() {
+    await this.initPromise;
+  }
+
+  async getMembers(): Promise<Member[]> {
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+    const { data, error } = await client.from('members').select('id, data');
+    if (error) throw error;
+    return (data || []).map((row: MemberRow) => ({ ...row.data, id: row.id }));
+  }
+
   async getMemberById(id: string): Promise<Member | undefined> {
-    if (!this.USE_FIREBASE) {
-        return Promise.resolve(undefined);
-    }
     if (id === 'new') {
-        return this.getEmptyMember();
+      return this.getEmptyMember();
     }
-    await this.ensureFirebase();
-    const docRef = this.firebaseFns.doc(this.membersCollection, id);
-    const docSnap = await this.firebaseFns.getDoc(docRef);
-    return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } as Member : undefined;
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+    const { data, error } = await client.from('members').select('id, data').eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data ? { ...(data as MemberRow).data, id: (data as MemberRow).id } : undefined;
   }
 
   async saveMember(member: Member): Promise<Member> {
-    if (!this.USE_FIREBASE) {
-      return Promise.resolve(member);
-    }
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
     let memberToSave = { ...member };
     if (!memberToSave.id) {
-        await this.ensureFirebase();
-        const newDocRef = this.firebaseFns.doc(this.membersCollection);
-        memberToSave.id = newDocRef.id;
+      memberToSave.id = crypto.randomUUID ? crypto.randomUUID() : `member_${Date.now()}`;
     }
-    await this.ensureFirebase();
-    // Enforce changelog maximum length (keep most recent 100 entries)
     if (memberToSave.changelog && Array.isArray(memberToSave.changelog)) {
       memberToSave.changelog = memberToSave.changelog.slice(-100);
     }
-    const memberRef = this.firebaseFns.doc(this.membersCollection, memberToSave.id);
-    await this.firebaseFns.setDoc(memberRef, memberToSave, { merge: true });
-    // Automatically sync version after member save
-    await this.syncVersionToFirestore();
+    const row = { id: memberToSave.id, data: memberToSave };
+    const { error } = await client.from('members').upsert(row);
+    if (error) throw error;
     return memberToSave;
   }
 
-
   async deleteMember(id: string): Promise<void> {
-    if (!this.USE_FIREBASE) {
-      return Promise.resolve();
-    }
-    await this.ensureFirebase();
-    const memberRef = this.firebaseFns.doc(this.membersCollection, id);
-    await this.firebaseFns.deleteDoc(memberRef);
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+    const { error } = await client.from('members').delete().eq('id', id);
+    if (error) throw error;
   }
 
   async getSettings(): Promise<AppSettings> {
-    if (!this.USE_FIREBASE) {
-      return Promise.resolve({ lodgeName: '', lodgeNumber: '', province: '', dbVersion: this.DB_VERSION, users: [], userChangelog: [] });
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+    const { data, error } = await client.from('app_settings').select('data, db_version, schema_version').eq('id', 'app').maybeSingle();
+    if (error) throw error;
+    const row = data as SettingsRow | null;
+    if (!row) {
+      return { lodgeName: '', lodgeNumber: '', province: '', dbVersion: this.DB_VERSION, users: [], userChangelog: [] };
     }
-    await this.ensureFirebase();
-    const docSnap = await this.firebaseFns.getDoc(this.settingsDoc);
-    const settings = docSnap.exists() ? docSnap.data() as AppSettings : { lodgeName: '', lodgeNumber: '', province: '', dbVersion: this.DB_VERSION, users: [], userChangelog: [] };
-    if (!settings.users) {
-      settings.users = [];
-    }
-    if (!settings.userChangelog) {
-      settings.userChangelog = [];
-    }
-    // Ensure dbVersion is set
-    if (!settings.dbVersion) {
-      settings.dbVersion = this.DB_VERSION;
-    }
-    // Automatically sync version if mismatch detected
-    await this.syncVersionToFirestore();
-    return settings;
+    const merged: AppSettings = {
+      ...row.data,
+      dbVersion: this.DB_VERSION,
+      users: row.data.users || [],
+      userChangelog: row.data.userChangelog || [],
+    };
+    return merged;
   }
 
   async saveSettings(settings: AppSettings): Promise<AppSettings> {
-    if (!this.USE_FIREBASE) {
-      return Promise.resolve(settings);
-    }
-    await this.ensureFirebase();
-    // Ensure dbVersion is preserved in settings before saving
-    const settingsToSave = {
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+    const settingsToSave: AppSettings = {
       ...settings,
       dbVersion: this.DB_VERSION,
       users: settings.users || [],
-      userChangelog: settings.userChangelog || [],
+      userChangelog: (settings.userChangelog || []).slice(-100),
     };
-    // Enforce userChangelog maximum length (keep most recent 100 entries)
-    if (settingsToSave.userChangelog && Array.isArray(settingsToSave.userChangelog)) {
-      settingsToSave.userChangelog = settingsToSave.userChangelog.slice(-100);
-    }
-    await this.firebaseFns.setDoc(this.settingsDoc, settingsToSave, { merge: true });
-    // Automatically sync version after settings save
-    await this.syncVersionToFirestore();
+
+    const { error } = await client.from('app_settings').upsert({
+      id: 'app',
+      data: settingsToSave,
+      db_version: this.DB_VERSION,
+      schema_version: this.SUPABASE_SCHEMA_VERSION,
+    });
+    if (error) throw error;
     return settingsToSave;
   }
 
-  async bootstrapLodge(settings: { lodgeName: string; lodgeNumber: string; province: string }, admin: { email: string; name: string; privileges: UserPrivilege[] }): Promise<void> {
-    if (!this.USE_FIREBASE) return Promise.resolve();
-    await this.ensureFirebase();
-    const now = new Date().toISOString();
-    const docSnap = await this.firebaseFns.getDoc(this.settingsDoc);
-    const existing = docSnap.exists() ? (docSnap.data() as AppSettings) : undefined;
-
-    const adminUser: AppUser = {
-      id: `user_${Date.now()}`,
-      email: admin.email,
-      name: admin.name,
-      privileges: admin.privileges,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    const newSettings: AppSettings = {
-      lodgeName: settings.lodgeName,
-      lodgeNumber: settings.lodgeNumber,
-      province: settings.province,
-      dbVersion: this.DB_VERSION,
-      users: [adminUser],
-      userChangelog: [
-        {
-          timestamp: now,
-          action: 'CREATE',
-          userEmail: admin.email,
-          performedBy: admin.email,
-          details: `Bootstrap lodge and initial admin (${admin.name})`,
-        },
-      ],
-      branchPreferences: existing?.branchPreferences || undefined,
-      yearlyRituals: existing?.yearlyRituals || undefined,
-    };
-
-    await this.firebaseFns.setDoc(this.settingsDoc, newSettings, { merge: false });
-    await this.syncVersionToFirestore();
-  }
-
-  // === Convocazioni API ===
   async getConvocazioniForBranch(branch: BranchType): Promise<Convocazione[]> {
-    if (!this.USE_FIREBASE) return Promise.resolve([]);
-    await this.ensureFirebase();
-    // Fetch all and filter client-side to avoid dependency on Firestore indexes
-    const snap = await this.firebaseFns.getDocs(this.convocazioniCollection);
-    const list: Convocazione[] = [];
-    snap.forEach((docSnap: any) => {
-      const data = docSnap.data();
-      if (data.branchType === branch) {
-        list.push({ id: docSnap.id, ...data } as Convocazione);
-      }
-    });
-    // Sort by numeroConvocazione ascending for consistency
-    list.sort((a, b) => a.numeroConvocazione - b.numeroConvocazione);
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+    const { data, error } = await client
+      .from('convocazioni')
+      .select('id, branch_type, year_start, data')
+      .eq('branch_type', branch);
+    if (error) throw error;
+    const list = (data || []).map((row: ConvocazioneRow) => ({ ...row.data, id: row.id } as Convocazione));
+    list.sort((a, b) => (a.numeroConvocazione || 0) - (b.numeroConvocazione || 0));
     return list;
   }
 
@@ -242,37 +383,46 @@ class DataService {
   }
 
   async saveConvocazione(conv: Convocazione): Promise<Convocazione> {
-    if (!this.USE_FIREBASE) return Promise.resolve(conv);
-    await this.ensureFirebase();
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
     const now = new Date().toISOString();
     let toSave = { ...conv } as Convocazione;
     if (!toSave.id || toSave.id === 'new') {
+      toSave.id = crypto.randomUUID ? crypto.randomUUID() : `conv_${Date.now()}`;
       toSave.createdAt = now;
-      toSave.updatedAt = now;
-      const docRef = await this.firebaseFns.addDoc(this.convocazioniCollection, toSave);
-      toSave.id = docRef.id;
-      return toSave;
-    } else {
-      toSave.updatedAt = now;
-      const ref = this.firebaseFns.doc(this.convocazioniCollection, toSave.id);
-      await this.firebaseFns.setDoc(ref, toSave, { merge: true });
-      return toSave;
     }
+    toSave.updatedAt = now;
+
+    const row: ConvocazioneRow = {
+      id: toSave.id,
+      branch_type: toSave.branchType,
+      year_start: toSave.yearStart,
+      data: toSave,
+    } as ConvocazioneRow;
+
+    const { error } = await client.from('convocazioni').upsert(row);
+    if (error) throw error;
+    return toSave;
   }
 
   async deleteConvocazione(id: string): Promise<void> {
-    if (!this.USE_FIREBASE) return Promise.resolve();
-    await this.ensureFirebase();
-    const ref = this.firebaseFns.doc(this.convocazioniCollection, id);
-    await this.firebaseFns.deleteDoc(ref);
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+    const { error } = await client.from('convocazioni').delete().eq('id', id);
+    if (error) throw error;
   }
 
   async toggleConvocazioneLock(id: string, lock?: boolean): Promise<void> {
-    if (!this.USE_FIREBASE) return Promise.resolve();
-    await this.ensureFirebase();
-    const ref = this.firebaseFns.doc(this.convocazioniCollection, id);
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
     const now = new Date().toISOString();
-    await this.firebaseFns.setDoc(ref, { bloccata: lock, updatedAt: now }, { merge: true });
+    const { data, error } = await client.from('convocazioni').select('data').eq('id', id).maybeSingle();
+    if (error) throw error;
+    if (!data) return;
+    const conv = (data as ConvocazioneRow).data as Convocazione;
+    const updated = { ...conv, bloccata: lock, updatedAt: now };
+    const { error: updateError } = await client.from('convocazioni').update({ data: updated }).eq('id', id);
+    if (updateError) throw updateError;
   }
 
   async getNextConvocazioneNumero(branch: BranchType): Promise<number> {
@@ -280,18 +430,18 @@ class DataService {
     const max = all.reduce((m, c) => Math.max(m, c.numeroConvocazione || 0), 0);
     return max + 1;
   }
-  
+
   getEmptyMember(): Member {
-    const createBranchData = () => ({ 
+    const createBranchData = () => ({
       statusEvents: [],
-      degrees: [], 
+      degrees: [],
       roles: [],
       isMotherLodgeMember: true,
       otherLodgeName: '',
       isFounder: false,
       isHonorary: false,
       isDualAppartenance: false,
-      initiationDate: undefined
+      initiationDate: undefined,
     });
 
     return {
@@ -306,7 +456,7 @@ class DataService {
       mark: createBranchData(),
       chapter: createBranchData(),
       ram: createBranchData(),
-      changelog: []
+      changelog: [],
     };
   }
 
@@ -316,24 +466,20 @@ class DataService {
 
     const cleaned = members.map(member => {
       const cleaned = { ...member };
-      
-      // Pulisci status events per ogni branch
+
       (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
         const branch = cleaned[branchKey];
         if (!branch || !branch.statusEvents) return;
 
         const originalCount = branch.statusEvents.length;
-        
-        // Rimuovi eventi duplicati consecutivi (stesso status e data)
         const deduped: typeof branch.statusEvents = [];
-        branch.statusEvents.forEach((event, idx) => {
+        branch.statusEvents.forEach(event => {
           const prev = deduped[deduped.length - 1];
           if (!prev || prev.status !== event.status || prev.date !== event.date) {
             deduped.push(event);
           }
         });
 
-        // Ordina per data
         deduped.sort((a, b) => a.date.localeCompare(b.date));
 
         if (deduped.length !== originalCount) {
@@ -352,31 +498,30 @@ class DataService {
   }
 
   exportToExcel(data: any[], filename: string) {
-    // Converti dati in CSV
     const headers = Object.keys(data[0] || {});
     const csvContent = [
       headers.join(','),
-      ...data.map(row => 
-        headers.map(header => {
-          const value = row[header];
-          // Escapa le virgole e le virgolette
-          if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-            return `"${value.replace(/"/g, '""')}"`;
-          }
-          return value;
-        }).join(',')
-      )
+      ...data.map(row =>
+        headers
+          .map(header => {
+            const value = row[header];
+            if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+              return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+          })
+          .join(',')
+      ),
     ].join('\n');
 
-    // Crea blob e scarica
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
-    
+
     link.setAttribute('href', url);
     link.setAttribute('download', `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
-    
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

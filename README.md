@@ -2,11 +2,11 @@
 
 <div align="center">
 
-![GADU](https://img.shields.io/badge/GADU-Masonic%20Lodge%20Management-gold? style=flat-square)
-![TypeScript](https://img.shields. io/badge/TypeScript-96. 3%25-3178c6?style=flat-square)
+![GADU](https://img.shields.io/badge/GADU-Masonic%20Lodge%20Management-gold?style=flat-square)
+![TypeScript](https://img.shields.io/badge/TypeScript-96.3%25-3178c6?style=flat-square)
 ![React](https://img.shields.io/badge/React-19.2.0-61dafb?style=flat-square)
-![Firebase](https://img.shields.io/badge/Firebase-12.6.0-ffa726?style=flat-square)
-![Vite](https://img.shields. io/badge/Vite-6.2.0-646cff?style=flat-square)
+![Supabase](https://img.shields.io/badge/Supabase-2.48.0-3ecf8e?style=flat-square)
+![Vite](https://img.shields.io/badge/Vite-6.2.0-646cff?style=flat-square)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 A modern, user-friendly web application for managing Masonic lodge memberships, roles, and organizational structures. 
@@ -51,7 +51,7 @@ Built with modern web technologies, GADU provides an intuitive interface for lod
 - **Lodge Configuration** - Set up lodge name, number, and province
 - **Legend & Requirements** - Display degree requirements and system information
 - **Data Import** - Support for member data management
-- **Firebase Integration** - Secure cloud-based data storage
+- **Supabase Storage** - JSON-first persistence on Supabase Postgres with automatic demo seeding
 
 ### 📱 User Experience
 - **Responsive Design** - Works seamlessly on desktop, tablet, and mobile devices
@@ -65,43 +65,30 @@ Built with modern web technologies, GADU provides an intuitive interface for lod
 ## 🚀 Quick Start
 
 ### Prerequisites
-- **Node.js** 16. 0.0 or higher
-- **npm** 8.0. 0 or higher (or yarn/pnpm)
+- **Node.js** 18 or higher
+- **npm** 8 or higher (or yarn/pnpm)
 
 ### Installation
 
 1. **Clone the repository**
-   ```bash
-   git clone https://github.com/sequiconsulting/GADU.git
-   cd GADU
+  ```bash
+  git clone https://github.com/sequiconsulting/GADU.git
+  cd GADU
+  ```
+2. **Install dependencies**
+  ```bash
+  npm install
+  ```
+3. **Run locally**
+  ```bash
+  npm run dev
+  ```
+
 ### Data Storage
 
-- Firestore Collections:
-   - `members`: one document per member
-   - `settings/appSettings`: singleton app configuration
-   - `convocazioni`: meeting convocations (per-branch, per-year)
+- Supabase tables (JSON-first storage):
+  - `app_settings` (singleton row `id = 'app'`) stores `AppSettings`, `db_version`, `schema_version`
+  - `members` stores each `Member` object in `data` (JSONB)
+  - `convocazioni` stores each meeting record in `data` with `branch_type`/`year_start` for filtering
 
-Convocazioni are stored in the dedicated `convocazioni` collection; the legacy `settings.convocazioni` field has been removed as of app version 0.116.
-
-### Automatic Rules Deploy
-
-To auto-deploy Firestore rules on install, set the following environment variables before running `npm install`:
-
-- `FIREBASE_TOKEN`: CI token generated via `firebase login:ci`
-- `FIREBASE_PROJECT`: Firebase project id (defaults to `gadu-staging`)
-
-On install, the script at `scripts/deployRules.js` will deploy `firestore.rules`. You can also deploy manually:
-
-```bash
-npm run deploy:rules
-```
-
-### CI: Deploy on Push
-
-This repo includes a GitHub Action that deploys Firestore rules automatically on pushes to `main`.
-
-Configure repository secrets:
-- `FIREBASE_TOKEN`: CI token from `firebase login:ci`
-- `FIREBASE_PROJECT_ID`: e.g., `gadu-staging`
-
-Workflow file: `.github/workflows/deploy-firestore-rules.yml`
+Schema bootstrap: run `supabase-schema.sql` in the Supabase SQL editor to create tables and permissive RLS for anon keys. On first app launch, the client seeds demo members (and sample convocazioni) if the tables are empty and syncs `db_version`/`schema_version` in `app_settings`.

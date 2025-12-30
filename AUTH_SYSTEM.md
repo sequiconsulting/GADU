@@ -1,175 +1,54 @@
-# Sistema di Autenticazione e Autorizzazioni (Preparato)
+# Sistema di Autenticazione e Autorizzazioni (Supabase – Preparato)
 
 ## Stato Attuale
 
-Il sistema di autenticazione e autorizzazioni è **completamente preparato** ma **disattivato**. 
+Il sistema di autenticazione/autorizzazione è pronto ma **disattivato**.
 
-**Flag di attivazione:** `NETLIFY_AUTH_ENABLED` in `utils/authService.ts` (linea 10)
-
-Per attivare quando pronto:
-```typescript
-const NETLIFY_AUTH_ENABLED = true; // Change to true when ready
-```
+- **Feature flag:** `SUPABASE_AUTH_ENABLED` in `utils/authService.ts`
+- **Versione schema auth:** `SUPABASE_AUTH_SCHEMA_VERSION` (gestisce il campo `gadu_schema_version` su Supabase user_metadata)
+- **Env richieste (quando si attiva):** `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
 
 ## Struttura del Sistema
 
-### 1. **Tipi di Dati** (`types.ts`)
+### 1. Tipi di Dati (`types.ts`)
 
-**UserPrivilege** - 9 privilegi granulari:
-- `AD` - Admin: accesso totale, gestione utenti, modifica impostazioni
-- `CR` - Craft Read: lettura sola Craft
-- `MR` - Mark Read: lettura sola Marchio
-- `AR` - Ark Read: lettura sola Capitolo/Arco
-- `RR` - RAM Read: lettura sola RAM
-- `CW` - Craft Write: lettura e modifica Craft
-- `MW` - Mark Write: lettura e modifica Marchio
-- `AW` - Ark Write: lettura e modifica Capitolo/Arco
-- `RW` - RAM Write: lettura e modifica RAM
+- `UserPrivilege` (9 privilegi granulari: AD, CR, CW, MR, MW, AR, AW, RR, RW)
+- `AppUser` (gestito in Supabase dentro `app_settings.data.users`)
+- `SupabaseAuthUser` (forma minima letta da Supabase, include `app_metadata`/`user_metadata` con `gadu_schema_version`)
 
-**AppUser**:
-```typescript
-interface AppUser {
-  id: string;
-  email: string;
-  name: string;
-  privileges: UserPrivilege[];
-  createdAt: string;
-  updatedAt: string;
-}
-```
+### 2. Servizio di Autenticazione (`utils/authService.ts`)
 
-### 2. **Servizi di Autenticazione** (`utils/authService.ts`)
+- Supabase client lazy, **disattivato** se `SUPABASE_AUTH_ENABLED = false`
+- `initializeSupabaseAuth()` – inizializza listener e cache di sessione
+- `getCurrentUser()`, `getSupabaseToken()` – leggono utente/token solo se il flag è attivo
+- Schema tracking: `getAuthSchemaVersion()`, `needsAuthSchemaMigration()`, `markAuthSchemaVersion()` (scrive `gadu_schema_version` su user_metadata)
+- Helper flag: `isAuthenticationEnabled()`
+- Helper utente locale: `createUser`, `updateUserPrivileges`, `deleteUser`, `findUserByEmail`, `getUserPrivileges`
 
-Gestisce l'integrazione con **Netlify Identity**:
-- `initializeNetlifyAuth()` - Inizializza (se abilitato)
-- `getCurrentUser()` - Ottiene utente loggato
-- `openNetlifyLogin()` / `logoutNetlify()` - Gestione sessione
-- `getNetlifyToken()` - Token JWT per API
-- `isAuthenticationEnabled()` - Verifica se auth è attiva
+### 3. Servizi di Autorizzazione (`utils/permissionChecker.ts`)
 
-### 3. **Servizi di Autorizzazione** (`utils/permissionChecker.ts`)
+Funzioni per verificare lettura/scrittura per ramo, amministrazione, gestione utenti e rituali. Nessun controllo è applicato finché l’auth resta disattivata.
 
-9 funzioni di controllo permessi:
-- `canAdminister(user)` - Verifica privilegio AD
-- `canReadBranch(user, branch)` - Verifica lettura ramo
-- `canWriteBranch(user, branch)` - Verifica modifica ramo
-- `canViewAdminPanel(user)` - Verifica accesso admin
-- `canManageUsers(user)` - Verifica gestione utenti
-- `canCreateMember(user)` - Verifica creazione anagrafica
-- `canModifyMemberBranch(user, branch)` - Verifica modifica anagrafica per ramo
-- `canDeleteMember(user)` - Verifica eliminazione anagrafica
-- `canChangeRitual(user)` - Verifica modifica rituali
-- `canViewReports(user)` - Verifica visualizzazione report
-- `getReadableBranches(user)` - Lista rami leggibili
-- `getWritableBranches(user)` - Lista rami modificabili
-- `getPermissionSummary(user)` - Summary debug
+### 4. Gestione Utenti (`components/UserManagement.tsx`)
 
-### 4. **Gestione Utenti** (`components/UserManagement.tsx`)
+UI per CRUD utenti memorizzati in Supabase (`AppSettings.users`). Mostra changelog locale e supporta privilegi granulari.
 
-Componente in `AdminPanel` per:
-- Visualizzare lista utenti (sola lettura se non admin)
-- Aggiungere nuovi utenti (solo admin)
-- Modificare privilegi (solo admin)
-- Eliminare utenti (solo admin)
+### 5. Auth Context (`contexts/AuthContext.tsx`)
 
-Integrato in `AdminPanel.tsx` con tab "Gestione Utenti".
+Provider React preparato che legge user/token/schema quando il flag è attivo. Attualmente non montato in `App.tsx`.
 
-### 5. **AppSettings**
+## Flusso di Attivazione (quando pronto)
 
-La tabella `settings/appSettings` su Firestore ora include:
-```typescript
-users?: AppUser[]; // Lista di utenti e privilegi
-```
+1. Impostare `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
+2. Impostare `SUPABASE_AUTH_ENABLED = true` in `utils/authService.ts`.
+3. Montare `AuthProvider` in `index.tsx`/`App.tsx` e aggiungere una pagina di login (email OTP/OAuth a scelta).
+4. Passare `user`/`token` ai componenti che devono proteggere le operazioni.
+5. Applicare i check di `permissionChecker` in MemberDetail/RoleAssignment/AdminPanel/Report.
+6. Eseguire `markAuthSchemaVersion()` dopo eventuali migrazioni di metadata utenti.
+7. Aggiornare le policy RLS di Supabase se si abilita l’auth lato backend.
 
-## Flusso di Attivazione
+## Note
 
-Quando `NETLIFY_AUTH_ENABLED = true`:
-
-1. **Su App.tsx:**
-   - Decomment import Auth0 e permissionChecker
-   - Aggiungi guard iniziale: mostri LoginPage se nessun utente loggato
-   - Passa user a componenti che ne hanno bisogno
-
-2. **Su Componenti:**
-   - MemberDetail: controlla `canModifyMemberBranch()` per ogni ramo
-   - RoleAssignment: controlla `canWriteBranch()` per ramo attivo
-   - AdminPanel: controlla `canModifyAdminSettings()`
-   - Piedilista/RolesReport: nasconde rami non leggibili
-
-3. **Su App.tsx BRANCHES rendering:**
-   - Filtra BRANCHES basato su `getReadableBranches(currentUser)`
-   - Nascondi tab RAM se user non ha RR/RW
-
-## Esempio di Utilizzo (Quando Attivato)
-
-```typescript
-// In App.tsx
-const currentUser: AppUser | null = getCurrentUser();
-if (!currentUser && NETLIFY_AUTH_ENABLED) {
-  return <LoginPage />;
-}
-
-// Nei componenti
-if (!canWriteBranch(currentUser, 'CRAFT')) {
-  return <div>Non hai permesso di modificare Craft</div>;
-}
-
-// Filtra branches visibili
-const visibleBranches = BRANCHES.filter(b => 
-  canReadBranch(currentUser, b.type)
-);
-```
-
-## Esempio di Privilegi Utente
-
-**Admin:**
-- Privilegi: `['AD']`
-- Accesso: tutto, gestisce utenti
-
-**Manager Craft sola lettura:**
-- Privilegi: `['CR']`
-- Accesso: legge Craft, accede report
-
-**Manager Marchio completo:**
-- Privilegi: `['MW']`
-- Accesso: legge e modifica Marchio, crea/modifica anagrafiche in Marchio
-
-**Manager Multi-ramo:**
-- Privilegi: `['CW', 'MR', 'AR']`
-- Accesso: modifica Craft, legge Marchio e Capitolo, non vede RAM
-
-## Prossimi Passi per Attivazione
-
-1. Abilitare `NETLIFY_AUTH_ENABLED = true` in `authService.ts`
-2. Configurare Netlify Identity (https://app.netlify.com/sites/[SITE]/identity)
-3. Aggiungere form LoginPage che richiama Netlify
-4. Aggiungere guard in App.tsx per redirigere a login
-5. Passare `currentUser` a componenti che ne hanno bisogno
-6. Testare permessi su ogni componente
-7. Configurare Firestore rules per controllare accesso lato server
-
-## File Coinvolti
-
-**Nuovi file:**
-- `utils/authService.ts` - Autenticazione Netlify
-- `utils/permissionChecker.ts` - Controllo autorizzazioni
-- `components/UserManagement.tsx` - Gestione utenti
-
-**File Modificati:**
-- `types.ts` - Aggiunti UserPrivilege, AppUser, NetlifyIdentityUser
-- `components/AdminPanel.tsx` - Integrato UserManagement con tab
-
-**File Da Modificare (quando attivare):**
-- `App.tsx` - Aggiungi guard e passa user ai componenti
-- `components/MemberDetail.tsx` - Controlla canModifyMemberBranch
-- `components/RoleAssignment.tsx` - Controlla canWriteBranch
-- `components/Piedilista.tsx` - Filtra branches leggibili
-- `components/RolesReport.tsx` - Filtra branches leggibili
-- Firestore rules - Controllo accesso server-side
-
-## Note Importanti
-
-- **Non attivo adesso:** Tutti i controlli sono preparati ma non applicati
-- **Flag di controllo:** Unica modifica necessaria per attivare è `NETLIFY_AUTH_ENABLED`
-- **Backwards compatible:** Senza autenticazione, funziona come adesso (accesso totale)
-- **Database versioning:** Incrementare `DB_VERSION` quando aggiungere campo `users` a AppSettings
+- **Disattivato di default:** nessun blocco viene applicato finché il flag resta false.
+- **Compatibilità:** il resto dell’app continua a funzionare senza Supabase.
+- **Versioning:** tenere `SUPABASE_AUTH_SCHEMA_VERSION` allineato quando cambiano le claim utente; `DB_VERSION` resta per lo schema applicativo su Supabase.

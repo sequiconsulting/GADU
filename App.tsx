@@ -78,7 +78,7 @@ const App: React.FC = () => {
 
   const handleSaveSettings = async (settings: AppSettings) => {
       await dataService.saveSettings(settings);
-      // Reload fresh data from Firestore to ensure sync (especially for users and userChangelog)
+      // Reload fresh data from Supabase to ensure sync (especially for users and userChangelog)
       await loadData();
   };
 

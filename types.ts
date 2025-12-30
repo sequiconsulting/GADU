@@ -2,7 +2,7 @@
 export type BranchType = 'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM';
 export type StatusType = 'ACTIVE' | 'INACTIVE';
 
-// Netlify Authentication & Authorization
+// Supabase Authentication & Authorization (prepared, disabled by default)
 export type UserPrivilege = 'AD' | 'CR' | 'MR' | 'AR' | 'RR' | 'CW' | 'MW' | 'AW' | 'RW';
 
 export interface AppUser {
@@ -14,25 +14,25 @@ export interface AppUser {
   updatedAt: string;
 }
 
-export interface NetlifyIdentityUser {
+// Minimal Supabase user shape we rely on (matches supabase-js user fields we read)
+export interface SupabaseAuthUser {
   id: string;
-  aud: string;
-  role: string;
-  email: string;
-  email_confirmed: boolean;
-  app_metadata: {
-    provider: string;
+  aud?: string;
+  role?: string;
+  email?: string;
+  email_confirmed_at?: string | null;
+  last_sign_in_at?: string | null;
+  app_metadata?: {
+    provider?: string;
     roles?: string[];
+    gadu_schema_version?: number;
   };
-  user_metadata?: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-  token?: {
-    access_token: string;
-    expires_at: number;
-    refresh_token?: string;
-    token_type: string;
+  user_metadata?: Record<string, any> & {
+    gadu_schema_version?: number;
+    display_name?: string;
   };
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface DegreeEvent {

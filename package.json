@@ -5,16 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 3000",
-    "prebuild": "node scripts/deployRules.cjs",
     "build": "vite build",
-    "prepreview": "node scripts/deployRules.cjs",
-    "preview": "vite preview --host 0.0.0.0 --port 3000",
-    "deploy:rules": "firebase deploy --only firestore:rules",
-    "postinstall": "node scripts/deployRules.cjs"
+    "preview": "vite preview --host 0.0.0.0 --port 3000"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.48.0",
     "@faker-js/faker": "^9.9.0",
-    "firebase": "^12.6.0",
     "lucide-react": "^0.555.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
@@ -23,7 +19,6 @@
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.17",
-    "firebase-tools": "^13.3.0",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
     "typescript": "~5.8.2",

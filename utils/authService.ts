@@ -1,108 +1,158 @@
-import { AppUser, UserPrivilege, NetlifyIdentityUser } from '../types';
+import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
+import { AppUser, SupabaseAuthUser, UserPrivilege } from '../types';
 
 /**
- * Authentication Service for Netlify Identity
- * FEATURE FLAG: Set NETLIFY_AUTH_ENABLED to true to activate authentication
+ * Supabase Authentication (prepared, disabled by default)
+ * - Toggle SUPABASE_AUTH_ENABLED to true to activate once infrastructure is ready
+ * - Tracks auth metadata schema via SUPABASE_AUTH_SCHEMA_VERSION
  */
 
-const NETLIFY_AUTH_ENABLED = false; // Feature flag - set to true to enable Netlify authentication
+const SUPABASE_AUTH_ENABLED = false; // Feature flag - keep false until Supabase is configured
+const SUPABASE_AUTH_SCHEMA_VERSION = 1; // Increment when auth metadata format changes
+const AUTH_SCHEMA_KEY = 'gadu_schema_version';
 
-interface NetlifyIdentity {
-  currentUser(): NetlifyIdentityUser | null;
-  open(): void;
-  close(): void;
-  logout(): Promise<void>;
-  on(event: string, callback: (user: NetlifyIdentityUser) => void): void;
-}
+let supabase: SupabaseClient | null = null;
+let cachedSession: Session | null = null;
 
-let netlifyIdentity: NetlifyIdentity | null = null;
+const cacheSession = (session: Session | null) => {
+  cachedSession = session;
+};
+
+const getEnvConfig = (): { url?: string; anonKey?: string } => ({
+  url: (import.meta as any)?.env?.VITE_SUPABASE_URL,
+  anonKey: (import.meta as any)?.env?.VITE_SUPABASE_ANON_KEY,
+});
+
+const ensureSupabaseClient = (): SupabaseClient | null => {
+  if (!SUPABASE_AUTH_ENABLED) return null;
+  if (supabase) return supabase;
+  const { url, anonKey } = getEnvConfig();
+  if (!url || !anonKey) {
+    console.warn('[Auth] Missing Supabase environment variables (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)');
+    return null;
+  }
+  supabase = createClient(url, anonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  });
+  return supabase;
+};
 
 /**
- * Initialize Netlify Identity (only if enabled)
+ * Initialize Supabase Auth listeners (no-op while disabled)
  */
-export const initializeNetlifyAuth = async (): Promise<void> => {
-  if (!NETLIFY_AUTH_ENABLED) {
-    console.log('[Auth] Netlify authentication disabled (NETLIFY_AUTH_ENABLED = false)');
+export const initializeSupabaseAuth = async (): Promise<void> => {
+  if (!SUPABASE_AUTH_ENABLED) {
+    console.log('[Auth] Supabase authentication disabled (SUPABASE_AUTH_ENABLED = false)');
     return;
   }
 
-  try {
-    if ('netlifyIdentity' in window) {
-      netlifyIdentity = (window as any).netlifyIdentity;
-      netlifyIdentity?.on('login', (user) => {
-        console.log('[Auth] User logged in:', user.email);
-      });
-      netlifyIdentity?.on('logout', () => {
-        console.log('[Auth] User logged out');
-      });
+  const client = ensureSupabaseClient();
+  if (!client) return;
+
+  const { data, error } = await client.auth.getSession();
+  if (error) {
+    console.error('[Auth] Failed to fetch Supabase session:', error.message);
+  }
+  cacheSession(data?.session ?? null);
+
+  client.auth.onAuthStateChange((_event, session) => {
+    cacheSession(session);
+    const userSchema = getAuthSchemaVersion(session?.user ?? null);
+    if (userSchema !== null && userSchema !== SUPABASE_AUTH_SCHEMA_VERSION) {
+      console.warn(`[Auth] Supabase auth schema mismatch (user=${userSchema}, app=${SUPABASE_AUTH_SCHEMA_VERSION}). Run markAuthSchemaVersion() after migrating claims.`);
     }
-  } catch (error) {
-    console.error('[Auth] Failed to initialize Netlify Identity:', error);
-  }
+  });
 };
 
 /**
- * Get currently logged-in user
+ * Current Supabase user (null if disabled or not signed in)
  */
-export const getCurrentUser = (): NetlifyIdentityUser | null => {
-  if (!NETLIFY_AUTH_ENABLED) return null;
-  return netlifyIdentity?.currentUser() || null;
+export const getCurrentUser = (): SupabaseAuthUser | null => {
+  if (!SUPABASE_AUTH_ENABLED) return null;
+  return (cachedSession?.user as SupabaseAuthUser | null) ?? null;
 };
 
 /**
- * Open Netlify Identity login modal
+ * Get current access token for API calls
  */
-export const openNetlifyLogin = (): void => {
-  if (!NETLIFY_AUTH_ENABLED) {
-    console.warn('[Auth] Netlify authentication is disabled');
+export const getSupabaseToken = (): string | null => {
+  if (!SUPABASE_AUTH_ENABLED) return null;
+  return cachedSession?.access_token ?? null;
+};
+
+/**
+ * Stub login helper (UI not wired yet)
+ */
+export const openSupabaseLogin = (): void => {
+  console.warn('[Auth] Supabase login UI not wired. Implement sign-in flow before enabling auth.');
+};
+
+/**
+ * Logout current Supabase user
+ */
+export const logoutSupabase = async (): Promise<void> => {
+  if (!SUPABASE_AUTH_ENABLED) return;
+  const client = ensureSupabaseClient();
+  if (!client) return;
+  await client.auth.signOut();
+  cacheSession(null);
+};
+
+/**
+ * Check if authentication feature flag is active
+ */
+export const isAuthenticationEnabled = (): boolean => SUPABASE_AUTH_ENABLED;
+
+/**
+ * Extract current auth schema version from Supabase user metadata
+ */
+export const getAuthSchemaVersion = (user: SupabaseAuthUser | null): number | null => {
+  if (!user) return null;
+  const fromMeta = (user.user_metadata?.[AUTH_SCHEMA_KEY] ?? user.app_metadata?.[AUTH_SCHEMA_KEY]);
+  return typeof fromMeta === 'number' ? fromMeta : null;
+};
+
+/**
+ * Returns true if the user's stored schema version differs from the app's expected one
+ */
+export const needsAuthSchemaMigration = (user: SupabaseAuthUser | null): boolean => {
+  const current = getAuthSchemaVersion(user);
+  return current !== null && current !== SUPABASE_AUTH_SCHEMA_VERSION;
+};
+
+/**
+ * Writes the expected schema version into Supabase user metadata (client-side)
+ */
+export const markAuthSchemaVersion = async (): Promise<void> => {
+  if (!SUPABASE_AUTH_ENABLED) {
+    console.warn('[Auth] markAuthSchemaVersion skipped because auth is disabled');
     return;
   }
-  netlifyIdentity?.open();
+  const client = ensureSupabaseClient();
+  if (!client) return;
+  const { data, error } = await client.auth.updateUser({ data: { [AUTH_SCHEMA_KEY]: SUPABASE_AUTH_SCHEMA_VERSION } });
+  if (error) {
+    console.error('[Auth] Failed to update Supabase auth schema version:', error.message);
+    return;
+  }
+  cacheSession(data?.session ?? cachedSession);
 };
 
 /**
- * Logout current user
- */
-export const logoutNetlify = async (): Promise<void> => {
-  if (!NETLIFY_AUTH_ENABLED) return;
-  await netlifyIdentity?.logout();
-};
-
-/**
- * Get JWT token for API calls
- */
-export const getNetlifyToken = (): string | null => {
-  if (!NETLIFY_AUTH_ENABLED) return null;
-  const user = getCurrentUser();
-  return user?.token?.access_token || null;
-};
-
-/**
- * Check if authentication is enabled
- */
-export const isAuthenticationEnabled = (): boolean => {
-  return NETLIFY_AUTH_ENABLED;
-};
-
-/**
- * Parse privileges from user app_metadata
- * Privileges are stored as a comma-separated string in app_metadata.privileges
+ * Privilege helpers (client-side AppUser records; Supabase auth is disabled by default)
  */
 export const getUserPrivileges = (user: AppUser | null): UserPrivilege[] => {
   if (!user) return [];
   return user.privileges || [];
 };
 
-/**
- * Find user by email in user list
- */
 export const findUserByEmail = (email: string, users: AppUser[]): AppUser | null => {
   return users.find(u => u.email === email) || null;
 };
 
-/**
- * Create a new user with privileges (Admin only)
- */
 export const createUser = (email: string, name: string, privileges: UserPrivilege[]): AppUser => {
   return {
     id: `user_${Date.now()}`,
@@ -114,9 +164,6 @@ export const createUser = (email: string, name: string, privileges: UserPrivileg
   };
 };
 
-/**
- * Update user privileges (Admin only)
- */
 export const updateUserPrivileges = (user: AppUser, privileges: UserPrivilege[]): AppUser => {
   return {
     ...user,
@@ -125,9 +172,13 @@ export const updateUserPrivileges = (user: AppUser, privileges: UserPrivilege[])
   };
 };
 
-/**
- * Delete user (Admin only)
- */
 export const deleteUser = (userId: string, users: AppUser[]): AppUser[] => {
   return users.filter(u => u.id !== userId);
+};
+
+/**
+ * Internal helper to surface the Supabase client for future use (kept disabled until flag flips)
+ */
+export const getSupabaseClient = (): SupabaseClient | null => {
+  return ensureSupabaseClient();
 };

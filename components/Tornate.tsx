@@ -121,7 +121,10 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
       await onUpdate();
     } catch (e: any) {
       console.error('Error saving convocazione', e);
-      setErrorMsg(e?.message || 'Errore nel salvataggio su Firestore. Verifica le regole e la collection "convocazioni".');
+      setErrorMsg(
+        e?.message ||
+          "Errore nel salvataggio su Supabase. Verifica la tabella 'convocazioni', le RLS e le chiavi di connessione."
+      );
     } finally {
       setLoading(false);
     }
