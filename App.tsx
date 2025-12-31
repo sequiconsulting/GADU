@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings, FileText, DollarSign, ClipboardList, Crown, Star } from 'lucide-react';
 import { Member, AppSettings } from './types';
 import { PublicLodgeConfig } from './types/lodge';
@@ -9,6 +9,7 @@ import { lodgeRegistry } from './services/lodgeRegistry';
 import { demoMode } from './services/demoModeService';
 import { LoginInterface } from './components/LoginInterface';
 import { SetupWizard } from './components/SetupWizard';
+import { InvalidLodge } from './components/InvalidLodge';
 const MemberDetail = React.lazy(() => import('./components/MemberDetail').then(m => ({ default: m.MemberDetail })));
 const RolesReport = React.lazy(() => import('./components/RolesReport').then(m => ({ default: m.RolesReport })));
 const RoleAssignment = React.lazy(() => import('./components/RoleAssignment').then(m => ({ default: m.RoleAssignment })));
@@ -24,7 +25,24 @@ import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation, 
 
 type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'ROLES_HISTORY' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE' | 'TORNATE';
 
-const App: React.FC = () => {
+// Inner app component that uses URL params
+const AppContent: React.FC = () => {
+  const { glriNumber } = useParams<{ glriNumber: string }>();
+  
+  // If no glriNumber in URL, show error
+  if (!glriNumber) {
+    return <InvalidLodge />;
+  }
+
+  return <AppWithLodge glriNumber={glriNumber} />;
+};
+
+// App component that receives glriNumber
+interface AppWithLodgeProps {
+  glriNumber: string;
+}
+
+const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   const [currentLodge, setCurrentLodge] = useState<PublicLodgeConfig | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -50,25 +68,32 @@ const App: React.FC = () => {
   const [isSecretaryMenuOpen, setIsSecretaryMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Check for saved lodge on mount
+  // Check for saved lodge on mount and load config from URL param
   useEffect(() => {
-    const checkSavedLodge = async () => {
-      const saved = lodgeRegistry.getCurrentLodge();
-      
-      if (saved) {
-        dataService.initializeLodge(saved);
-        setCurrentLodge(saved);
+    const initializeLodgeFromURL = async () => {
+      try {
+        // Fetch lodge config from registry
+        const config = await lodgeRegistry.getLodgeConfig(glriNumber);
         
-        // TODO: Check if actually authenticated with Supabase
-        // For now, assume yes if lodge is saved
+        if (!config) {
+          // Lodge not found
+          setCheckingAuth(false);
+          return;
+        }
+        
+        dataService.initializeLodge(config);
+        setCurrentLodge(config);
         setIsAuthenticated(true);
+      } catch (err) {
+        console.error('Error loading lodge config:', err);
+        setCheckingAuth(false);
       }
       
       setCheckingAuth(false);
     };
     
-    checkSavedLodge();
-  }, []);
+    initializeLodgeFromURL();
+  }, [glriNumber]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -659,28 +684,19 @@ const App: React.FC = () => {
   );
 };
 
-  // Main render with routing
+  // Main render with routing - no longer wraps BrowserRouter
+  return renderAuthenticatedApp();
+};
+
+// Export main App with BrowserRouter
+const App: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/setup" element={<SetupWizard />} />
-        <Route 
-          path="/" 
-          element={
-            checkingAuth ? (
-              <div className="min-h-screen flex items-center justify-center bg-slate-100">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-masonic-gold mx-auto mb-4"></div>
-                  <p className="text-slate-600">Caricamento...</p>
-                </div>
-              </div>
-            ) : isAuthenticated ? (
-              renderAuthenticatedApp()
-            ) : (
-              <LoginInterface onLoginSuccess={handleLoginSuccess} />
-            )
-          } 
-        />
+        <Route path="/setup/:glriNumber" element={<SetupWizard />} />
+        <Route path="/setup" element={<Navigate to="/" replace />} />
+        <Route path="/:glriNumber/*" element={<AppContent />} />
+        <Route path="/" element={<InvalidLodge />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

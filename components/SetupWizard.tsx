@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Building2, Database, Key, CheckCircle, ArrowRight, ArrowLeft, Sparkles } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Building2, Database, Key, CheckCircle, ArrowRight, ArrowLeft, Sparkles, AlertCircle } from 'lucide-react';
 import { ITALIAN_PROVINCES } from '../constants';
 import { lodgeRegistry } from '../services/lodgeRegistry';
 import { demoMode } from '../services/demoModeService';
@@ -17,12 +17,15 @@ interface SetupFormData {
 
 export function SetupWizard() {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(1);
+  const { glriNumber: urlGlriNumber } = useParams<{ glriNumber?: string }>();
+  
+  // If glriNumber from URL, pre-fill form
+  const [currentStep, setCurrentStep] = useState(urlGlriNumber ? 2 : 1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<SetupFormData>({
-    glriNumber: '',
+    glriNumber: urlGlriNumber || '',
     lodgeName: '',
     province: '',
     supabaseUrl: '',
