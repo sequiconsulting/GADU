@@ -111,6 +111,22 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
       loadData();
     }
   }, [isAuthenticated]);
+  
+  // Auto-load demo data for demo mode if empty
+  useEffect(() => {
+    const loadDemoDataIfNeeded = async () => {
+      if (glriNumber === '999' && isAuthenticated && members.length === 0) {
+        try {
+          await dataService.loadDemoData();
+          await loadData();
+        } catch (err) {
+          console.error('Error loading demo data:', err);
+        }
+      }
+    };
+    
+    loadDemoDataIfNeeded();
+  }, [isAuthenticated, members.length, glriNumber]);
 
   useEffect(() => {
     let title = `G.A.D.U. (${dataService.APP_VERSION})`;
