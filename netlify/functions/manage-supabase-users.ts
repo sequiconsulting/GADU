@@ -71,7 +71,7 @@ export const handler: Handler = async (event) => {
       
       if (action === 'delete') {
         const { data: { users } } = await supabase.auth.admin.listUsers();
-        const user = users?.find(u => u.email === email);
+        const user = users?.find((u: any) => u.email === email);
         
         if (!user) {
           return { statusCode: 404, body: 'User not found' };

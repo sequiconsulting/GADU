@@ -3,10 +3,10 @@ import { loadRegistry } from './_shared/registry';
 import { PublicLodgeConfig } from '../../types/lodge';
 
 export const handler: Handler = async (event) => {
-  const glriNumber = event.queryStringParameters?.number;
+  const glriNumber = event.queryStringParameters?.glriNumber || event.queryStringParameters?.number;
   
   if (!glriNumber) {
-    return { statusCode: 400, body: 'Missing number parameter' };
+    return { statusCode: 400, body: 'Missing glriNumber parameter' };
   }
   
   try {
