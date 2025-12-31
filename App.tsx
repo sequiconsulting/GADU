@@ -72,6 +72,17 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   useEffect(() => {
     const initializeLodgeFromURL = async () => {
       try {
+        // Special case: 999 = demo mode
+        if (glriNumber === '999') {
+          const demoConfig = demoMode.getDemoConfig();
+          demoMode.activateDemoMode();
+          dataService.initializeLodge(demoConfig);
+          setCurrentLodge(demoConfig);
+          setIsAuthenticated(true);
+          setCheckingAuth(false);
+          return;
+        }
+        
         // Fetch lodge config from registry
         const config = await lodgeRegistry.getLodgeConfig(glriNumber);
         
