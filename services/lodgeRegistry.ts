@@ -17,7 +17,14 @@ class LodgeRegistryService {
       );
       
       if (response.status === 404) return null;
-      if (!response.ok) throw new Error('Failed to fetch config');
+      if (!response.ok) {
+        // Check if we got HTML instead of JSON (functions not available)
+        const contentType = response.headers.get('content-type');
+        if (contentType?.includes('text/html')) {
+          throw new Error('Netlify Functions not available. Use "netlify dev" instead of "npm run dev"');
+        }
+        throw new Error('Failed to fetch config');
+      }
       
       const config: PublicLodgeConfig = await response.json();
       this.cache.set(glriNumber, config);

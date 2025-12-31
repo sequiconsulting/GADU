@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { PublicLodgeConfig } from '../types/lodge';
 import { lodgeRegistry } from '../services/lodgeRegistry';
 import { demoMode } from '../services/demoModeService';
@@ -60,7 +61,7 @@ export function LoginInterface({ onLoginSuccess }: Props) {
               <Building2 size={32} className="text-white" />
             </div>
             <h1 className="text-3xl font-serif font-bold text-slate-900 mb-2">G.A.D.U.</h1>
-            <p className="text-slate-600">Gestione Loggia Massonica</p>
+            <p className="text-slate-600">Gestione Associazioni Decisamente User-friendly</p>
           </div>
           
           <div className="space-y-4">
@@ -114,12 +115,15 @@ export function LoginInterface({ onLoginSuccess }: Props) {
           )}
           
           <div className="text-center">
-            <a 
-              href="/setup" 
-              className="text-sm text-masonic-gold hover:text-yellow-600 font-medium inline-flex items-center gap-1"
+            <p className="text-sm text-slate-600 mb-3">
+              🆕 Prima volta? Attiva la tua loggia
+            </p>
+            <Link 
+              to="/setup" 
+              className="inline-block bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
             >
-              🆕 Amministratore loggia? → Attiva GADU
-            </a>
+              Attiva GADU
+            </Link>
           </div>
         </div>
       </div>

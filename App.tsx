@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings, FileText, DollarSign, ClipboardList, Crown, Star } from 'lucide-react';
 import { Member, AppSettings } from './types';
 import { PublicLodgeConfig } from './types/lodge';
@@ -7,6 +8,7 @@ import { dataService } from './services/dataService';
 import { lodgeRegistry } from './services/lodgeRegistry';
 import { demoMode } from './services/demoModeService';
 import { LoginInterface } from './components/LoginInterface';
+import { SetupWizard } from './components/SetupWizard';
 const MemberDetail = React.lazy(() => import('./components/MemberDetail').then(m => ({ default: m.MemberDetail })));
 const RolesReport = React.lazy(() => import('./components/RolesReport').then(m => ({ default: m.RolesReport })));
 const RoleAssignment = React.lazy(() => import('./components/RoleAssignment').then(m => ({ default: m.RoleAssignment })));
@@ -156,25 +158,22 @@ const App: React.FC = () => {
     );
   }
 
-  // Login screen
-  if (!isAuthenticated) {
-    return <LoginInterface onLoginSuccess={handleLoginSuccess} />;
-  }
-
-  const handleViewChange = (view: View) => {
-    setCurrentView(view);
-    setIsMobileMenuOpen(false);
-    
-    if (['MEMBERS', 'PIEDILISTA', 'INACTIVE_MEMBERS'].includes(view) || (view === 'MEMBER_DETAIL' && ['MEMBERS', 'PIEDILISTA', 'INACTIVE_MEMBERS'].includes(returnView))) {
-        setIsMembersMenuOpen(true);
-    }
-    if (['ROLE_ASSIGNMENT', 'ROLES_HISTORY', 'REPORT'].includes(view)) {
-        setIsRolesMenuOpen(true);
-    }
-    if (['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'TORNATE'].includes(view)) {
-        setIsSecretaryMenuOpen(true);
-    }
-  };
+  // Render authenticated app
+  const renderAuthenticatedApp = () => {
+    const handleViewChange = (view: View) => {
+      setCurrentView(view);
+      setIsMobileMenuOpen(false);
+      
+      if (['MEMBERS', 'PIEDILISTA', 'INACTIVE_MEMBERS'].includes(view) || (view === 'MEMBER_DETAIL' && ['MEMBERS', 'PIEDILISTA', 'INACTIVE_MEMBERS'].includes(returnView))) {
+          setIsMembersMenuOpen(true);
+      }
+      if (['ROLE_ASSIGNMENT', 'ROLES_HISTORY', 'REPORT'].includes(view)) {
+          setIsRolesMenuOpen(true);
+      }
+      if (['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'TORNATE'].includes(view)) {
+          setIsSecretaryMenuOpen(true);
+      }
+    };
 
   const filteredMembers = members.filter(m => {
     const matchesSearch = (m.firstName + ' ' + m.lastName + ' ' + m.matricula).toLowerCase().includes(searchTerm.toLowerCase());
@@ -374,7 +373,7 @@ const App: React.FC = () => {
             <button onClick={() => handleViewChange('ADMIN')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'ADMIN' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
                 <Settings size={16} /> Admin
             </button>
-            <button className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors w-full px-4 py-2">
+            <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-slate-400 hover:text-red-400 transition-colors w-full px-4 py-2">
                 <LogOut size={16} /> Logout
             </button>
         </div>
@@ -416,25 +415,7 @@ const App: React.FC = () => {
                 </div>
                 <button onClick={handleAddFutureYear} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ChevronRight size={16} /></button>
              </div>
-             <button 
-               onClick={handleLogout}
-               className="hidden md:flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-               title="Esci"
-             >
-               <LogOut size={16} />
-               <span className="hidden lg:inline">Esci</span>
-             </button>
             </div>
-          )}
-          {currentView === 'ADMIN' && (
-            <button 
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              title="Esci"
-            >
-              <LogOut size={16} />
-              <span className="hidden md:inline">Esci</span>
-            </button>
           )}
         </header>
 
@@ -675,6 +656,34 @@ const App: React.FC = () => {
         </div>
       </main>
     </div>
+  );
+};
+
+  // Main render with routing
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/setup" element={<SetupWizard />} />
+        <Route 
+          path="/" 
+          element={
+            checkingAuth ? (
+              <div className="min-h-screen flex items-center justify-center bg-slate-100">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-masonic-gold mx-auto mb-4"></div>
+                  <p className="text-slate-600">Caricamento...</p>
+                </div>
+              </div>
+            ) : isAuthenticated ? (
+              renderAuthenticatedApp()
+            ) : (
+              <LoginInterface onLoginSuccess={handleLoginSuccess} />
+            )
+          } 
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 };
 
