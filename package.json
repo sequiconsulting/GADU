@@ -9,13 +9,16 @@
     "preview": "vite preview --host 0.0.0.0 --port 3000"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.48.0",
     "@faker-js/faker": "^9.9.0",
+    "@netlify/blobs": "^10.5.0",
+    "@supabase/supabase-js": "^2.48.0",
     "lucide-react": "^0.555.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "zod": "^4.3.2"
   },
   "devDependencies": {
+    "@netlify/functions": "^5.1.2",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.17",

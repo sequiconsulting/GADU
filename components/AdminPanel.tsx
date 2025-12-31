@@ -1,18 +1,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppSettings, BranchType } from '../types';
-import { Save, Settings, X, Upload } from 'lucide-react';
+import { Save, Settings, X, Upload, Trash2, Database } from 'lucide-react';
 import { ITALIAN_PROVINCES, BRANCHES } from '../constants';
 import { UserManagement } from './UserManagement';
+import { dataService } from '../services/dataService';
 
 interface AdminPanelProps {
   currentSettings: AppSettings;
   onSave: (settings: AppSettings) => Promise<void> | void;
+  onDataChange?: () => void;
 }
 
 type Tab = 'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM';
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave }) => {
+export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave, onDataChange }) => {
   const withDefaults = (s: AppSettings): AppSettings => ({
     ...s,
     userChangelog: s.userChangelog || [],
@@ -22,6 +24,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
   const [message, setMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('CRAFT');
   const [usersTab, setUsersTab] = useState(false);
+  const [showClearDbConfirm, setShowClearDbConfirm] = useState<boolean>(false);
+  const [showLoadDemoConfirm, setShowLoadDemoConfirm] = useState<boolean>(false);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   // Always sync local settings to the latest from parent
   useEffect(() => {
@@ -70,6 +75,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
         [branch]: value,
       },
     }));
+  };
+
+  const handleClearDatabase = async () => {
+    setIsProcessing(true);
+    try {
+      await dataService.clearDatabase();
+      setMessage("Database cancellato con successo.");
+      setShowClearDbConfirm(false);
+      if (onDataChange) {
+        onDataChange();
+      }
+    } catch (error) {
+      console.error('Errore nella cancellazione del database:', error);
+      setMessage("Errore durante la cancellazione del database.");
+    } finally {
+      setIsProcessing(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  const handleLoadDemoData = async () => {
+    setIsProcessing(true);
+    try {
+      await dataService.loadDemoData();
+      setMessage("Dati di esempio caricati con successo.");
+      setShowLoadDemoConfirm(false);
+      if (onDataChange) {
+        onDataChange();
+      }
+    } catch (error) {
+      console.error('Errore nel caricamento dei dati di esempio:', error);
+      setMessage("Errore durante il caricamento dei dati di esempio.");
+    } finally {
+      setIsProcessing(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
   };
 
   const renderPreferences = () => {
@@ -464,6 +505,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
               {renderPreferences()}
             </div>
 
+            <div className="mb-8 bg-red-50 border border-red-200 rounded-lg p-6">
+              <h3 className="text-lg font-bold text-red-800 border-b border-red-200 pb-2 mb-4">Gestione Database</h3>
+              <p className="text-sm text-slate-600 mb-4">
+                Attenzione: queste operazioni sono irreversibili. Assicurati di avere un backup prima di procedere.
+              </p>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setShowLoadDemoConfirm(true)}
+                  disabled={isProcessing}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
+                >
+                  <Database size={18} /> Carica Dati di Esempio
+                </button>
+                <button
+                  onClick={() => setShowClearDbConfirm(true)}
+                  disabled={isProcessing}
+                  className="bg-red-600 hover:bg-red-700 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
+                >
+                  <Trash2 size={18} /> Cancella Database
+                </button>
+              </div>
+            </div>
+
             <div className="flex justify-end items-center gap-4 border-t border-slate-100 pt-6">
               {message && <span className="text-green-600 font-medium text-sm animate-pulse">{message}</span>}
               <button 
@@ -494,6 +558,74 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave 
           </>
         )}
       </div>
+
+      {/* Modal Conferma Cancellazione Database */}
+      {showClearDbConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 animate-fadeIn">
+            <h3 className="text-xl font-bold text-red-800 mb-4 flex items-center gap-2">
+              <Trash2 size={24} />
+              Conferma Cancellazione Database
+            </h3>
+            <p className="text-slate-700 mb-4">
+              Sei sicuro di voler cancellare <strong>TUTTI i dati</strong> del database?
+            </p>
+            <p className="text-red-600 font-semibold mb-6">
+              Questa operazione è irreversibile e cancellerà tutti i membri e le convocazioni.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowClearDbConfirm(false)}
+                disabled={isProcessing}
+                className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={handleClearDatabase}
+                disabled={isProcessing}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isProcessing ? 'Cancellazione...' : 'Conferma Cancellazione'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Conferma Caricamento Dati Demo */}
+      {showLoadDemoConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 animate-fadeIn">
+            <h3 className="text-xl font-bold text-blue-800 mb-4 flex items-center gap-2">
+              <Database size={24} />
+              Conferma Caricamento Dati di Esempio
+            </h3>
+            <p className="text-slate-700 mb-4">
+              Sei sicuro di voler caricare i dati di esempio nel database?
+            </p>
+            <p className="text-amber-600 font-semibold mb-6">
+              Verranno aggiunti 50 membri demo e 5 convocazioni di esempio.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowLoadDemoConfirm(false)}
+                disabled={isProcessing}
+                className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={handleLoadDemoData}
+                disabled={isProcessing}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {isProcessing ? 'Caricamento...' : 'Conferma Caricamento'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

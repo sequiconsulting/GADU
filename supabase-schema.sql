@@ -33,7 +33,8 @@ create table if not exists public.convocazioni (
 create index if not exists convocazioni_branch_idx on public.convocazioni (branch_type);
 create index if not exists convocazioni_year_idx on public.convocazioni (year_start);
 
--- RLS: open policies for demo/testing with anon key (harden before production)
+-- RLS: Permissive policies for authenticated users (all authenticated users have full access)
+-- UI-side controls handle specific permissions, not database RLS
 alter table public.app_settings enable row level security;
 alter table public.members enable row level security;
 alter table public.convocazioni enable row level security;
@@ -42,6 +43,30 @@ drop policy if exists "anon_all_app_settings" on public.app_settings;
 drop policy if exists "anon_all_members" on public.members;
 drop policy if exists "anon_all_convocazioni" on public.convocazioni;
 
-create policy "anon_all_app_settings" on public.app_settings for all using (true) with check (true);
-create policy "anon_all_members" on public.members for all using (true) with check (true);
-create policy "anon_all_convocazioni" on public.convocazioni for all using (true) with check (true);
+drop policy if exists "authenticated_all_app_settings" on public.app_settings;
+drop policy if exists "authenticated_all_members" on public.members;
+drop policy if exists "authenticated_all_convocazioni" on public.convocazioni;
+
+-- Authenticated users can do everything
+create policy "authenticated_all_app_settings" 
+  on public.app_settings 
+  for all 
+  using (auth.role() = 'authenticated') 
+  with check (auth.role() = 'authenticated');
+
+create policy "authenticated_all_members" 
+  on public.members 
+  for all 
+  using (auth.role() = 'authenticated') 
+  with check (auth.role() = 'authenticated');
+
+create policy "authenticated_all_convocazioni" 
+  on public.convocazioni 
+  for all 
+  using (auth.role() = 'authenticated') 
+  with check (auth.role() = 'authenticated');
+
+-- Keep anon policies for demo mode (fallback)
+create policy "anon_all_app_settings" on public.app_settings for all using (auth.role() = 'anon') with check (auth.role() = 'anon');
+create policy "anon_all_members" on public.members for all using (auth.role() = 'anon') with check (auth.role() = 'anon');
+create policy "anon_all_convocazioni" on public.convocazioni for all using (auth.role() = 'anon') with check (auth.role() = 'anon');

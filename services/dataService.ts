@@ -1,21 +1,23 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Member, AppSettings, BranchType, Convocazione } from '../types';
+import { PublicLodgeConfig } from '../types/lodge';
 
 type MemberRow = { id: string; data: Member };
 type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_version: number };
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
-  public APP_VERSION = '0.124';
+  public APP_VERSION = '0.126';
   public DB_VERSION = 12;
   public SUPABASE_SCHEMA_VERSION = 1;
 
   private supabase: SupabaseClient | null = null;
-  private initPromise: Promise<void>;
+  private initPromise: Promise<void> | null = null;
+  private currentLodgeConfig: PublicLodgeConfig | null = null;
 
   constructor() {
-    this.initPromise = this.ensureInitialized();
+    // Non auto-inizializzare - aspettare initializeLodge()
   }
 
   private readEnv(key: string): string | undefined {
@@ -23,25 +25,33 @@ class DataService {
     return env[key];
   }
 
+  public initializeLodge(config: PublicLodgeConfig): void {
+    this.currentLodgeConfig = config;
+    
+    // Ricrea Supabase client con lodge config
+    this.supabase = createClient(
+      config.supabaseUrl,
+      config.supabaseAnonKey,
+      { auth: { persistSession: true } }
+    );
+    
+    // Re-init promise
+    this.initPromise = this.ensureSchemaAndSeed();
+  }
+
+  public getCurrentLodgeConfig(): PublicLodgeConfig | null {
+    return this.currentLodgeConfig;
+  }
+
   private ensureSupabaseClient(): SupabaseClient {
-    if (this.supabase) return this.supabase;
-    const url = this.readEnv('VITE_SUPABASE_URL') || this.readEnv('NEXT_PUBLIC_SUPABASE_URL') || 'https://jqelokmsjosjwmrbwnyz.supabase.co';
-    const anonKey =
-      this.readEnv('VITE_SUPABASE_ANON_KEY') ||
-      this.readEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY') ||
-      this.readEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY') ||
-      'sb_publishable_OB7Uozbjy1Fc7z5QpOjGAA_SpS-TuFt';
-
-    if (!url || !anonKey) {
-      throw new Error('Supabase configuration missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (or NEXT_PUBLIC_* equivalents).');
+    if (!this.supabase) {
+      throw new Error('Supabase not initialized. Call initializeLodge() first.');
     }
-
-    this.supabase = createClient(url, anonKey, { auth: { persistSession: true } });
     return this.supabase;
   }
 
   private async ensureInitialized(): Promise<void> {
-    this.ensureSupabaseClient();
+    // Schema check fatto in ensureSchemaAndSeed dopo initializeLodge
     await this.ensureSchemaAndSeed();
   }
 
@@ -90,40 +100,10 @@ class DataService {
       }
     }
 
-    const { count, error: countError } = await client
-      .from('members')
-      .select('id', { count: 'exact', head: true });
-
-    if (countError) {
-      this.mapSchemaError(countError);
-    }
-
-    if ((count ?? 0) === 0) {
-      const demoMembers = this.buildDemoMembers();
-      await client.from('members').insert(demoMembers.map(m => ({ data: m })));
-    }
-
-    const { count: convCount, error: convCountError } = await client
-      .from('convocazioni')
-      .select('id', { count: 'exact', head: true });
-
-    if (convCountError) {
-      this.mapSchemaError(convCountError);
-    }
-
-    if ((convCount ?? 0) === 0) {
-      const demoConvocazioni = this.buildDemoConvocazioni();
-      await client.from('convocazioni').insert(
-        demoConvocazioni.map(c => ({
-          branch_type: c.branchType,
-          year_start: c.yearStart,
-          data: c,
-        }))
-      );
-    }
+    // Auto-seed rimosso - ora si usa il bottone manuale in AdminPanel
   }
 
-  private buildDemoMembers(): Member[] {
+  public buildDemoMembers(): Member[] {
     const baseDate = new Date();
     const year = baseDate.getFullYear();
 
@@ -271,7 +251,7 @@ class DataService {
     return members;
   }
 
-  private buildDemoConvocazioni(): Convocazione[] {
+  public buildDemoConvocazioni(): Convocazione[] {
     const now = new Date();
     const isoAt = (daysFromNow: number) => {
       const d = new Date(now);
@@ -316,6 +296,9 @@ class DataService {
   }
 
   private async ensureReady() {
+    if (!this.initPromise) {
+      throw new Error('DataService not initialized. Call initializeLodge() first.');
+    }
     await this.initPromise;
   }
 
@@ -564,6 +547,40 @@ class DataService {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  }
+
+  async clearDatabase(): Promise<void> {
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+    
+    // Cancella tutti i membri
+    const { error: membersError } = await client.from('members').delete().neq('id', '');
+    if (membersError) throw membersError;
+    
+    // Cancella tutte le convocazioni
+    const { error: convocazioniError } = await client.from('convocazioni').delete().neq('id', '');
+    if (convocazioniError) throw convocazioniError;
+  }
+
+  async loadDemoData(): Promise<void> {
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+    
+    // Carica membri demo
+    const demoMembers = this.buildDemoMembers();
+    const { error: membersError } = await client.from('members').insert(demoMembers.map(m => ({ data: m })));
+    if (membersError) throw membersError;
+    
+    // Carica convocazioni demo
+    const demoConvocazioni = this.buildDemoConvocazioni();
+    const { error: convocazioniError } = await client.from('convocazioni').insert(
+      demoConvocazioni.map(c => ({
+        branch_type: c.branchType,
+        year_start: c.yearStart,
+        data: c,
+      }))
+    );
+    if (convocazioniError) throw convocazioniError;
   }
 }
 

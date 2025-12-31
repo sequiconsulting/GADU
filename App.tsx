@@ -2,7 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings, FileText, DollarSign, ClipboardList, Crown, Star } from 'lucide-react';
 import { Member, AppSettings } from './types';
+import { PublicLodgeConfig } from './types/lodge';
 import { dataService } from './services/dataService';
+import { lodgeRegistry } from './services/lodgeRegistry';
+import { demoMode } from './services/demoModeService';
+import { LoginInterface } from './components/LoginInterface';
 const MemberDetail = React.lazy(() => import('./components/MemberDetail').then(m => ({ default: m.MemberDetail })));
 const RolesReport = React.lazy(() => import('./components/RolesReport').then(m => ({ default: m.RolesReport })));
 const RoleAssignment = React.lazy(() => import('./components/RoleAssignment').then(m => ({ default: m.RoleAssignment })));
@@ -19,6 +23,10 @@ import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation, 
 type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'ROLES_HISTORY' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE' | 'TORNATE';
 
 const App: React.FC = () => {
+  const [currentLodge, setCurrentLodge] = useState<PublicLodgeConfig | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  
   const [currentView, setCurrentView] = useState<View>('DASHBOARD');
   const [returnView, setReturnView] = useState<View>('MEMBERS');
   const [members, setMembers] = useState<Member[]>([]);
@@ -40,9 +48,31 @@ const App: React.FC = () => {
   const [isSecretaryMenuOpen, setIsSecretaryMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  useEffect(() => { 
-      loadData(); 
+  // Check for saved lodge on mount
+  useEffect(() => {
+    const checkSavedLodge = async () => {
+      const saved = lodgeRegistry.getCurrentLodge();
+      
+      if (saved) {
+        dataService.initializeLodge(saved);
+        setCurrentLodge(saved);
+        
+        // TODO: Check if actually authenticated with Supabase
+        // For now, assume yes if lodge is saved
+        setIsAuthenticated(true);
+      }
+      
+      setCheckingAuth(false);
+    };
+    
+    checkSavedLodge();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadData();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     let title = `G.A.D.U. (${dataService.APP_VERSION})`;
@@ -97,6 +127,39 @@ const App: React.FC = () => {
     }
     setSelectedYear(prevYear);
   };
+
+  const handleLoginSuccess = (lodge: PublicLodgeConfig) => {
+    lodgeRegistry.saveCurrentLodge(lodge);
+    dataService.initializeLodge(lodge);
+    setCurrentLodge(lodge);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    lodgeRegistry.clearCurrentLodge();
+    demoMode.exitDemoMode();
+    setCurrentLodge(null);
+    setIsAuthenticated(false);
+    setMembers([]);
+    setAppSettings({ lodgeName: '', lodgeNumber: '', province: '', dbVersion: 5 });
+  };
+
+  // Loading state
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-masonic-gold mx-auto mb-4"></div>
+          <p className="text-slate-600">Caricamento...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Login screen
+  if (!isAuthenticated) {
+    return <LoginInterface onLoginSuccess={handleLoginSuccess} />;
+  }
 
   const handleViewChange = (view: View) => {
     setCurrentView(view);
@@ -213,6 +276,16 @@ const App: React.FC = () => {
                 </div>
             </div>
             <p className="text-xs text-slate-500 mt-2 uppercase tracking-wide">Gestione Associazioni Decisamente User-friendly</p>
+            {currentLodge && (
+              <p className="text-xs text-masonic-gold mt-2 font-medium">
+                {currentLodge.lodgeName} n. {currentLodge.glriNumber}
+              </p>
+            )}
+            {demoMode.isDemoMode() && (
+              <span className="inline-block mt-2 px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded">
+                🎭 DEMO
+              </span>
+            )}
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-slate-400 hover:text-white">
             <X size={24} />
@@ -343,7 +416,25 @@ const App: React.FC = () => {
                 </div>
                 <button onClick={handleAddFutureYear} className="p-1 hover:bg-slate-200 rounded text-slate-500"><ChevronRight size={16} /></button>
              </div>
+             <button 
+               onClick={handleLogout}
+               className="hidden md:flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+               title="Esci"
+             >
+               <LogOut size={16} />
+               <span className="hidden lg:inline">Esci</span>
+             </button>
             </div>
+          )}
+          {currentView === 'ADMIN' && (
+            <button 
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="Esci"
+            >
+              <LogOut size={16} />
+              <span className="hidden md:inline">Esci</span>
+            </button>
           )}
         </header>
 
@@ -522,7 +613,7 @@ const App: React.FC = () => {
 
           {currentView === 'ADMIN' && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento pannello admin...</div>}>
-              <AdminPanel currentSettings={appSettings} onSave={handleSaveSettings} />
+              <AdminPanel currentSettings={appSettings} onSave={handleSaveSettings} onDataChange={loadData} />
             </React.Suspense>
           )}
 
