@@ -4,6 +4,7 @@ export interface PublicLodgeConfig {
   province: string;          // "AN"
   supabaseUrl: string;
   supabaseAnonKey: string;
+  supabaseServiceKey?: string;  // Only for demo mode!
 }
 
 export interface LodgeConfig extends PublicLodgeConfig {

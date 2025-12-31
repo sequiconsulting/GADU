@@ -8,7 +8,7 @@ type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_v
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
-  public APP_VERSION = '0.129';
+  public APP_VERSION = '0.130';
   public DB_VERSION = 12;
   public SUPABASE_SCHEMA_VERSION = 1;
 
@@ -28,10 +28,13 @@ class DataService {
   public initializeLodge(config: PublicLodgeConfig): void {
     this.currentLodgeConfig = config;
     
+    // Use service key if available (demo mode), otherwise use anon key
+    const apiKey = config.supabaseServiceKey || config.supabaseAnonKey;
+    
     // Ricrea Supabase client con lodge config
     this.supabase = createClient(
       config.supabaseUrl,
-      config.supabaseAnonKey,
+      apiKey,
       { auth: { persistSession: true } }
     );
     

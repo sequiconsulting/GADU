@@ -7,7 +7,8 @@ class DemoModeService {
       lodgeName: import.meta.env.VITE_DEMO_LODGE_NAME || 'Loggia Demo',
       province: import.meta.env.VITE_DEMO_PROVINCE || 'DEMO',
       supabaseUrl: import.meta.env.VITE_DEMO_SUPABASE_URL!,
-      supabaseAnonKey: import.meta.env.VITE_DEMO_SUPABASE_ANON_KEY!
+      supabaseAnonKey: import.meta.env.VITE_DEMO_SUPABASE_ANON_KEY!,
+      supabaseServiceKey: import.meta.env.VITE_DEMO_SUPABASE_SERVICE_KEY
     };
   }
   
