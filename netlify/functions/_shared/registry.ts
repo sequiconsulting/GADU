@@ -28,7 +28,11 @@ export async function loadRegistry(): Promise<Registry> {
   // Production: use Netlify Blobs
   const store = getStore('gadu-registry');
   const data = await store.get('lodges');
-  return data ? JSON.parse(data) : {};
+  if (!data) return {};
+  
+  // Convert ArrayBuffer to string if needed
+  const jsonString = typeof data === 'string' ? data : new TextDecoder().decode(data);
+  return JSON.parse(jsonString);
 }
 
 export async function saveRegistry(registry: Registry): Promise<void> {
