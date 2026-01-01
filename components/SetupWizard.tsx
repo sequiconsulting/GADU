@@ -48,13 +48,6 @@ export function SetupWizard() {
       setLoading(true);
       setError(null);
       
-      // Block setup for lodge 9999 (already configured in production)
-      if (formData.glriNumber === '9999') {
-        setError('La loggia 9999 è già configurata nel sistema e non può essere modificata');
-        setLoading(false);
-        return;
-      }
-      
       try {
         const response = await fetch(`/.netlify/functions/get-lodge-config?glriNumber=${formData.glriNumber}`);
         

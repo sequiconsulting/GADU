@@ -25,14 +25,6 @@ export default async (request: Request) => {
       );
     }
     
-    // Block setup for lodge 9999 (demo lodge, already configured)
-    if (glriNumber === '9999') {
-      return new Response(
-        JSON.stringify({ error: 'Lodge 9999 is reserved and cannot be modified' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
-    
     const registry = await loadRegistry();
     
     // Check if already exists
