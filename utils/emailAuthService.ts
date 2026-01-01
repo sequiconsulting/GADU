@@ -102,6 +102,61 @@ export async function signInWithPassword(
   return authSession;
 }
 
+/**
+ * Cambia la password dell'utente autenticato
+ */
+export async function changePassword(
+  newPassword: string,
+  supabaseUrl: string,
+  supabaseAnonKey: string,
+  userId: string
+): Promise<AuthSession> {
+  const client = createAuthClient(supabaseUrl, supabaseAnonKey);
+
+  // Update password
+  const { data, error } = await client.auth.updateUser({
+    password: newPassword
+  });
+
+  if (error) {
+    console.error('[EMAIL_AUTH] Password change error:', error);
+    throw new Error('Errore durante il cambio password');
+  }
+
+  if (!data.user?.email) {
+    throw new Error('Utente non valido');
+  }
+
+  // Get updated session with privileges
+  let privilegesInfo: { name?: string; privileges: UserPrivilege[] } | null = null;
+  try {
+    privilegesInfo = await fetchUserPrivilegesFromMetadata(
+      data.user.id,
+      data.user.email,
+      data.user.user_metadata
+    );
+  } catch (err) {
+    console.error('[EMAIL_AUTH] Privilege lookup failed:', err);
+    throw new Error('Impossibile verificare i privilegi utente');
+  }
+
+  if (!privilegesInfo || !privilegesInfo.privileges?.length) {
+    throw new Error('Utente non autorizzato: nessun privilegio configurato');
+  }
+
+  const authSession: AuthSession = {
+    email: data.user.email,
+    name: privilegesInfo.name || data.user.email,
+    userId: data.user.id,
+    accessToken: '', // Will be refreshed by Supabase
+    privileges: privilegesInfo.privileges,
+    mustChangePassword: false, // Password just changed
+  };
+
+  saveSession(authSession);
+  return authSession;
+}
+
 export async function loadActiveSession(
   supabaseUrl: string,
   supabaseAnonKey: string

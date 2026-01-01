@@ -154,6 +154,40 @@ export default async (request: Request) => {
           { status: 200, headers: { 'Content-Type': 'application/json' } }
         );
       }
+
+      if (action === 'clearMustChangePassword') {
+        if (!userId) {
+          return new Response(
+            JSON.stringify({ error: 'Missing userId' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        const { data: { user }, error: getError } = await supabase.auth.admin.getUserById(userId);
+        
+        if (getError || !user) {
+          return new Response(
+            JSON.stringify({ error: 'User not found' }),
+            { status: 404, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        const { error } = await supabase.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            ...user.user_metadata,
+            mustChangePassword: false
+          }
+        });
+        
+        if (error) throw error;
+        
+        await logAuditEvent('user_password_changed', { lodgeNumber, userId });
+        
+        return new Response(
+          JSON.stringify({ success: true }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
       
       return new Response(
         JSON.stringify({ error: 'Invalid action' }),
