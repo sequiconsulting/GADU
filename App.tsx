@@ -77,6 +77,25 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
+  const openMenu = (menu: 'members' | 'roles' | 'secretary' | null) => {
+    setIsMembersMenuOpen(menu === 'members');
+    setIsRolesMenuOpen(menu === 'roles');
+    setIsSecretaryMenuOpen(menu === 'secretary');
+  };
+
+  const toggleMenu = (menu: 'members' | 'roles' | 'secretary') => {
+    const isOpen =
+      (menu === 'members' && isMembersMenuOpen) ||
+      (menu === 'roles' && isRolesMenuOpen) ||
+      (menu === 'secretary' && isSecretaryMenuOpen);
+
+    if (isOpen) {
+      openMenu(null);
+    } else {
+      openMenu(menu);
+    }
+  };
+
   // Check if user must change password on first login
   useEffect(() => {
     if (currentUser?.mustChangePassword) {
@@ -315,14 +334,18 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
       setIsMobileMenuOpen(false);
       
       if (['MEMBERS', 'PIEDILISTA', 'INACTIVE_MEMBERS'].includes(view) || (view === 'MEMBER_DETAIL' && ['MEMBERS', 'PIEDILISTA', 'INACTIVE_MEMBERS'].includes(returnView))) {
-          setIsMembersMenuOpen(true);
+        openMenu('members');
+        return;
       }
       if (['ROLE_ASSIGNMENT', 'ROLES_HISTORY', 'REPORT'].includes(view)) {
-          setIsRolesMenuOpen(true);
+        openMenu('roles');
+        return;
       }
       if (['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'TORNATE'].includes(view)) {
-          setIsSecretaryMenuOpen(true);
+        openMenu('secretary');
+        return;
       }
+      openMenu(null);
     };
 
   const filteredMembers = members.filter(m => {
@@ -446,7 +469,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
           <button onClick={() => handleViewChange('DASHBOARD')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${currentView === 'DASHBOARD' ? 'bg-slate-800 text-white shadow-md border-l-4 border-masonic-gold' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard size={20} /> <span className="font-medium">Dashboard</span></button>
           
           <div>
-            <button onClick={() => setIsMembersMenuOpen(!isMembersMenuOpen)} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isMembersMenuOpen || ['MEMBERS', 'PIEDILISTA', 'MEMBER_DETAIL', 'INACTIVE_MEMBERS'].includes(currentView) ? 'text-white' : ''}`}>
+            <button onClick={() => toggleMenu('members')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isMembersMenuOpen || ['MEMBERS', 'PIEDILISTA', 'MEMBER_DETAIL', 'INACTIVE_MEMBERS'].includes(currentView) ? 'text-white' : ''}`}>
                <div className="flex items-center gap-3"><Users size={20} /> <span className="font-medium">Anagrafiche</span></div>
                {isMembersMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
             </button>
@@ -466,7 +489,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
           </div>
 
           <div>
-            <button onClick={() => setIsRolesMenuOpen(!isRolesMenuOpen)} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isRolesMenuOpen || ['ROLE_ASSIGNMENT', 'ROLES_HISTORY', 'REPORT'].includes(currentView) ? 'text-white' : ''}`}>
+            <button onClick={() => toggleMenu('roles')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isRolesMenuOpen || ['ROLE_ASSIGNMENT', 'ROLES_HISTORY', 'REPORT'].includes(currentView) ? 'text-white' : ''}`}>
                <div className="flex items-center gap-3"><Shield size={20} /> <span className="font-medium">Gestione Ufficiali</span></div>
                {isRolesMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
             </button>
@@ -486,7 +509,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
           </div>
 
           <div>
-            <button onClick={() => setIsSecretaryMenuOpen(!isSecretaryMenuOpen)} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isSecretaryMenuOpen || ['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'TORNATE'].includes(currentView) ? 'text-white' : ''}`}>
+            <button onClick={() => toggleMenu('secretary')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isSecretaryMenuOpen || ['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'TORNATE'].includes(currentView) ? 'text-white' : ''}`}>
                <div className="flex items-center gap-3"><FileText size={20} /> <span className="font-medium">Segreteria</span></div>
                {isSecretaryMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
             </button>
