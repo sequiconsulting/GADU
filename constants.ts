@@ -130,7 +130,7 @@ export const BRANCHES: { type: BranchType; label: string; shortLabel: string; co
   },
   {
     type: 'CHAPTER',
-    label: 'Capitolo (Arco Reale)',
+    label: 'Arco Reale',
     shortLabel: 'Arco',
     color: 'bg-masonic-red',
     degreeLabels: DEGREES_CHAPTER_IRLANDESE.map(d => d.name)

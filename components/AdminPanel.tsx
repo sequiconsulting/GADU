@@ -477,7 +477,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
               <h3 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">Quote di Default per Ramo</h3>
               <div>
                 <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto rounded-t-lg scrollbar-hide mb-4">
-                  {BRANCHES.map(b => (
+                  {BRANCHES.filter(b => b.type !== 'MARK').map(b => (
                     <button
                       key={b.type}
                       onClick={() => setActiveTab(b.type as Tab)}
@@ -488,7 +488,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                       }`}
                     >
                       <div className={`w-2 h-2 rounded-full ${b.color}`} />
-                      {b.label}
+                      {b.type === 'CHAPTER' ? 'Capitolo (Marchio + Arco Reale)' : b.label}
                     </button>
                   ))}
                 </div>
