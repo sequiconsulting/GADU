@@ -171,7 +171,9 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
 
   const handleLoginSuccess = (lodge: PublicLodgeConfig) => {
     lodgeRegistry.saveCurrentLodge(lodge);
+    // Inizializza dataService con la configurazione della loggia
     dataService.initializeLodge(lodge);
+    setCurrentLodge(lodge);
     setShowLogin(false);
     setIsAuthenticated(true);
   };

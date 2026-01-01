@@ -54,6 +54,7 @@ export function SetupWizard() {
   const handleNext = async () => {
     console.log(`[SETUP-WIZARD] handleNext called, currentStep: ${currentStep}`);
     
+    // Valida sempre lo step corrente prima di avanzare
     if (!validateStep(currentStep)) {
       console.log(`[SETUP-WIZARD] Validation failed for step ${currentStep}`);
       return;
@@ -61,11 +62,6 @@ export function SetupWizard() {
 
     // Step 1: verificare disclaimer e numero loggia
     if (currentStep === 1) {
-      if (!disclaimerAccepted) {
-        setError('Devi accettare il disclaimer GDPR per continuare');
-        return;
-      }
-      
       setLoading(true);
       setError(null);
       

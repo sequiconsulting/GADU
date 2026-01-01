@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 /**
  * Google OAuth Service
  * Centralized OAuth flow for all lodges
