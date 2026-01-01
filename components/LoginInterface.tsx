@@ -29,6 +29,11 @@ export function LoginInterface({ onLoginSuccess, glriNumber }: Props) {
         
         setLodgeConfig(config);
         setLoading(false);
+        
+        // Auto-login for demo mode (lodge 9999)
+        if (glriNumber === '9999') {
+          setTimeout(() => onLoginSuccess(config), 500);
+        }
       } catch (err) {
         setError('Errore di connessione. Riprova.');
         setLoading(false);
@@ -36,7 +41,7 @@ export function LoginInterface({ onLoginSuccess, glriNumber }: Props) {
     };
     
     loadLodge();
-  }, [glriNumber]);
+  }, [glriNumber, onLoginSuccess]);
 
   if (loading) {
     return (
