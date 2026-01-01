@@ -262,20 +262,45 @@ export function SetupWizard() {
               {/* GDPR Disclaimer */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-blue-900 mb-4">Informativa GDPR e Responsabilità Legali</h3>
-                <div className="text-sm text-blue-800 space-y-3 mb-4 max-h-[240px] overflow-y-auto">
-                  <p><strong>Data Controller:</strong> L'associazione è il solo e unico titolare dei dati personali gestiti attraverso GADU. GADU non è un data controller ai sensi del GDPR.</p>
+                <div className="text-sm text-blue-800 space-y-3 mb-4 max-h-[280px] overflow-y-auto">
+                  <p><strong>Titolare del Trattamento (Art. 4(7) GDPR):</strong> L'associazione è il solo e unico titolare del trattamento dei dati personali gestiti attraverso GADU. GADU non è un titolare del trattamento né un contitolare ai sensi del GDPR, ma esclusivamente uno strumento tecnico messo a disposizione dell'associazione.</p>
                   
-                  <p><strong>Proprietà e Conservazione dei Dati:</strong> Tutti i dati inseriti in GADU (dati personali dei soci, informazioni relative ai gradi, ruoli, cronistoria) rimangono di proprietà esclusiva dell'associazione. L'associazione rimane completamente responsabile della conservazione, integrità, backup e protezione di tali dati.</p>
+                  <p><strong>Responsabilità del Titolare (Art. 24 GDPR):</strong> L'associazione rimane completamente ed esclusivamente responsabile del rispetto di tutti gli obblighi previsti dal GDPR, inclusi ma non limitati a: raccolta del consenso degli interessati (Art. 6), garanzia dei diritti degli interessati (Art. 12-23), adozione di misure di sicurezza adeguate (Art. 32), notifica di violazioni dei dati (Art. 33-34), e tenuta del registro delle attività di trattamento (Art. 30).</p>
                   
-                  <p><strong>Infrastruttura - Supabase.com:</strong> I dati sono conservati su server gestiti da Supabase (supabase.com). Le <strong>data policy di Supabase</strong> si applicano alla conservazione e al trattamento tecnico dei dati. L'associazione è responsabile di verificare e accettare le condizioni di servizio e le politiche sulla privacy di Supabase.</p>
+                  <p><strong>Account Supabase e Chiavi di Accesso:</strong> L'associazione è responsabile della creazione autonoma di un account Supabase (supabase.com) per la conservazione dei propri dati. Fornendo a GADU le chiavi di accesso (anon key e service key) ottenute da Supabase, l'associazione delega GADU a gestire in modo anonimo i dati in lettura e scrittura esclusivamente per conto dell'associazione stessa. L'associazione prende atto che:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Nessuno, nemmeno gli amministratori di GADU, può accedere ai dati memorizzati sull'account Supabase dell'associazione senza le chiavi di accesso.</li>
+                    <li>L'associazione è l'unica custode delle proprie chiavi di accesso e ne è completamente responsabile.</li>
+                    <li>La perdita, compromissione o divulgazione non autorizzata delle chiavi comporta rischi per la sicurezza dei dati e rimane responsabilità esclusiva dell'associazione.</li>
+                  </ul>
                   
-                  <p><strong>Sicurezza e Chiavi di Accesso:</strong> L'associazione è responsabile della conservazione sicura di tutte le chiavi di accesso (Supabase URL, anon key, service key) e dei dati di configurazione. Qualsiasi perdita, compromissione o accesso non autorizzato a tali credenziali rimane esclusivamente responsabilità dell'associazione.</p>
+                  <p><strong>Infrastruttura - Supabase.com:</strong> I dati sono conservati su server gestiti da Supabase Inc. (supabase.com). Supabase agisce come sub-responsabile del trattamento nei confronti dell'associazione. L'associazione è tenuta a verificare che Supabase offra garanzie sufficienti per attuare misure tecniche e organizzative adeguate (Art. 28 GDPR) e ad accettare le condizioni di servizio e le politiche sulla privacy di Supabase. Le <strong>data policy di Supabase</strong> si applicano alla conservazione tecnica dei dati.</p>
                   
-                  <p><strong>Funzione di GADU:</strong> GADU è esclusivamente uno strumento di visualizzazione, modifica e gestione dati per uso interno dell'associazione. GADU non raccoglie, conserva permanentemente, o trasferisce i dati a terzi al di fuori di Supabase. Tutti i dati rimangono sotto il completo controllo tecnico e legale dell'associazione.</p>
+                  <p><strong>Sicurezza del Trattamento (Art. 32 GDPR):</strong> L'associazione è responsabile di implementare misure tecniche e organizzative adeguate per garantire un livello di sicurezza adeguato al rischio, inclusi:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Conservazione sicura delle chiavi di accesso Supabase</li>
+                    <li>Backup periodici dei dati</li>
+                    <li>Procedure di disaster recovery</li>
+                    <li>Controllo degli accessi agli account amministratori</li>
+                    <li>Formazione del personale autorizzato al trattamento</li>
+                  </ul>
                   
-                  <p><strong>Responsabilità Legale:</strong> L'associazione rimane completamente responsabile della conformità al GDPR, alla normativa sulla privacy, alla conservazione dei dati, e alla sicurezza informatica. GADU non assume alcuna responsabilità legale per l'uso, la conservazione, l'integrità, il backup, o il trattamento dei dati. È compito esclusivo dell'associazione garantire il consenso degli interessati, implementare misure di sicurezza appropriate, e mantenere la continuità del servizio.</p>
+                  <p><strong>Funzione di GADU:</strong> GADU è esclusivamente uno strumento software di visualizzazione, modifica e gestione dati. GADU non raccoglie autonomamente dati personali, non li conserva permanentemente al di fuori di Supabase, non li trasferisce a terzi, e non effettua profilazione o trattamenti automatizzati con effetti giuridici (Art. 22 GDPR). Tutti i dati rimangono sotto il controllo tecnico e giuridico esclusivo dell'associazione.</p>
                   
-                  <p><strong>Backup e Disaster Recovery:</strong> L'associazione è responsabile di implementare autonomamente strategie di backup e disaster recovery per i propri dati. GADU non fornisce garanzie di conservazione dati o recovery services.</p>
+                  <p><strong>Principi del Trattamento (Art. 5 GDPR):</strong> L'associazione è tenuta a garantire che i dati siano trattati in modo lecito, corretto e trasparente; raccolti per finalità determinate, esplicite e legittime; adeguati, pertinenti e limitati; esatti e aggiornati; conservati in modo da consentire l'identificazione per il tempo strettamente necessario; trattati in modo da garantire un'adeguata sicurezza.</p>
+                  
+                  <p><strong>Base Giuridica del Trattamento (Art. 6 GDPR):</strong> L'associazione è responsabile di individuare e documentare la base giuridica appropriata per il trattamento dei dati personali (es. consenso, interesse legittimo, obbligo di legge) e di informarne adeguatamente gli interessati mediante informativa privacy.</p>
+                  
+                  <p><strong>Diritti degli Interessati (Art. 12-23 GDPR):</strong> L'associazione è tenuta a garantire l'esercizio dei diritti degli interessati, tra cui: accesso, rettifica, cancellazione, limitazione del trattamento, portabilità, opposizione. GADU fornisce gli strumenti tecnici per esercitare tali diritti (es. modifica, cancellazione dati), ma la responsabilità della gestione delle richieste rimane dell'associazione.</p>
+                  
+                  <p><strong>Limitazione di Responsabilità:</strong> GADU, i suoi amministratori, sviluppatori e contributori non assumono alcuna responsabilità legale, civile o penale per:</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>Violazioni del GDPR o altre normative sulla privacy commesse dall'associazione</li>
+                    <li>Perdita, corruzione, accesso non autorizzato o divulgazione di dati</li>
+                    <li>Mancato rispetto degli obblighi di sicurezza, backup o disaster recovery</li>
+                    <li>Indisponibilità o malfunzionamenti dei servizi Supabase</li>
+                    <li>Danni diretti, indiretti, incidentali o consequenziali derivanti dall'uso di GADU</li>
+                  </ul>
                 </div>
                 
                 <label className="flex items-start gap-3 cursor-pointer">
@@ -289,7 +314,7 @@ export function SetupWizard() {
                     className="w-5 h-5 mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                   <span className="text-sm text-slate-700">
-                    <strong>Ho compreso e accetto</strong> che l'associazione è il solo responsabile del trattamento, conservazione, integrità, backup e sicurezza dei dati su Supabase.com attraverso GADU, e che GADU non assume alcuna responsabilità legale.
+                    <strong>Dichiaro di aver letto e compreso integralmente il presente disclaimer</strong> e di accettare che l'associazione è il solo responsabile del trattamento dei dati ai sensi del GDPR (Regolamento UE 2016/679), della creazione e gestione dell'account Supabase, della conservazione delle chiavi di accesso, della sicurezza, integrità e backup dei dati, e che GADU non assume alcuna responsabilità legale in relazione al trattamento dei dati personali.
                   </span>
                 </label>
               </div>
