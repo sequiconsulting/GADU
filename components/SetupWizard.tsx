@@ -232,16 +232,20 @@ export function SetupWizard() {
               {/* GDPR Disclaimer */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-blue-900 mb-4">Informativa GDPR e Responsabilità Legali</h3>
-                <div className="text-sm text-blue-800 space-y-3 mb-4 max-h-[200px] overflow-y-auto">
-                  <p><strong>Data Controller:</strong> La loggia massonica è il solo e unico titolare dei dati personali gestiti attraverso GADU. GADU non è un data controller ai sensi del GDPR.</p>
+                <div className="text-sm text-blue-800 space-y-3 mb-4 max-h-[240px] overflow-y-auto">
+                  <p><strong>Data Controller:</strong> L'associazione è il solo e unico titolare dei dati personali gestiti attraverso GADU. GADU non è un data controller ai sensi del GDPR.</p>
                   
-                  <p><strong>Proprietà dei Dati:</strong> Tutti i dati inseriti in GADU (dati personali dei soci, informazioni relative ai gradi, ruoli, cronistoria) rimangono di proprietà esclusiva della loggia. GADU è esclusivamente uno strumento di visualizzazione, modifica e gestione dati.</p>
+                  <p><strong>Proprietà e Conservazione dei Dati:</strong> Tutti i dati inseriti in GADU (dati personali dei soci, informazioni relative ai gradi, ruoli, cronistoria) rimangono di proprietà esclusiva dell'associazione. L'associazione rimane completamente responsabile della conservazione, integrità, backup e protezione di tali dati.</p>
                   
-                  <p><strong>Funzione di GADU:</strong> GADU è un software di gestione e archiviazione per uso interno delle logge. Non raccoglie, non conserva permanentemente, e non trasferisce dati a terzi. Tutti i dati rimangono sotto il completo controllo e la responsabilità della loggia.</p>
+                  <p><strong>Infrastruttura - Supabase.com:</strong> I dati sono conservati su server gestiti da Supabase (supabase.com). Le <strong>data policy di Supabase</strong> si applicano alla conservazione e al trattamento tecnico dei dati. L'associazione è responsabile di verificare e accettare le condizioni di servizio e le politiche sulla privacy di Supabase.</p>
                   
-                  <p><strong>Responsabilità Legale:</strong> La loggia rimane completamente responsabile della conformità al GDPR e alle normative sulla privacy. GADU non assume alcuna responsabilità legale per l'uso, la conservazione, o il trattamento dei dati. È compito della loggia garantire il consenso degli interessati e l'implementazione di misure di sicurezza appropriate.</p>
+                  <p><strong>Sicurezza e Chiavi di Accesso:</strong> L'associazione è responsabile della conservazione sicura di tutte le chiavi di accesso (Supabase URL, anon key, service key) e dei dati di configurazione. Qualsiasi perdita, compromissione o accesso non autorizzato a tali credenziali rimane esclusivamente responsabilità dell'associazione.</p>
                   
-                  <p><strong>Accettazione:</strong> Procedendo, la loggia dichiara di aver compreso il presente disclaimer e di assumersi piena responsabilità del trattamento dei dati personali attraverso GADU.</p>
+                  <p><strong>Funzione di GADU:</strong> GADU è esclusivamente uno strumento di visualizzazione, modifica e gestione dati per uso interno dell'associazione. GADU non raccoglie, conserva permanentemente, o trasferisce i dati a terzi al di fuori di Supabase. Tutti i dati rimangono sotto il completo controllo tecnico e legale dell'associazione.</p>
+                  
+                  <p><strong>Responsabilità Legale:</strong> L'associazione rimane completamente responsabile della conformità al GDPR, alla normativa sulla privacy, alla conservazione dei dati, e alla sicurezza informatica. GADU non assume alcuna responsabilità legale per l'uso, la conservazione, l'integrità, il backup, o il trattamento dei dati. È compito esclusivo dell'associazione garantire il consenso degli interessati, implementare misure di sicurezza appropriate, e mantenere la continuità del servizio.</p>
+                  
+                  <p><strong>Backup e Disaster Recovery:</strong> L'associazione è responsabile di implementare autonomamente strategie di backup e disaster recovery per i propri dati. GADU non fornisce garanzie di conservazione dati o recovery services.</p>
                 </div>
                 
                 <label className="flex items-start gap-3 cursor-pointer">
@@ -255,7 +259,7 @@ export function SetupWizard() {
                     className="w-5 h-5 mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                   <span className="text-sm text-slate-700">
-                    <strong>Ho compreso e accetto</strong> che la loggia è il solo responsabile del trattamento dei dati attraverso GADU e che GADU non assume alcuna responsabilità legale.
+                    <strong>Ho compreso e accetto</strong> che l'associazione è il solo responsabile del trattamento, conservazione, integrità, backup e sicurezza dei dati su Supabase.com attraverso GADU, e che GADU non assume alcuna responsabilità legale.
                   </span>
                 </label>
               </div>
