@@ -1,8 +1,12 @@
 import { Handler } from '@netlify/functions';
+import { connectLambda } from '@netlify/blobs';
 import { loadRegistry, saveRegistry, logAuditEvent } from './_shared/registry';
 import { LodgeConfig } from '../../types/lodge';
 
 export const handler: Handler = async (event) => {
+  // CRITICAL: Initialize Netlify Blobs for Lambda functions
+  connectLambda(event);
+  
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }

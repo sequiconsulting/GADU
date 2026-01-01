@@ -1,4 +1,5 @@
 import { Handler } from '@netlify/functions';
+import { connectLambda } from '@netlify/blobs';
 import { loadRegistry, saveRegistry } from './_shared/registry';
 import { PublicLodgeConfig } from '../../types/lodge';
 
@@ -16,6 +17,9 @@ const DEMO_LODGE_CONFIG = {
 };
 
 export const handler: Handler = async (event) => {
+  // CRITICAL: Initialize Netlify Blobs for Lambda functions
+  connectLambda(event);
+  
   const glriNumber = event.queryStringParameters?.glriNumber || event.queryStringParameters?.number;
   
   if (!glriNumber) {
