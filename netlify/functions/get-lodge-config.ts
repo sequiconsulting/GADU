@@ -1,18 +1,5 @@
-import { loadRegistry, saveRegistry } from './_shared/registry';
+import { loadRegistry } from './_shared/registry';
 import { PublicLodgeConfig } from '../../types/lodge';
-
-const DEMO_LODGE_CONFIG = {
-  glriNumber: '9999',
-  lodgeName: 'Demo Loggia',
-  province: 'Demo',
-  supabaseUrl: 'https://jqelokmsjosjwmrbwnyz.supabase.co',
-  supabaseAnonKey: 'sb_publishable_OB7Uozbjy1Fc7z5QpOjGAA_SpS-TuFt',
-  supabaseServiceKey: 'sb_secret_IUc5DhRQ5c5cFvzYSaqDRg_JwglMFsi',
-  createdAt: new Date(),
-  lastAccess: new Date(),
-  isActive: true,
-  adminEmail: 'admin@gadu.app'
-};
 
 export default async (request: Request) => {
   try {
@@ -23,14 +10,7 @@ export default async (request: Request) => {
       return new Response('Missing glriNumber parameter', { status: 400 });
     }
     
-    let registry = await loadRegistry();
-    
-    // Auto-seed 9999 if registry is empty and 9999 is requested
-    if (Object.keys(registry).length === 0 && glriNumber === '9999') {
-      registry['9999'] = DEMO_LODGE_CONFIG;
-      await saveRegistry(registry);
-    }
-    
+    const registry = await loadRegistry();
     const lodge = registry[glriNumber];
     
     if (!lodge) {
