@@ -49,7 +49,9 @@ export function SetupWizard() {
       setError(null);
       
       try {
+        console.log(`[SETUP-WIZARD] Checking if lodge ${formData.glriNumber} exists...`);
         const response = await fetch(`/.netlify/functions/get-lodge-config?glriNumber=${formData.glriNumber}`);
+        console.log(`[SETUP-WIZARD] Response status: ${response.status}`);
         
         if (response.ok) {
           const existingLodge = await response.json();
@@ -61,7 +63,7 @@ export function SetupWizard() {
         }
         // 404 = non trovata, quindi possiamo proseguire
       } catch (err) {
-        console.error('Error checking lodge number:', err);
+        console.error('[SETUP-WIZARD] Error checking lodge number:', err);
         // In caso di errore di rete, permettiamo di proseguire
       } finally {
         setLoading(false);
