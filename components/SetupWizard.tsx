@@ -18,6 +18,8 @@ export function SetupWizard() {
   const navigate = useNavigate();
   const { glriNumber: urlGlriNumber } = useParams<{ glriNumber?: string }>();
   
+  console.log('[SETUP-WIZARD] Component mounted, urlGlriNumber:', urlGlriNumber);
+  
   // If glriNumber from URL, pre-fill form
   const [currentStep, setCurrentStep] = useState(urlGlriNumber ? 2 : 1);
   const [loading, setLoading] = useState(false);
@@ -179,6 +181,8 @@ export function SetupWizard() {
     { num: 6, title: 'Service Key', icon: Key },
     { num: 7, title: 'Completo!', icon: CheckCircle }
   ];
+
+  console.log('[SETUP-WIZARD] Rendering, currentStep:', currentStep);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
