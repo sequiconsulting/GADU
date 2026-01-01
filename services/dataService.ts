@@ -8,7 +8,7 @@ type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_v
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
-  public APP_VERSION = '0.137';
+  public APP_VERSION = '0.138';
   public DB_VERSION = 12;
   public SUPABASE_SCHEMA_VERSION = 1;
 
@@ -556,12 +556,12 @@ class DataService {
     await this.ensureReady();
     const client = this.ensureSupabaseClient();
     
-    // Cancella tutti i membri
-    const { error: membersError } = await client.from('members').delete().neq('id', '');
+    // Cancella tutti i membri (usa not IS NULL per evitare 400 con filter vuoto)
+    const { error: membersError } = await client.from('members').delete().not('id', 'is', null);
     if (membersError) throw membersError;
     
     // Cancella tutte le convocazioni
-    const { error: convocazioniError } = await client.from('convocazioni').delete().neq('id', '');
+    const { error: convocazioniError } = await client.from('convocazioni').delete().not('id', 'is', null);
     if (convocazioniError) throw convocazioniError;
   }
 
