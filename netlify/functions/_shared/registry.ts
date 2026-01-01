@@ -83,15 +83,21 @@ export async function loadRegistry(): Promise<Registry> {
     return {};
   }
   
-  // Production: use Netlify Blobs
-  const store = getStore('gadu-registry');
-  const data = await store.get('lodges');
-  if (!data) return {};
-  
-  // Convert ArrayBuffer to string if needed
-  const encryptedString = typeof data === 'string' ? data : new TextDecoder().decode(data);
-  const jsonString = decryptData(encryptedString);
-  return JSON.parse(jsonString);
+  // Production: try to use Netlify Blobs
+  try {
+    const store = getStore('gadu-registry');
+    const data = await store.get('lodges');
+    if (!data) return {};
+    
+    // Convert ArrayBuffer to string if needed
+    const encryptedString = typeof data === 'string' ? data : new TextDecoder().decode(data);
+    const jsonString = decryptData(encryptedString);
+    return JSON.parse(jsonString);
+  } catch (error) {
+    // Blobs not configured - return empty registry (9999 will be auto-seeded)
+    console.warn('Netlify Blobs not available, returning empty registry:', error);
+    return {};
+  }
 }
 
 export async function saveRegistry(registry: Registry): Promise<void> {
@@ -102,16 +108,21 @@ export async function saveRegistry(registry: Registry): Promise<void> {
     return;
   }
   
-  // Production: use Netlify Blobs
-  const store = getStore('gadu-registry');
-  const jsonString = JSON.stringify(registry);
-  const encryptedData = encryptData(jsonString);
-  await store.set('lodges', encryptedData, {
-    metadata: { 
-      lastUpdate: new Date().toISOString(),
-      encrypted: !!getEncryptionKey()
-    }
-  });
+  // Production: try to use Netlify Blobs
+  try {
+    const store = getStore('gadu-registry');
+    const jsonString = JSON.stringify(registry);
+    const encryptedData = encryptData(jsonString);
+    await store.set('lodges', encryptedData, {
+      metadata: { 
+        lastUpdate: new Date().toISOString(),
+        encrypted: !!getEncryptionKey()
+      }
+    });
+  } catch (error) {
+    // Blobs not configured - just log warning (9999 is in-memory only)
+    console.warn('Netlify Blobs not available, registry not persisted:', error);
+  }
 }
 
 export async function logAuditEvent(event: string, data: any): Promise<void> {
