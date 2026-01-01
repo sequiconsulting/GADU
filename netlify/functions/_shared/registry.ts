@@ -85,6 +85,7 @@ export async function loadRegistry(): Promise<Registry> {
   
   // Production: try to use Netlify Blobs
   try {
+    // getStore must be called inside handler execution context (lazy)
     const store = getStore('gadu-registry');
     const data = await store.get('lodges');
     if (!data) return {};
@@ -93,9 +94,9 @@ export async function loadRegistry(): Promise<Registry> {
     const encryptedString = typeof data === 'string' ? data : new TextDecoder().decode(data);
     const jsonString = decryptData(encryptedString);
     return JSON.parse(jsonString);
-  } catch (error) {
+  } catch (error: any) {
     // Blobs not configured - return empty registry (9999 will be auto-seeded)
-    console.warn('Netlify Blobs not available, returning empty registry:', error);
+    console.warn('[BLOBS] Netlify Blobs not available, returning empty registry:', error?.message || error);
     return {};
   }
 }
