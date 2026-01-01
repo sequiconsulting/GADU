@@ -19,12 +19,10 @@ function getEncryptionKey(): Buffer | null {
     console.log('[CRYPTO] No REGISTRY_ENCRYPTION_KEY env var found');
     return null;
   }
-  // Trim whitespace that Netlify might add
-  const trimmedKey = key.trim();
-  const buffer = Buffer.from(trimmedKey, 'hex');
-  console.log(`[CRYPTO] Key loaded: ${buffer.length} bytes (expected 32)`);
+  const buffer = Buffer.from(key, 'hex');
+  console.log(`[CRYPTO] Key loaded: ${buffer.length} bytes`);
   if (buffer.length !== 32) {
-    console.error(`[CRYPTO] Invalid key length! Got ${buffer.length} bytes, need 32`);
+    console.error(`[CRYPTO] Invalid key length! Got ${buffer.length} bytes, need exactly 32`);
     return null;
   }
   return buffer;
