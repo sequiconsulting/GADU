@@ -11,6 +11,8 @@ export default async (request: Request) => {
     }
     
     const registry = await loadRegistry();
+    console.log(`[GET-LODGE-CONFIG] Looking for lodge ${glriNumber}`);
+    console.log(`[GET-LODGE-CONFIG] Registry keys: ${Object.keys(registry).join(', ')}`);
     const lodge = registry[glriNumber];
     
     if (!lodge) {
