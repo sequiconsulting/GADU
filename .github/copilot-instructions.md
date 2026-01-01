@@ -104,3 +104,19 @@ Supabase auth scaffolding exists but is disabled. Files: utils/authService.ts, u
 - If Supabase errors mention missing relations, run supabase-schema.sql.
 - Version mismatches are auto-healed by dataService on startup.
 - Demo data only seeds when members/convocazioni are empty.
+
+## Operating Guidelines & Best Practices
+
+- Editing: Prefer apply_patch for single-file edits; avoid for auto-generated content or bulk formatting. Keep ASCII unless necessary. Add concise comments only for non-obvious logic.
+- Versioning: Bump APP_VERSION in services/dataService.ts for any UI/logic change. Bump DB_VERSION only for data shape changes; SUPABASE_SCHEMA_VERSION only when SQL schema changes.
+- Git etiquette: Never commit or push unless the user explicitly asks. Do not revert user changes you did not make.
+- Supabase clients: Reuse the global cache in utils/supabaseClientCache.ts to prevent multiple GoTrueClient warnings. Do not instantiate duplicate clients.
+- Auth (email flow): Use emailAuthService with cached client; privileges live in user_metadata; handle mustChangePassword.
+- Registry/prod: Do not write to filesystem in prod; Netlify prod uses Blobs. NETLIFY_DEV indicates local mode.
+- Sidebar UX: Only one left-menu accordion open at a time; opening one closes the others; clicking an open section collapses all.
+- Data flow: Components must not call Supabase directly; use dataService. After saves, call loadData() to resync.
+- Rituals/Roles: Use getRolesForRitual and AppSettings.yearlyRituals; ritual change clears roles for that branch/year with confirmation.
+- Initiation terms: When first degree is added for a branch, add ACTIVE status event with branch-specific INITIATION_TERMS.
+- Year handling: selectedYear drives views/reports; add past/future years without clamping (no Math.max/min on yearOptions).
+- Schema errors: Map missing-table errors to the explicit instruction to run supabase-schema.sql.
+- Env: Require VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (NEXT_PUBLIC_* fallbacks). Service key only where expected.

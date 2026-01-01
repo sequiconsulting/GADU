@@ -14,6 +14,7 @@ interface AdminPanelProps {
 }
 
 type Tab = 'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM';
+type MainTab = 'GENERALE' | 'PREFERENZE_RAMI' | 'DEFAULT_QUOTE' | 'GESTIONE_UTENTI' | 'EXTRA';
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave, onDataChange, currentUserEmail }) => {
   const withDefaults = (s: AppSettings): AppSettings => ({
@@ -24,7 +25,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
   const [settings, setSettings] = useState<AppSettings>(withDefaults(currentSettings));
   const [message, setMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('CRAFT');
-  const [usersTab, setUsersTab] = useState(false);
+  const [activeMainTab, setActiveMainTab] = useState<MainTab>('GENERALE');
   const [showClearDbConfirm, setShowClearDbConfirm] = useState<boolean>(false);
   const [showLoadDemoConfirm, setShowLoadDemoConfirm] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -130,6 +131,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
         };
         reader.readAsDataURL(file);
       }
+      // Reset input value so the same file can be selected again (issue #32)
+      e.target.value = '';
     };
 
     const handleClearLogo = (field: string) => {
@@ -303,111 +306,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
             </div>
           </div>
 
-          {/* Default Quote */}
-          <div className="border-t border-slate-200 pt-3 mt-3">
-            <label className="block text-xs font-medium text-slate-700 mb-2">Default Quote</label>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-100">
-                    <th className="text-left py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Capitazione</th>
-                    <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">{activeTab === 'CRAFT' ? 'Gran Loggia' : 'Gran Capitolo'}</th>
-                    <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Regionale</th>
-                    <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Loggia</th>
-                    <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Totale</th>
-                    <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Cerimonia</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(['Ordinaria', 'Ridotta Settembre', 'Doppia Appartenenza', 'Ridotta Studenti', 'Ridotta Ministri di Culto', 'Onorario'] as const).map(tipo => {
-                    const quotaGL = currentBranchPrefs.defaultQuote?.quotaGLGC?.[tipo] || 0;
-                    const quotaReg = currentBranchPrefs.defaultQuote?.quotaRegionale?.[tipo] || 0;
-                    const quotaLog = currentBranchPrefs.defaultQuote?.quotaLoggia?.[tipo] || 0;
-                    const totale = quotaGL + quotaReg + quotaLog;
-                    return (
-                      <tr key={tipo} className="hover:bg-slate-50">
-                        <td className="py-0.5 px-1 border border-slate-300 text-slate-700">{tipo}</td>
-                        <td className="py-0.5 px-1 border border-slate-300">
-                          <div className="flex items-center gap-0.5">
-                            <span className="text-slate-500 text-xs">€</span>
-                            <input
-                              type="number"
-                              value={quotaGL}
-                              onChange={(e) => {
-                                const newQuote = { ...(currentBranchPrefs.defaultQuote || { quotaRegionale: {}, quotaLoggia: {}, quotaCerimonia: {}, quotaGLGC: {} }) };
-                                newQuote.quotaGLGC = { ...newQuote.quotaGLGC, [tipo]: parseInt(e.target.value) || 0 };
-                                handleBranchPrefChange('defaultQuote', newQuote);
-                              }}
-                              className="flex-1 px-0.5 py-0 border border-slate-300 rounded text-xs text-slate-800 text-right focus:ring-1 focus:ring-masonic-gold focus:border-transparent w-12"
-                              placeholder="0"
-                              step="1"
-                            />
-                          </div>
-                        </td>
-                        <td className="py-0.5 px-1 border border-slate-300">
-                          <div className="flex items-center gap-0.5">
-                            <span className="text-slate-500 text-xs">€</span>
-                            <input
-                              type="number"
-                              value={quotaReg}
-                              onChange={(e) => {
-                                const newQuote = { ...(currentBranchPrefs.defaultQuote || { quotaGLGC: {}, quotaLoggia: {}, quotaCerimonia: {} }) };
-                                newQuote.quotaRegionale = { ...newQuote.quotaRegionale, [tipo]: parseInt(e.target.value) || 0 };
-                                handleBranchPrefChange('defaultQuote', newQuote);
-                              }}
-                              className="flex-1 px-0.5 py-0 border border-slate-300 rounded text-xs text-slate-800 text-right focus:ring-1 focus:ring-masonic-gold focus:border-transparent w-12"
-                              placeholder="0"
-                              step="1"
-                            />
-                          </div>
-                        </td>
-                        <td className="py-0.5 px-1 border border-slate-300">
-                          <div className="flex items-center gap-0.5">
-                            <span className="text-slate-500 text-xs">€</span>
-                            <input
-                              type="number"
-                              value={quotaLog}
-                              onChange={(e) => {
-                                const newQuote = { ...(currentBranchPrefs.defaultQuote || { quotaGLGC: {}, quotaRegionale: {}, quotaCerimonia: {} }) };
-                                newQuote.quotaLoggia = { ...newQuote.quotaLoggia, [tipo]: parseInt(e.target.value) || 0 };
-                                handleBranchPrefChange('defaultQuote', newQuote);
-                              }}
-                              className="flex-1 px-0.5 py-0 border border-slate-300 rounded text-xs text-slate-800 text-right focus:ring-1 focus:ring-masonic-gold focus:border-transparent w-12"
-                              placeholder="0"
-                              step="1"
-                            />
-                          </div>
-                        </td>
-                        <td className="py-0.5 px-1 border border-slate-300 bg-slate-50">
-                          <div className="flex items-center gap-0.5 justify-end">
-                            <span className="text-slate-500 text-xs">€</span>
-                            <span className="text-slate-800 font-medium text-xs">{totale}</span>
-                          </div>
-                        </td>
-                        <td className="py-0.5 px-1 border border-slate-300">
-                          <div className="flex items-center gap-0.5">
-                            <span className="text-slate-500 text-xs">€</span>
-                            <input
-                              type="number"
-                              value={currentBranchPrefs.defaultQuote?.quotaCerimonia?.[tipo] || 0}
-                              onChange={(e) => {
-                                const newQuote = { ...(currentBranchPrefs.defaultQuote || { quotaGLGC: {}, quotaRegionale: {}, quotaLoggia: {} }) };
-                                newQuote.quotaCerimonia = { ...newQuote.quotaCerimonia, [tipo]: parseInt(e.target.value) || 0 };
-                                handleBranchPrefChange('defaultQuote', newQuote);
-                              }}
-                              className="flex-1 px-0.5 py-0 border border-slate-300 rounded text-xs text-slate-800 text-right focus:ring-1 focus:ring-masonic-gold focus:border-transparent w-12"
-                              placeholder="0"
-                              step="1"
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+
         </div>
       </div>
     );
@@ -423,30 +322,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
       </div>
 
       <div className="p-6">
-        <div className="flex gap-4 mb-6 border-b border-slate-200">
-          <button
-            onClick={() => setUsersTab(false)}
-            className={`px-4 py-2 font-semibold border-b-2 transition-colors ${
-              !usersTab
-                ? 'border-masonic-gold text-masonic-gold'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Configurazione
-          </button>
-          <button
-            onClick={() => setUsersTab(true)}
-            className={`px-4 py-2 font-semibold border-b-2 transition-colors ${
-              usersTab
-                ? 'border-masonic-gold text-masonic-gold'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Gestione Utenti
-          </button>
+        <div className="flex gap-2 mb-6 border-b border-slate-200 flex-wrap">
+          {['GENERALE', 'PREFERENZE_RAMI', 'DEFAULT_QUOTE', 'GESTIONE_UTENTI', ...(isDemoLodge ? ['EXTRA'] : [])].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveMainTab(tab as MainTab)}
+              className={`px-4 py-2 font-semibold border-b-2 transition-colors whitespace-nowrap ${
+                activeMainTab === tab
+                  ? 'border-masonic-gold text-masonic-gold'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {tab === 'GENERALE' && 'Generale'}
+              {tab === 'PREFERENZE_RAMI' && 'Preferenze Rami'}
+              {tab === 'DEFAULT_QUOTE' && 'Default Quote'}
+              {tab === 'GESTIONE_UTENTI' && 'Gestione Utenti'}
+              {tab === 'EXTRA' && 'Extra'}
+            </button>
+          ))}
         </div>
 
-        {!usersTab ? (
+        {activeMainTab === 'GENERALE' && (
           <>
             {/* CONFIGURAZIONE TAB */}
             <div className="mb-8">
@@ -545,37 +441,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                 </div>
               </div>
             </div>
-
-            <div className="mb-8">
-              <h3 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">Preferenze Rami</h3>
-              {renderPreferences()}
-            </div>
-
-            {isDemoLodge && (
-              <div className="mb-8 bg-red-50 border border-red-200 rounded-lg p-6">
-                <h3 className="text-lg font-bold text-red-800 border-b border-red-200 pb-2 mb-4">Gestione Database (Solo Demo)</h3>
-                <p className="text-sm text-slate-600 mb-4">
-                  Attenzione: queste operazioni sono irreversibili. Assicurati di avere un backup prima di procedere.
-                </p>
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => setShowLoadDemoConfirm(true)}
-                    disabled={isProcessing}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
-                  >
-                    <Database size={18} /> Carica Dati di Esempio
-                  </button>
-                  <button
-                    onClick={() => setShowClearDbConfirm(true)}
-                    disabled={isProcessing}
-                    className="bg-red-600 hover:bg-red-700 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
-                  >
-                    <Trash2 size={18} /> Cancella Database
-                  </button>
-                </div>
-              </div>
-            )}
-
             <div className="flex justify-end items-center gap-4 border-t border-slate-100 pt-6">
               {message && <span className="text-green-600 font-medium text-sm animate-pulse">{message}</span>}
               <button 
@@ -586,9 +451,205 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
               </button>
             </div>
           </>
-        ) : (
+        )}
+
+        {activeMainTab === 'PREFERENZE_RAMI' && (
           <>
-            {/* USERS TAB */}
+            <div className="mb-8">
+              <h3 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">Preferenze Rami</h3>
+              {renderPreferences()}
+            </div>
+            <div className="flex justify-end items-center gap-4 border-t border-slate-100 pt-6">
+              {message && <span className="text-green-600 font-medium text-sm animate-pulse">{message}</span>}
+              <button 
+                onClick={handleSave} 
+                className="bg-masonic-gold hover:bg-yellow-600 text-white px-6 py-2.5 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
+              >
+                <Save size={18} /> Salva Preferenze
+              </button>
+            </div>
+          </>
+        )}
+
+        {activeMainTab === 'DEFAULT_QUOTE' && (
+          <>
+            <div className="mb-8">
+              <h3 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">Quote di Default per Ramo</h3>
+              <div>
+                <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto rounded-t-lg scrollbar-hide mb-4">
+                  {BRANCHES.map(b => (
+                    <button
+                      key={b.type}
+                      onClick={() => setActiveTab(b.type as Tab)}
+                      className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 flex items-center gap-2 flex-shrink-0 ${
+                        activeTab === b.type
+                          ? `${b.color.replace('bg-', 'border-')} ${b.color.replace('bg-', 'text-')} bg-white`
+                          : 'border-transparent text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      <div className={`w-2 h-2 rounded-full ${b.color}`} />
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="p-3 bg-white border border-slate-200 border-t-0 rounded-b-lg">
+                  <label className="block text-xs font-medium text-slate-700 mb-2">Default Quote</label>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100">
+                          <th className="text-left py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Capitazione</th>
+                          <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">{activeTab === 'CRAFT' ? 'Gran Loggia' : 'Gran Capitolo'}</th>
+                          <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Regionale</th>
+                          <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Loggia</th>
+                          <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Totale</th>
+                          <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Cerimonia</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(['Ordinaria', 'Ridotta Settembre', 'Doppia Appartenenza', 'Ridotta Studenti', 'Ridotta Ministri di Culto', 'Onorario'] as const).map(tipo => {
+                          const currentBranchPrefs = settings.branchPreferences?.[activeTab] || {};
+                          const quotaGL = currentBranchPrefs.defaultQuote?.quotaGLGC?.[tipo] || 0;
+                          const quotaReg = currentBranchPrefs.defaultQuote?.quotaRegionale?.[tipo] || 0;
+                          const quotaLog = currentBranchPrefs.defaultQuote?.quotaLoggia?.[tipo] || 0;
+                          const totale = quotaGL + quotaReg + quotaLog;
+                          return (
+                            <tr key={tipo} className="hover:bg-slate-50">
+                              <td className="py-0.5 px-1 border border-slate-300 text-slate-700">{tipo}</td>
+                              <td className="py-0.5 px-1 border border-slate-300">
+                                <div className="flex items-center gap-0.5">
+                                  <span className="text-slate-500 text-xs">€</span>
+                                  <input
+                                    type="number"
+                                    value={quotaGL}
+                                    onChange={(e) => {
+                                      const newQuote = { ...(currentBranchPrefs.defaultQuote || { quotaRegionale: {}, quotaLoggia: {}, quotaCerimonia: {}, quotaGLGC: {} }) };
+                                      newQuote.quotaGLGC = { ...newQuote.quotaGLGC, [tipo]: parseInt(e.target.value) || 0 };
+                                      setSettings(prev => ({
+                                        ...prev,
+                                        branchPreferences: {
+                                          ...(prev.branchPreferences || {}),
+                                          [activeTab]: {
+                                            ...currentBranchPrefs,
+                                            defaultQuote: newQuote,
+                                          },
+                                        },
+                                      }));
+                                    }}
+                                    className="flex-1 px-0.5 py-0 border border-slate-300 rounded text-xs text-slate-800 text-right focus:ring-1 focus:ring-masonic-gold focus:border-transparent w-12"
+                                    placeholder="0"
+                                    step="1"
+                                  />
+                                </div>
+                              </td>
+                              <td className="py-0.5 px-1 border border-slate-300">
+                                <div className="flex items-center gap-0.5">
+                                  <span className="text-slate-500 text-xs">€</span>
+                                  <input
+                                    type="number"
+                                    value={quotaReg}
+                                    onChange={(e) => {
+                                      const newQuote = { ...(currentBranchPrefs.defaultQuote || { quotaGLGC: {}, quotaLoggia: {}, quotaCerimonia: {} }) };
+                                      newQuote.quotaRegionale = { ...newQuote.quotaRegionale, [tipo]: parseInt(e.target.value) || 0 };
+                                      setSettings(prev => ({
+                                        ...prev,
+                                        branchPreferences: {
+                                          ...(prev.branchPreferences || {}),
+                                          [activeTab]: {
+                                            ...currentBranchPrefs,
+                                            defaultQuote: newQuote,
+                                          },
+                                        },
+                                      }));
+                                    }}
+                                    className="flex-1 px-0.5 py-0 border border-slate-300 rounded text-xs text-slate-800 text-right focus:ring-1 focus:ring-masonic-gold focus:border-transparent w-12"
+                                    placeholder="0"
+                                    step="1"
+                                  />
+                                </div>
+                              </td>
+                              <td className="py-0.5 px-1 border border-slate-300">
+                                <div className="flex items-center gap-0.5">
+                                  <span className="text-slate-500 text-xs">€</span>
+                                  <input
+                                    type="number"
+                                    value={quotaLog}
+                                    onChange={(e) => {
+                                      const newQuote = { ...(currentBranchPrefs.defaultQuote || { quotaGLGC: {}, quotaRegionale: {}, quotaCerimonia: {} }) };
+                                      newQuote.quotaLoggia = { ...newQuote.quotaLoggia, [tipo]: parseInt(e.target.value) || 0 };
+                                      setSettings(prev => ({
+                                        ...prev,
+                                        branchPreferences: {
+                                          ...(prev.branchPreferences || {}),
+                                          [activeTab]: {
+                                            ...currentBranchPrefs,
+                                            defaultQuote: newQuote,
+                                          },
+                                        },
+                                      }));
+                                    }}
+                                    className="flex-1 px-0.5 py-0 border border-slate-300 rounded text-xs text-slate-800 text-right focus:ring-1 focus:ring-masonic-gold focus:border-transparent w-12"
+                                    placeholder="0"
+                                    step="1"
+                                  />
+                                </div>
+                              </td>
+                              <td className="py-0.5 px-1 border border-slate-300 bg-slate-50">
+                                <div className="flex items-center gap-0.5 justify-end">
+                                  <span className="text-slate-500 text-xs">€</span>
+                                  <span className="text-slate-800 font-medium text-xs">{totale}</span>
+                                </div>
+                              </td>
+                              <td className="py-0.5 px-1 border border-slate-300">
+                                <div className="flex items-center gap-0.5">
+                                  <span className="text-slate-500 text-xs">€</span>
+                                  <input
+                                    type="number"
+                                    value={currentBranchPrefs.defaultQuote?.quotaCerimonia?.[tipo] || 0}
+                                    onChange={(e) => {
+                                      const newQuote = { ...(currentBranchPrefs.defaultQuote || { quotaGLGC: {}, quotaRegionale: {}, quotaLoggia: {} }) };
+                                      newQuote.quotaCerimonia = { ...newQuote.quotaCerimonia, [tipo]: parseInt(e.target.value) || 0 };
+                                      setSettings(prev => ({
+                                        ...prev,
+                                        branchPreferences: {
+                                          ...(prev.branchPreferences || {}),
+                                          [activeTab]: {
+                                            ...currentBranchPrefs,
+                                            defaultQuote: newQuote,
+                                          },
+                                        },
+                                      }));
+                                    }}
+                                    className="flex-1 px-0.5 py-0 border border-slate-300 rounded text-xs text-slate-800 text-right focus:ring-1 focus:ring-masonic-gold focus:border-transparent w-12"
+                                    placeholder="0"
+                                    step="1"
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end items-center gap-4 border-t border-slate-100 pt-6">
+              {message && <span className="text-green-600 font-medium text-sm animate-pulse">{message}</span>}
+              <button 
+                onClick={handleSave} 
+                className="bg-masonic-gold hover:bg-yellow-600 text-white px-6 py-2.5 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
+              >
+                <Save size={18} /> Salva Quote
+              </button>
+            </div>
+          </>
+        )}
+
+        {activeMainTab === 'GESTIONE_UTENTI' && (
+          <>
             <UserManagement
               lodgeNumber={settings.lodgeNumber}
               changelog={settings.userChangelog || []}
@@ -603,6 +664,39 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
               </div>
             )}
           </>
+        )}
+
+        {activeMainTab === 'EXTRA' && isDemoLodge && (
+          <>
+            <div className="mb-8 bg-red-50 border border-red-200 rounded-lg p-6">
+              <h3 className="text-lg font-bold text-red-800 border-b border-red-200 pb-2 mb-4">Gestione Database (Solo Demo)</h3>
+              <p className="text-sm text-slate-600 mb-4">
+                Attenzione: queste operazioni sono irreversibili. Assicurati di avere un backup prima di procedere.
+              </p>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setShowLoadDemoConfirm(true)}
+                  disabled={isProcessing}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
+                >
+                  <Database size={18} /> Carica Dati di Esempio
+                </button>
+                <button
+                  onClick={() => setShowClearDbConfirm(true)}
+                  disabled={isProcessing}
+                  className="bg-red-600 hover:bg-red-700 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
+                >
+                  <Trash2 size={18} /> Cancella Database
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeMainTab === 'EXTRA' && !isDemoLodge && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <p className="text-slate-600">Il tab Extra è disponibile solo per la loggia demo (numero 9999).</p>
+          </div>
         )}
       </div>
 

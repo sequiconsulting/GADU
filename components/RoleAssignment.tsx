@@ -34,6 +34,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
     if (!settings) return;
     setLoading(true);
     try {
+      // Prepare ritual updates
       const updatedRituals = { ...settings.yearlyRituals } || {};
       if (!updatedRituals[selectedYear]) {
         updatedRituals[selectedYear] = {
@@ -47,7 +48,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
         updatedRituals[selectedYear].markAndArch = newRitual as any;
       }
       
-      // Delete all roles for this branch and year
+      // Prepare members with roles deleted for this branch/year
       const updatedMembers = members.map(member => {
         const branchKey = activeBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
         const branchData = member[branchKey];
@@ -58,10 +59,25 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
         };
       });
 
-      // Save all members
-      await Promise.all(updatedMembers.map(m => dataService.saveMember(m)));
+      // Save all members with role deletions first, collect errors
+      const memberSaveErrors: string[] = [];
+      const results = await Promise.allSettled(updatedMembers.map(async m => {
+        try {
+          await dataService.saveMember(m);
+        } catch (err) {
+          memberSaveErrors.push(`${m.firstName} ${m.lastName}`);
+          throw err;
+        }
+      }));
+
+      // Reset state BEFORE throwing error (issue #22 - ensure clean state even on error)
+      if (memberSaveErrors.length > 0) {
+        setConfirmingRitualChange(null);
+        setUnlockingRitual(null);
+        throw new Error(`Errore salvataggio ruoli per: ${memberSaveErrors.join(', ')}`);
+      }
       
-      // Update settings with new ritual
+      // Update settings with new ritual (atomic final step)
       const updatedSettings = { ...settings, yearlyRituals: updatedRituals };
       await dataService.saveSettings(updatedSettings);
       
@@ -70,6 +86,9 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
       await onUpdate();
     } catch (e) {
       console.error("Error changing ritual", e);
+      // Reset state on error
+      setConfirmingRitualChange(null);
+      setUnlockingRitual(null);
     } finally {
       setLoading(false);
     }
@@ -101,7 +120,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
         const newHolder = members.find(m => m.id === memberId);
         if (newHolder) {
             const branchKey = activeBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
-            const newRoleEntry = { id: Date.now().toString(), yearStart: selectedYear, roleName: roleName, branch: activeBranch };
+            const newRoleEntry = { id: crypto.randomUUID ? crypto.randomUUID() : `role_${Date.now()}_${Math.random()}`, yearStart: selectedYear, roleName: roleName, branch: activeBranch };
             const updatedRoles = [...newHolder[branchKey].roles, newRoleEntry];
             const updatedMember = { ...newHolder, [branchKey]: { ...newHolder[branchKey], roles: updatedRoles } };
             await dataService.saveMember(updatedMember);

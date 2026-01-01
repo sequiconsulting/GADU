@@ -256,7 +256,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
               </tr>
             )}
             {dedupedRows.map((row, index) => (
-              <tr key={row.member.id || `${row.member.lastName}-${index}`} className="odd:bg-white even:bg-slate-50">
+              <tr key={row.member.id ? `member-${row.member.id}` : `fallback-${index}`} className="odd:bg-white even:bg-slate-50">
                 <td className="px-3 py-2 text-slate-500">{index + 1}</td>
                 <td className="px-3 py-2 font-medium">{row.member.lastName}</td>
                 <td className="px-3 py-2">{row.member.firstName}</td>
@@ -279,10 +279,10 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
   };
 
   const renderSimpleList = (title: string, rows: EventContext[], showDegree = false, showOrigin = false) => {
-    // Deduplicate rows by member ID and event date+reason combination
+    // Deduplicate rows by member ID, date, reason, and lodge (issue #27)
     const dedupedRows = Array.from(
       new Map(rows.map(row => 
-        [`${row.member.id}-${row.event.date}-${row.event.reason}`, row]
+        [`${row.member.id}-${row.event.date}-${row.event.reason || ''}-${row.event.lodge || ''}`, row]
       )).values()
     );
 

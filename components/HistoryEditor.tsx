@@ -50,13 +50,24 @@ export const HistoryEditor: React.FC<HistoryEditorProps> = ({ degrees, degreeOpt
         return;
     }
 
-    // 2. Run external validation (prerequisites)
+    // 2. Check that date is not in the future
+    if (newDegree.date) {
+      const degreeDate = new Date(newDegree.date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (degreeDate > today) {
+        setValidationError("La data del grado non può essere nel futuro.");
+        return;
+      }
+    }
+
+    // 3. Run external validation (prerequisites)
     if (onValidate) {
         setValidationError(onValidate(newDegree.degreeName));
     } else {
         setValidationError(null);
     }
-  }, [newDegree.degreeName, degrees, onValidate]);
+  }, [newDegree.degreeName, newDegree.date, degrees, onValidate]);
 
   const handleAdd = () => {
     // Date and Meeting Number are now optional
@@ -71,7 +82,8 @@ export const HistoryEditor: React.FC<HistoryEditorProps> = ({ degrees, degreeOpt
       setNewDegree({ 
         degreeName: nextUnassigned?.name || degreeOptions[0]?.name || '', 
         date: '', 
-        meetingNumber: '' 
+        meetingNumber: '',
+        location: undefined // Reset location field (issue #28)
       });
     }
   };

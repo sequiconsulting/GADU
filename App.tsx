@@ -14,16 +14,15 @@ const MemberDetail = React.lazy(() => import('./components/MemberDetail').then(m
 const RolesReport = React.lazy(() => import('./components/RolesReport').then(m => ({ default: m.RolesReport })));
 const RoleAssignment = React.lazy(() => import('./components/RoleAssignment').then(m => ({ default: m.RoleAssignment })));
 const Piedilista = React.lazy(() => import('./components/Piedilista').then(m => ({ default: m.Piedilista })));
-const InactiveMembers = React.lazy(() => import('./components/InactiveMembers').then(m => ({ default: m.InactiveMembers })));
 const AdminPanel = React.lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const Legend = React.lazy(() => import('./components/Legend').then(m => ({ default: m.Legend })));
 const RelazioneAnnuale = React.lazy(() => import('./components/RelazioneAnnuale').then(m => ({ default: m.RelazioneAnnuale })));
 const RolesHistory = React.lazy(() => import('./components/RolesHistory').then(m => ({ default: m.RolesHistory })));
-const Tornate = React.lazy(() => import('./components/Tornate').then(m => ({ default: m.Tornate })));
+const Convocazioni = React.lazy(() => import('./components/Tornate').then(m => ({ default: m.Tornate })));
 const SetupAdmin = React.lazy(() => import('./components/SetupAdmin').then(m => ({ default: m.SetupAdmin })));
 import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation, getDegreesByRitual } from './constants';
 
-type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'ROLES_HISTORY' | 'PIEDILISTA' | 'INACTIVE_MEMBERS' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE' | 'TORNATE';
+type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'ROLES_HISTORY' | 'PIEDILISTA' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE' | 'CONVOCAZIONI';
 
 // Inner app component that uses URL params
 const AppContent: React.FC = () => {
@@ -119,8 +118,11 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
         setCurrentLodge(config);
 
         const activeSession = await loadActiveSession(config.supabaseUrl, config.supabaseAnonKey);
+        
+        // Initialize dataService (uses cache, won't duplicate client)
+        dataService.initializeLodge(config);
+        
         if (activeSession) {
-          dataService.initializeLodge(config);
           setCurrentUser(activeSession);
           setIsAuthenticated(true);
           setShowLogin(false);
@@ -183,7 +185,15 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
 
   const handleSaveMember = async () => {
     await loadData();
-    setCurrentView(returnView);
+    // Validate returnView is still a valid view before returning to it
+    const validViews: View[] = ['DASHBOARD', 'MEMBERS', 'REPORT', 'ROLE_ASSIGNMENT', 'ROLES_HISTORY', 'PIEDILISTA', 'ADMIN', 'LEGEND', 'PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'CONVOCAZIONI'];
+    const safeReturnView = validViews.includes(returnView) ? returnView : 'MEMBERS';
+    setCurrentView(safeReturnView);
+    // Reset search/filter when returning to list view (issue #26)
+    if (safeReturnView === 'MEMBERS') {
+      setSearchTerm('');
+      setFilterBranch('ALL');
+    }
   };
 
   const handleSaveSettings = async (settings: AppSettings) => {
@@ -249,6 +259,10 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     setIsAuthenticated(false);
     setMembers([]);
     setAppSettings({ lodgeName: '', lodgeNumber: '', province: '', dbVersion: 5 });
+    
+    // Reset search/filter state (issue #19)
+    setSearchTerm('');
+    setFilterBranch('ALL');
     
     // Redirect alla pagina iniziale (login)
     window.location.href = '/';
@@ -333,7 +347,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
       setCurrentView(view);
       setIsMobileMenuOpen(false);
       
-      if (['MEMBERS', 'PIEDILISTA', 'INACTIVE_MEMBERS'].includes(view) || (view === 'MEMBER_DETAIL' && ['MEMBERS', 'PIEDILISTA', 'INACTIVE_MEMBERS'].includes(returnView))) {
+      if (['MEMBERS', 'PIEDILISTA'].includes(view) || (view === 'MEMBER_DETAIL' && ['MEMBERS', 'PIEDILISTA'].includes(returnView))) {
         openMenu('members');
         return;
       }
@@ -341,7 +355,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
         openMenu('roles');
         return;
       }
-      if (['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'TORNATE'].includes(view)) {
+      if (['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'CONVOCAZIONI'].includes(view)) {
         openMenu('secretary');
         return;
       }
@@ -469,7 +483,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
           <button onClick={() => handleViewChange('DASHBOARD')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${currentView === 'DASHBOARD' ? 'bg-slate-800 text-white shadow-md border-l-4 border-masonic-gold' : 'hover:bg-slate-800 hover:text-white'}`}><LayoutDashboard size={20} /> <span className="font-medium">Dashboard</span></button>
           
           <div>
-            <button onClick={() => toggleMenu('members')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isMembersMenuOpen || ['MEMBERS', 'PIEDILISTA', 'MEMBER_DETAIL', 'INACTIVE_MEMBERS'].includes(currentView) ? 'text-white' : ''}`}>
+            <button onClick={() => toggleMenu('members')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isMembersMenuOpen || ['MEMBERS', 'PIEDILISTA', 'MEMBER_DETAIL'].includes(currentView) ? 'text-white' : ''}`}>
                <div className="flex items-center gap-3"><Users size={20} /> <span className="font-medium">Anagrafiche</span></div>
                {isMembersMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
             </button>
@@ -480,9 +494,6 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
                     </button>
                     <button onClick={() => handleViewChange('PIEDILISTA')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'PIEDILISTA' || (currentView === 'MEMBER_DETAIL' && returnView === 'PIEDILISTA') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
                         <BookOpen size={16} /> Piedilista
-                    </button>
-                    <button onClick={() => handleViewChange('INACTIVE_MEMBERS')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'INACTIVE_MEMBERS' || (currentView === 'MEMBER_DETAIL' && returnView === 'INACTIVE_MEMBERS') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
-                        <UserX size={16} /> Archivio Inattivi
                     </button>
                 </div>
             )}
@@ -509,14 +520,14 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
           </div>
 
           <div>
-            <button onClick={() => toggleMenu('secretary')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isSecretaryMenuOpen || ['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'TORNATE'].includes(currentView) ? 'text-white' : ''}`}>
+            <button onClick={() => toggleMenu('secretary')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isSecretaryMenuOpen || ['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'CONVOCAZIONI'].includes(currentView) ? 'text-white' : ''}`}>
                <div className="flex items-center gap-3"><FileText size={20} /> <span className="font-medium">Segreteria</span></div>
                {isSecretaryMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
             </button>
             {isSecretaryMenuOpen && (
                 <div className="ml-8 mt-1 space-y-1 border-l border-slate-700 pl-2">
-                    <button onClick={() => handleViewChange('TORNATE')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'TORNATE' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
-                        <FileText size={16} /> Tornate
+                    <button onClick={() => handleViewChange('CONVOCAZIONI')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'CONVOCAZIONI' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
+                        <FileText size={16} /> Convocazioni
                     </button>
                     <button onClick={() => handleViewChange('CAPITAZIONI')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'CAPITAZIONI' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
                         <DollarSign size={16} /> Capitazioni
@@ -602,11 +613,10 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
                 {currentView === 'ROLES_HISTORY' && 'Storico Ruoli'}
                 {currentView === 'REPORT' && 'Report Ruoli'}
                 {currentView === 'PIEDILISTA' && 'Piedilista'}
-                {currentView === 'INACTIVE_MEMBERS' && 'Archivio Fratelli Inattivi'}
                 {currentView === 'ADMIN' && 'Amministrazione'}
                 {currentView === 'LEGEND' && 'Legenda e Requisiti'}
                 {currentView === 'PROCEDURES' && 'Procedure'}
-                {currentView === 'TORNATE' && 'Tornate'}
+                {currentView === 'CONVOCAZIONI' && 'Convocazioni'}
                 {currentView === 'CAPITAZIONI' && 'Capitazioni'}
                 {currentView === 'RELAZIONE_ANNUALE' && 'Relazione Annuale'}
             </h2>
@@ -667,6 +677,11 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-2.5 text-slate-400" size={20} />
                   <input type="text" placeholder="Cerca..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg outline-none" />
+                  {searchTerm && (
+                    <button onClick={() => setSearchTerm('')} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors" title="Cancella ricerca">
+                      <X size={20} />
+                    </button>
+                  )}
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2">
                     <select value={filterBranch} onChange={(e) => setFilterBranch(e.target.value)} className="px-4 py-2 border border-slate-300 rounded-lg outline-none bg-white max-w-[250px]">
@@ -788,19 +803,6 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
             </div>
           )}
 
-          {currentView === 'INACTIVE_MEMBERS' && (
-            <React.Suspense fallback={<div className="text-center py-12">Caricamento archivio inattivi...</div>}>
-               <InactiveMembers 
-                  members={members} 
-                  onMemberClick={(id) => handleMemberClick(id, 'INACTIVE_MEMBERS')} 
-                  selectedYear={selectedYear} 
-                  mode="TOTAL" 
-                  lodgeName={appSettings.lodgeName}
-                  lodgeNumber={appSettings.lodgeNumber}
-               />
-            </React.Suspense>
-          )}
-
           {currentView === 'ADMIN' && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento pannello admin...</div>}>
               <AdminPanel currentSettings={appSettings} onSave={handleSaveSettings} onDataChange={loadData} currentUserEmail={currentUser?.email} />
@@ -852,9 +854,9 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
               <p className="text-slate-500 mt-2">Sezione in sviluppo</p>
             </div>
           )}
-          {currentView === 'TORNATE' && (
-            <React.Suspense fallback={<div className="text-center py-12">Caricamento tornate...</div>}>
-              <Tornate settings={appSettings} selectedYear={selectedYear} onUpdate={loadData} />
+          {currentView === 'CONVOCAZIONI' && (
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento convocazioni...</div>}>
+              <Convocazioni settings={appSettings} selectedYear={selectedYear} onUpdate={loadData} />
             </React.Suspense>
           )}
           {currentView === 'RELAZIONE_ANNUALE' && (
@@ -936,6 +938,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
               {!isPasswordChangeForced && (
                 <button
                   onClick={() => {
+                    // Reset password modal state on close (issue #18)
                     setShowChangePasswordModal(false);
                     setNewPassword('');
                     setConfirmPassword('');

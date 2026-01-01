@@ -11,7 +11,7 @@ type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_v
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
-  public APP_VERSION = '0.146';
+  public APP_VERSION = '0.164';
   public DB_VERSION = 12;
   public SUPABASE_SCHEMA_VERSION = 1;
 
@@ -140,7 +140,7 @@ class DataService {
       const matricula = String(100000 + i);
       const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`;
       const city = cities[i % cities.length];
-      const phone = faker.phone.number('3## ### ####');
+      const phone = faker.helpers.replaceSymbols('3## ### ####');
 
       // Branch template per rami inattivi
       const inactiveBranchTemplate = () => ({
@@ -269,9 +269,14 @@ class DataService {
   async getMembers(): Promise<Member[]> {
     await this.ensureReady();
     const client = this.ensureSupabaseClient();
-    const { data, error } = await client.from('members').select('id, data');
-    if (error) throw error;
-    return (data || []).map((row: MemberRow) => ({ ...row.data, id: row.id }));
+    try {
+      const { data, error } = await client.from('members').select('id, data');
+      if (error) throw new Error(`Failed to load members: ${error.message} (code: ${error.code})`);
+      return (data || []).map((row: MemberRow) => ({ ...row.data, id: row.id }));
+    } catch (err: any) {
+      console.error('[DataService] getMembers error:', err);
+      throw err;
+    }
   }
 
   async getMemberById(id: string): Promise<Member | undefined> {
@@ -280,9 +285,14 @@ class DataService {
     }
     await this.ensureReady();
     const client = this.ensureSupabaseClient();
-    const { data, error } = await client.from('members').select('id, data').eq('id', id).maybeSingle();
-    if (error) throw error;
-    return data ? { ...(data as MemberRow).data, id: (data as MemberRow).id } : undefined;
+    try {
+      const { data, error } = await client.from('members').select('id, data').eq('id', id).maybeSingle();
+      if (error) throw new Error(`Failed to load member ${id}: ${error.message}`);
+      return data ? { ...(data as MemberRow).data, id: (data as MemberRow).id } : undefined;
+    } catch (err: any) {
+      console.error(`[DataService] getMemberById(${id}) error:`, err);
+      throw err;
+    }
   }
 
   async saveMember(member: Member): Promise<Member> {
@@ -296,18 +306,86 @@ class DataService {
       memberToSave.changelog = memberToSave.changelog.slice(-100);
     }
     
+    // Add lastModified timestamp for conflict detection
+    const lastModified = new Date().toISOString();
+    
+    // Normalize strings: trim empty strings to null for specific fields
+    const normalizeString = (val: string | null | undefined): string | null => {
+      if (!val) return null;
+      const trimmed = val.trim();
+      return trimmed === '' ? null : trimmed;
+    };
+    
+    memberToSave.matricula = normalizeString(memberToSave.matricula) || memberToSave.matricula;
+    memberToSave.email = normalizeString(memberToSave.email);
+    memberToSave.phone = normalizeString(memberToSave.phone);
+    
+    // Normalize branch data
+    (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+      const branchData = memberToSave[branchKey];
+      branchData.otherLodgeName = normalizeString(branchData.otherLodgeName);
+      
+      // Sort statusEvents by date (chronological order)
+      branchData.statusEvents = [...branchData.statusEvents].sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        return dateA - dateB;
+      });
+    });
+    
     // Rimuovi l'id dall'oggetto data per evitare duplicati
     const { id, ...dataWithoutId } = memberToSave;
-    const row = { id, data: dataWithoutId };
+    const row = { id, data: { ...dataWithoutId, lastModified } };
     
-    const { error } = await client.from('members').upsert(row);
-    if (error) throw error;
-    return memberToSave;
+    try {
+      const { error } = await client.from('members').upsert(row);
+      if (error) throw new Error(`Failed to save member ${memberToSave.id}: ${error.message}`);
+      return memberToSave;
+    } catch (err: any) {
+      console.error(`[DataService] saveMember(${memberToSave.id}) error:`, err);
+      throw err;
+    }
   }
 
   async deleteMember(id: string): Promise<void> {
     await this.ensureReady();
     const client = this.ensureSupabaseClient();
+    
+    // Get member first to find all assigned roles
+    const member = await this.getMemberById(id);
+    if (!member) {
+      throw new Error('Member not found');
+    }
+
+    // Clean up any roles this member holds in other members' branches
+    const allMembers = await this.getMembers();
+    const updatedMembers = allMembers
+      .filter(m => m.id !== id) // Exclude current member
+      .map(m => {
+        let changed = false;
+        const updated = { ...m };
+        
+        // Remove roles held by this member from all branches
+        (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+          const branchData = updated[branchKey];
+          const filteredRoles = branchData.roles.filter((r: any) => {
+            // Keep role if it's not held by this member, or it doesn't exist
+            return !m[branchKey].roles.some((role: any) => role.id && role.id.includes(id));
+          });
+          if (filteredRoles.length < branchData.roles.length) {
+            updated[branchKey] = { ...branchData, roles: filteredRoles };
+            changed = true;
+          }
+        });
+        
+        return changed ? updated : m;
+      })
+      .filter(m => m);
+
+    // Save clean members
+    await Promise.allSettled(updatedMembers.map(m => this.saveMember(m)));
+    
+    // Delete member
     const { error } = await client.from('members').delete().eq('id', id);
     if (error) throw error;
   }

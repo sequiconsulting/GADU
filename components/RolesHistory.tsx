@@ -139,11 +139,11 @@ export const RolesHistory: React.FC<RolesHistoryProps> = ({ members, selectedYea
                       </td>
                     </tr>
                   ) : (
-                    branchRoles.map((roleName, idx) => (
+                    branchRoles.map((roleName) => (
                       <tr
-                        key={idx}
+                        key={`${branch.type}-${roleName}`}
                         className={`border-t border-slate-200 ${
-                          idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'
+                          branchRoles.indexOf(roleName) % 2 === 0 ? 'bg-white' : 'bg-slate-50'
                         } ${isPrinting ? 'print:page-break-inside-avoid' : ''}`}
                       >
                         <td className="text-left px-2 py-2 font-medium text-slate-800 border-r border-slate-200">

@@ -126,7 +126,7 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
                     </thead>
                     <tbody className="divide-y divide-slate-50 print:divide-slate-200">
                       {roles.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                        <tr key={`${item.roleName}-${item.memberName}`} className="hover:bg-slate-50 transition-colors">
                           <td className="py-3 pl-2 font-medium text-slate-700">{item.roleName}</td>
                           <td className="py-3 text-right pr-2 font-serif text-slate-900 font-bold">{item.memberName}</td>
                         </tr>

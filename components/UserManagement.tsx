@@ -52,6 +52,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [localChangelog, setLocalChangelog] = useState<UserChangeLogEntry[]>(changelog);
+  const [deleteConfirmingUserId, setDeleteConfirmingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if ((changelog?.length || 0) >= localChangelog.length) {
@@ -90,11 +91,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   };
 
   const addToChangelog = async (action: string, userEmail: string, details: string) => {
+    const performedByEmail = currentUserEmail || 'system';
     const newEntry: UserChangeLogEntry = {
       timestamp: new Date().toISOString(),
       action,
       userEmail,
-      performedBy: currentUserEmail,
+      performedBy: performedByEmail,
       details,
     };
 
@@ -160,10 +162,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   };
 
   const handleDeleteUser = async (user: SupabaseUser) => {
-    if (!confirm(`Sei sicuro di voler eliminare l'utente ${user.email}?`)) {
+    // If not confirming yet, just set the confirmation state
+    if (deleteConfirmingUserId !== user.id) {
+      setDeleteConfirmingUserId(user.id);
       return;
     }
 
+    // If we're here, user has confirmed deletion
     try {
       setLoading(true);
       const response = await fetch('/.netlify/functions/manage-supabase-users', {
@@ -186,9 +191,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       await addToChangelog('DELETE', user.email, `Utente eliminato: ${user.user_metadata?.name || user.email}`);
 
       setSuccessMessage('Utente eliminato con successo');
+      setDeleteConfirmingUserId(null);
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       setErrorMessage(err.message || 'Errore durante l\'eliminazione utente');
+      setDeleteConfirmingUserId(null);
     } finally {
       setLoading(false);
     }
@@ -465,14 +472,36 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                           >
                             <Edit2 size={16} />
                           </button>
-                          <button
-                            onClick={() => handleDeleteUser(user)}
-                            disabled={loading}
-                            className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50"
-                            title="Elimina utente"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          {deleteConfirmingUserId === user.id ? (
+                            <div className="flex flex-col gap-0.5 items-center">
+                              <div className="text-[9px] text-slate-600 font-semibold whitespace-nowrap">Sicuro?</div>
+                              <div className="flex gap-0.5">
+                                <button
+                                  onClick={() => handleDeleteUser(user)}
+                                  disabled={loading}
+                                  className="bg-red-500 hover:bg-red-600 disabled:bg-slate-400 text-white px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors"
+                                >
+                                  Sì
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirmingUserId(null)}
+                                  disabled={loading}
+                                  className="bg-slate-300 hover:bg-slate-400 disabled:bg-slate-400 text-slate-700 px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors"
+                                >
+                                  No
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => handleDeleteUser(user)}
+                              disabled={loading}
+                              className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50"
+                              title="Elimina utente"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>

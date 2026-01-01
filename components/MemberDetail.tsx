@@ -22,8 +22,11 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   const [originalMember, setOriginalMember] = useState<Member | null>(null);
   const [activeTab, setActiveTab] = useState<BranchType | 'PROFILE'>(PROFILE);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [changelogPage, setChangelogPage] = useState<number>(0);
+  const [matriculaValidating, setMatriculaValidating] = useState(false);
+  const matriculaTimeoutRef = React.useRef<NodeJS.Timeout>();
 
   // State for status change modal/input
   const [changingStatusFor, setChangingStatusFor] = useState<BranchType | null>(null);
@@ -61,18 +64,53 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
     load();
   }, [memberId]);
 
+  // Debounced matricula validation
+  useEffect(() => {
+    if (matriculaTimeoutRef.current) {
+      clearTimeout(matriculaTimeoutRef.current);
+    }
+
+    if (!member || member.matricula === '' || !/^\d+$/.test(member.matricula)) {
+      setMatriculaValidating(false);
+      return;
+    }
+
+    setMatriculaValidating(true);
+    matriculaTimeoutRef.current = setTimeout(async () => {
+      try {
+        const allMembers = await dataService.getMembers();
+        const duplicate = allMembers.find(m => m.matricula === member.matricula && m.id !== member.id);
+        if (duplicate) {
+          setError(`Matricola ${member.matricula} già assegnata a ${duplicate.lastName} ${duplicate.firstName}.`);
+        } else {
+          setError(null);
+        }
+      } catch (err) {
+        console.error('Matricula check error:', err);
+      } finally {
+        setMatriculaValidating(false);
+      }
+    }, 500); // 500ms debounce
+
+    return () => {
+      if (matriculaTimeoutRef.current) {
+        clearTimeout(matriculaTimeoutRef.current);
+      }
+    };
+  }, [member?.matricula]);
+
   const validate = async (mem: Member): Promise<boolean> => {
     setError(null);
 
     // 1. Matricola: deve essere vuoto oppure numerico e univoco
-    if (mem.matricula !== '') {
+    if (mem.matricola !== '') {
       // Se non vuoto, deve essere numerico
       if (!/^\d+$/.test(mem.matricula)) {
         setError("La matricola deve contenere solo numeri o essere vuota.");
         return false;
       }
 
-      // 2. Duplicate Matricula (solo se presente)
+      // 2. Duplicate Matricula (solo se presente) - verifica finale prima del save
       const allMembers = await dataService.getMembers();
       const duplicate = allMembers.find(m => m.matricula === mem.matricula && m.id !== mem.id);
       if (duplicate) {
@@ -122,6 +160,20 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
       try {
         const isValid = await validate(member);
         if (!isValid) return;
+
+        // Check for conflicts: reload fresh member to compare lastModified
+        const freshMember = await dataService.getMemberById(member.id);
+        if (freshMember && freshMember.lastModified && originalMember.lastModified && 
+            freshMember.lastModified !== originalMember.lastModified) {
+          // Data has been modified elsewhere since we loaded it
+          const confirmOverwrite = window.confirm(
+            `Questo associato è stato modificato da un altro utente.\n\nVuoi sovrascrivere le modifiche e salvare comunque?`
+          );
+          if (!confirmOverwrite) {
+            setError('Salvataggio annullato. Ricaricare la pagina per vedere le modifiche recenti.');
+            return;
+          }
+        }
       } catch (e) {
         // Validation error already set via setError
         return;
@@ -218,12 +270,21 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
         });
       }
       
-      await dataService.saveMember(member);
-      // Aggiorna il membro originale per futture comparazioni
-      setOriginalMember(JSON.parse(JSON.stringify(member)));
-      // Resetta la pagina del changelog
-      setChangelogPage(0);
-      onSave();
+      try {
+        setIsSaving(true);  // Show loading feedback (issue #25)
+        await dataService.saveMember(member);
+        // Aggiorna il membro originale per futture comparazioni
+        setOriginalMember(JSON.parse(JSON.stringify(member)));
+        // Resetta la pagina del changelog
+        setChangelogPage(0);
+        onSave();
+      } catch (err: any) {
+        // Rollback UI state on error (issue #21)
+        setError(err.message || 'Errore durante il salvataggio');
+        console.error('[MemberDetail] Save failed:', err);
+      } finally {
+        setIsSaving(false);  // Hide loading feedback
+      }
     }
   };
 
@@ -409,9 +470,10 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
         </button>
         <button
           onClick={handleSave}
-          className="bg-masonic-gold hover:bg-yellow-600 text-white px-4 md:px-6 py-2 rounded-md font-semibold shadow-md flex items-center transition-colors text-sm md:text-base"
+          disabled={isSaving}
+          className="bg-masonic-gold hover:bg-yellow-600 text-white px-4 md:px-6 py-2 rounded-md font-semibold shadow-md flex items-center transition-colors text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Save className="mr-2" size={18} /> Salva
+          <Save className="mr-2" size={18} /> {isSaving ? 'Salvataggio...' : 'Salva'}
         </button>
       </div>
 
