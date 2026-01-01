@@ -20,8 +20,8 @@ export function SetupWizard() {
   
   console.log('[SETUP-WIZARD] Component mounted, urlGlriNumber:', urlGlriNumber);
   
-  // If glriNumber from URL, pre-fill form
-  const [currentStep, setCurrentStep] = useState(urlGlriNumber ? 2 : 1);
+  // Always start from step 1 (verification), even if glriNumber is provided
+  const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
