@@ -21,7 +21,7 @@ function getCachedSupabaseClient(url: string, key: string): SupabaseClient {
 }
 
 class DataService {
-  public APP_VERSION = '0.143';
+  public APP_VERSION = '0.144';
   public DB_VERSION = 12;
   public SUPABASE_SCHEMA_VERSION = 1;
 

@@ -4,9 +4,10 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
-// Local development fallback - check NETLIFY_DEV instead of AWS_LAMBDA_FUNCTION_NAME
-// because AWS_LAMBDA_FUNCTION_NAME is set even in netlify dev
-const isLocalDev = process.env.NETLIFY_DEV === 'true' || !process.env.NETLIFY;
+// Local development fallback: consider dev only when NETLIFY_DEV is explicitly true.
+// On production functions (where NETLIFY_DEV is undefined/false) we must use Blobs,
+// otherwise we'd try to write to /var/task/.netlify and get ENOENT/EPERM.
+const isLocalDev = process.env.NETLIFY_DEV === 'true';
 const localRegistryPath = join(process.cwd(), '.netlify', 'registry.json');
 
 // Encryption settings
