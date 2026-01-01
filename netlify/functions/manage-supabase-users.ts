@@ -8,7 +8,10 @@ export default async (request: Request) => {
     const lodgeNumber = url.searchParams.get('lodge');
     
     if (!lodgeNumber) {
-      return new Response('Missing lodge parameter', { status: 400 });
+      return new Response(
+        JSON.stringify({ error: 'Missing lodge parameter' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
     }
     
     try {
@@ -16,7 +19,10 @@ export default async (request: Request) => {
       const lodge = registry[lodgeNumber];
       
       if (!lodge) {
-        return new Response('Lodge not found', { status: 404 });
+        return new Response(
+          JSON.stringify({ error: 'Lodge not found' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        );
       }
       
       const supabase = createClient(lodge.supabaseUrl, lodge.supabaseServiceKey);
@@ -39,7 +45,7 @@ export default async (request: Request) => {
   // POST - Create/Delete/Update user
   if (request.method === 'POST') {
     try {
-      const { action, lodgeNumber, email, password, metadata } = await request.json() as any;
+      const { action, lodgeNumber, email, password, metadata, name, privileges, userId } = await request.json() as any;
       
       const registry = await loadRegistry();
       const lodge = registry[lodgeNumber];
@@ -55,7 +61,12 @@ export default async (request: Request) => {
           email,
           password,
           email_confirm: true,
-          user_metadata: metadata || {}
+          user_metadata: {
+            name: name || email,
+            privileges: privileges || [],
+            mustChangePassword: true,
+            ...metadata
+          }
         });
         
         if (error) throw error;
@@ -87,6 +98,63 @@ export default async (request: Request) => {
         );
       }
       
+      if (action === 'updatePassword') {
+        if (!userId) {
+          return new Response('Missing userId', { status: 400 });
+        }
+        
+        const { error } = await supabase.auth.admin.updateUserById(userId, {
+          password,
+          user_metadata: {
+            mustChangePassword: false
+          }
+        });
+        
+        if (error) throw error;
+        
+        await logAuditEvent('user_password_changed', { lodgeNumber, email });
+        
+        return new Response(
+          JSON.stringify({ success: true }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (action === 'updatePrivileges') {
+        if (!userId) {
+          return new Response(
+            JSON.stringify({ error: 'Missing userId' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        const { data: { user }, error: getError } = await supabase.auth.admin.getUserById(userId);
+        
+        if (getError || !user) {
+          return new Response(
+            JSON.stringify({ error: 'User not found' }),
+            { status: 404, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        const { error } = await supabase.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            ...user.user_metadata,
+            name: name || user.user_metadata?.name || email,
+            privileges: privileges || []
+          }
+        });
+        
+        if (error) throw error;
+        
+        await logAuditEvent('user_privileges_updated', { lodgeNumber, email, privileges });
+        
+        return new Response(
+          JSON.stringify({ success: true }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ error: 'Invalid action' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -99,5 +167,8 @@ export default async (request: Request) => {
     }
   }
   
-  return new Response('Method Not Allowed', { status: 405 });
+  return new Response(
+    JSON.stringify({ error: 'Method Not Allowed' }),
+    { status: 405, headers: { 'Content-Type': 'application/json' } }
+  );
 };

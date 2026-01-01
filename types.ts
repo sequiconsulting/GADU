@@ -29,7 +29,9 @@ export interface SupabaseAuthUser {
   };
   user_metadata?: Record<string, any> & {
     gadu_schema_version?: number;
-    display_name?: string;
+    name?: string;
+    privileges?: UserPrivilege[];
+    mustChangePassword?: boolean;
   };
   created_at?: string;
   updated_at?: string;
@@ -177,9 +179,8 @@ export interface AppSettings {
     craft: 'Emulation' | 'Scozzese';
     markAndArch: 'Irlandese' | 'Aldersgate';
   }>;
-  // User management (list of users with privileges)
-  users?: AppUser[];
   // User modification changelog (max 100 entries, oldest are overwritten)
+  // Note: Users are now stored in Supabase Auth user_metadata, not here
   userChangelog?: UserChangeLogEntry[];
   // Branch preferences (casa massonica, motto, logos)
   branchPreferences?: Record<'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM', BranchPreferences>;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AppUser, UserPrivilege, UserChangeLogEntry } from '../types';
-import { Plus, Trash2, Edit2, Check, X } from 'lucide-react';
+import { UserPrivilege, UserChangeLogEntry } from '../types';
+import { Plus, Trash2, Edit2, Check, X, Loader2, Key } from 'lucide-react';
 
 const AVAILABLE_PRIVILEGES: { code: UserPrivilege; label: string; description: string }[] = [
   { code: 'AD', label: 'Admin', description: 'Accesso totale, gestione utenti' },
@@ -14,48 +14,80 @@ const AVAILABLE_PRIVILEGES: { code: UserPrivilege; label: string; description: s
   { code: 'RW', label: 'RAM Write', description: 'Lettura e modifica RAM' },
 ];
 
+interface SupabaseUser {
+  id: string;
+  email: string;
+  created_at: string;
+  user_metadata: {
+    name?: string;
+    privileges?: UserPrivilege[];
+  };
+}
+
 interface UserManagementProps {
-  users: AppUser[];
+  lodgeNumber: string;
   changelog?: UserChangeLogEntry[];
-  canManage: boolean; // Can edit users
-  canView: boolean;   // Can view users list
-  currentUserEmail?: string; // Current logged-in user (for changelog tracking)
-  onUsersChange: (users: AppUser[]) => Promise<void> | void;
+  canManage: boolean;
+  canView: boolean;
+  currentUserEmail?: string;
   onChangelogChange?: (changelog: UserChangeLogEntry[]) => Promise<void> | void;
 }
 
 export const UserManagement: React.FC<UserManagementProps> = ({
-  users,
+  lodgeNumber,
   changelog = [],
   canManage,
   canView,
-  currentUserEmail = 'Admin', // Placeholder, will be actual email when auth is enabled
-  onUsersChange,
+  currentUserEmail = 'Admin',
   onChangelogChange,
 }) => {
-  const [localUsers, setLocalUsers] = useState<AppUser[]>(users);
-  const [currentPage, setCurrentPage] = useState(0);
-  const itemsPerPage = 5;
+  const [users, setUsers] = useState<SupabaseUser[]>([]);
+  const [loading, setLoading] = useState(true);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserName, setNewUserName] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [showPrivilegeSelector, setShowPrivilegeSelector] = useState(false);
-  const [selectedPrivileges, setSelectedPrivileges] = useState<UserPrivilege[]>([]);
+  const [editingName, setEditingName] = useState('');
+  const [editingPrivileges, setEditingPrivileges] = useState<UserPrivilege[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [localChangelog, setLocalChangelog] = useState<UserChangeLogEntry[]>(changelog);
-  
-  useEffect(() => {
-    setLocalUsers(users);
-  }, [users]);
 
   useEffect(() => {
-    // Evita che un refresh con dati più vecchi sovrascriva l'entry appena aggiunta localmente
     if ((changelog?.length || 0) >= localChangelog.length) {
       setLocalChangelog(changelog);
-      setCurrentPage(0);
     }
   }, [changelog, localChangelog.length]);
+
+  useEffect(() => {
+    if (!lodgeNumber) {
+      setUsers([]);
+      setLoading(false);
+      return;
+    }
+    loadUsers();
+  }, [lodgeNumber]);
+
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/.netlify/functions/manage-supabase-users?lodge=${lodgeNumber}`);
+      const result = await response.json();
+
+      if (result.success && result.users) {
+        setUsers(result.users);
+        setErrorMessage(null);
+      } else if (result.error) {
+        setErrorMessage(`Errore: ${result.error}`);
+      } else {
+        setErrorMessage('Errore nel caricamento utenti');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Errore nel caricamento utenti');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const addToChangelog = async (action: string, userEmail: string, details: string) => {
     const newEntry: UserChangeLogEntry = {
@@ -67,13 +99,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     };
 
     let updatedChangelog = [newEntry, ...localChangelog];
-    // Keep only last 100 entries
     if (updatedChangelog.length > 100) {
       updatedChangelog = updatedChangelog.slice(0, 100);
     }
 
     setLocalChangelog(updatedChangelog);
-    setCurrentPage(0); // show newest entry immediately
 
     if (onChangelogChange) {
       await onChangelogChange(updatedChangelog);
@@ -83,91 +113,158 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   const handleAddUser = async () => {
     setErrorMessage(null);
 
-    if (!newUserEmail || !newUserName) {
-      setErrorMessage('Email e nome sono obbligatori');
+    if (!newUserEmail || !newUserName || !newUserPassword) {
+      setErrorMessage('Email, nome e password sono obbligatori');
       return;
     }
 
-    if (localUsers.some(u => u.email === newUserEmail)) {
-      setErrorMessage('Un utente con questa email esiste già');
+    if (newUserPassword.length < 8) {
+      setErrorMessage('La password deve essere di almeno 8 caratteri');
       return;
     }
 
-    const newUser: AppUser = {
-      id: `user_${Date.now()}`,
-      email: newUserEmail,
-      name: newUserName,
-      privileges: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    try {
+      setLoading(true);
+      const response = await fetch('/.netlify/functions/manage-supabase-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          lodgeNumber,
+          email: newUserEmail,
+          password: newUserPassword,
+          name: newUserName,
+          privileges: []
+        })
+      });
 
-    const updated = [...localUsers, newUser];
-    setLocalUsers(updated);
-    await onUsersChange(updated);
-    await addToChangelog('CREATE', newUserEmail, `Utente creato: ${newUserName}`);
+      const result = await response.json();
 
-    setNewUserEmail('');
-    setNewUserName('');
-    setSuccessMessage('Utente aggiunto con successo');
-    setTimeout(() => setSuccessMessage(null), 3000);
-  };
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Errore durante la creazione utente');
+      }
 
-  const handleDeleteUser = async (userId: string) => {
-    if (confirm('Sei sicuro di voler eliminare questo utente?')) {
-      const deletedUser = localUsers.find(u => u.id === userId);
-      const updated = localUsers.filter(u => u.id !== userId);
-      setLocalUsers(updated);
-        await onUsersChange(updated);
-        if (deletedUser) {
-          await addToChangelog('DELETE', deletedUser.email, `Utente eliminato: ${deletedUser.name}`);
-        }
-      setSuccessMessage('Utente eliminato');
+      await loadUsers();
+      await addToChangelog('CREATE', newUserEmail, `Utente creato: ${newUserName}`);
+
+      setNewUserEmail('');
+      setNewUserName('');
+      setNewUserPassword('');
+      setSuccessMessage('Utente aggiunto con successo');
       setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Errore durante la creazione utente');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleStartEdit = (userId: string) => {
-    const user = localUsers.find(u => u.id === userId);
-    if (user) {
-      setEditingId(userId);
-      setSelectedPrivileges([...user.privileges]);
+  const handleDeleteUser = async (user: SupabaseUser) => {
+    if (!confirm(`Sei sicuro di voler eliminare l'utente ${user.email}?`)) {
+      return;
     }
+
+    try {
+      setLoading(true);
+      const response = await fetch('/.netlify/functions/manage-supabase-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete',
+          lodgeNumber,
+          email: user.email
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Errore durante l\'eliminazione utente');
+      }
+
+      await loadUsers();
+      await addToChangelog('DELETE', user.email, `Utente eliminato: ${user.user_metadata?.name || user.email}`);
+
+      setSuccessMessage('Utente eliminato con successo');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Errore durante l\'eliminazione utente');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartEdit = (user: SupabaseUser) => {
+    setEditingId(user.id);
+    setEditingName(user.user_metadata?.name || user.email);
+    setEditingPrivileges(user.user_metadata?.privileges || []);
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setSelectedPrivileges([]);
+    setEditingName('');
+    setEditingPrivileges([]);
   };
 
   const handleTogglePrivilege = (privilege: UserPrivilege) => {
-    setSelectedPrivileges(prev =>
+    setEditingPrivileges(prev =>
       prev.includes(privilege)
         ? prev.filter(p => p !== privilege)
         : [...prev, privilege]
     );
   };
 
-  const adminSelected = selectedPrivileges.includes('AD');
+  const handleSavePrivileges = async (user: SupabaseUser) => {
+    try {
+      setLoading(true);
+      const response = await fetch('/.netlify/functions/manage-supabase-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'updatePrivileges',
+          lodgeNumber,
+          userId: user.id,
+          email: user.email,
+          name: editingName,
+          privileges: editingPrivileges
+        })
+      });
 
-  const getBranchLevelFrom = (privs: UserPrivilege[], readCode: UserPrivilege, writeCode: UserPrivilege): 'none' | 'read' | 'write' => {
-    if (privs.includes(writeCode)) return 'write';
-    if (privs.includes(readCode)) return 'read';
-    return 'none';
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Errore durante l\'aggiornamento privilegi');
+      }
+
+      await loadUsers();
+      const privString = editingPrivileges.length > 0 ? editingPrivileges.join(', ') : 'Nessuno';
+      await addToChangelog('PRIVILEGE_CHANGE', user.email, `Privilegi modificati: ${privString}`);
+
+      setEditingId(null);
+      setEditingName('');
+      setEditingPrivileges([]);
+      setSuccessMessage('Privilegi aggiornati con successo');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Errore durante l\'aggiornamento privilegi');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getBranchLevel = (readCode: UserPrivilege, writeCode: UserPrivilege): 'none' | 'read' | 'write' => {
-    if (selectedPrivileges.includes(writeCode)) return 'write';
-    if (selectedPrivileges.includes(readCode)) return 'read';
+  const adminSelected = editingPrivileges.includes('AD');
+
+  const getBranchLevel = (readCode: UserPrivilege, writeCode: UserPrivilege, privileges: UserPrivilege[]): 'none' | 'read' | 'write' => {
+    if (privileges.includes(writeCode)) return 'write';
+    if (privileges.includes(readCode)) return 'read';
     return 'none';
   };
 
   const setBranchLevel = (readCode: UserPrivilege, writeCode: UserPrivilege, level: 'none' | 'read' | 'write') => {
-    setSelectedPrivileges(prev => {
+    setEditingPrivileges(prev => {
       let next = prev.filter(p => p !== readCode && p !== writeCode && p !== 'AD');
       if (adminSelected) {
-        next = ['AD'];
-        return next;
+        return ['AD'];
       }
       if (level === 'read') next = [...next, readCode];
       if (level === 'write') next = [...next, readCode, writeCode];
@@ -176,30 +273,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   };
 
   const toggleAdmin = (value: boolean) => {
-    setSelectedPrivileges(prev => {
-      const others = prev.filter(p => p !== 'AD');
-      return value ? ['AD'] : others;
-    });
-  };
-
-  const handleSavePrivileges = async (userId: string) => {
-    const user = localUsers.find(u => u.id === userId);
-    const updated = localUsers.map(u =>
-      u.id === userId
-        ? { ...u, privileges: selectedPrivileges, updatedAt: new Date().toISOString() }
-        : u
-    );
-    setLocalUsers(updated);
-      await onUsersChange(updated);
-      if (user) {
-        const privString = selectedPrivileges.length > 0 ? selectedPrivileges.join(', ') : 'Nessuno';
-        await addToChangelog('PRIVILEGE_CHANGE', user.email, `Privilegi modificati: ${privString}`);
-      }
-
-    setEditingId(null);
-    setSelectedPrivileges([]);
-    setSuccessMessage('Privilegi aggiornati');
-    setTimeout(() => setSuccessMessage(null), 3000);
+    setEditingPrivileges(value ? ['AD'] : []);
   };
 
   if (!canView) {
@@ -208,7 +282,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-6">
-      <h3 className="text-lg font-bold text-slate-800 mb-4">Gestione Utenti</h3>
+      <h3 className="text-lg font-bold text-slate-800 mb-4">Gestione Utenti Supabase</h3>
 
       {errorMessage && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
@@ -222,10 +296,17 @@ export const UserManagement: React.FC<UserManagementProps> = ({
         </div>
       )}
 
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-4">
+          <Loader2 className="animate-spin" size={20} />
+          <span className="text-slate-600">Caricamento...</span>
+        </div>
+      )}
+
       {canManage && (
         <div className="bg-slate-50 p-4 rounded-lg mb-6 border border-slate-200">
           <h4 className="font-semibold text-slate-700 mb-3">Aggiungi Nuovo Utente</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
             <input
               type="email"
               placeholder="Email"
@@ -240,9 +321,17 @@ export const UserManagement: React.FC<UserManagementProps> = ({
               onChange={(e) => setNewUserName(e.target.value)}
               className="border border-slate-300 rounded-lg p-2 text-sm focus:outline-none focus:border-masonic-gold"
             />
+            <input
+              type="password"
+              placeholder="Password (min 8 car.)"
+              value={newUserPassword}
+              onChange={(e) => setNewUserPassword(e.target.value)}
+              className="border border-slate-300 rounded-lg p-2 text-sm focus:outline-none focus:border-masonic-gold"
+            />
             <button
               onClick={handleAddUser}
-              className="bg-masonic-gold hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors text-sm"
+              disabled={loading}
+              className="bg-masonic-gold hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors text-sm disabled:opacity-50"
             >
               <Plus size={16} /> Aggiungi
             </button>
@@ -261,108 +350,84 @@ export const UserManagement: React.FC<UserManagementProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {localUsers.length === 0 ? (
+            {users.length === 0 && !loading ? (
               <tr>
                 <td colSpan={canManage ? 4 : 3} className="text-center px-4 py-4 text-slate-500">
                   Nessun utente configurato
                 </td>
               </tr>
             ) : (
-              localUsers.map(user => (
+              users.map(user => (
                 <tr key={user.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3 text-slate-800">{user.email}</td>
-                  <td className="px-4 py-3 text-slate-800">{user.name}</td>
                   <td className="px-4 py-3">
                     {editingId === user.id ? (
-                      <div className="space-y-3 max-w-3xl">
-                        <div className="grid grid-cols-1 gap-2 text-xs text-slate-700">
-                          <div className="flex flex-col gap-1 p-2 bg-slate-50 rounded border border-slate-200">
-                            <span className="font-semibold text-slate-800">Accesso Admin (completo)</span>
-                            <div className="flex items-center gap-4">
-                              <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" checked={adminSelected} onChange={() => toggleAdmin(true)} />
-                                <span>Sì</span>
-                              </label>
-                              <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" checked={!adminSelected} onChange={() => toggleAdmin(false)} />
-                                <span>No</span>
-                              </label>
-                            </div>
-                          </div>
-
-                          <div className={`flex flex-col gap-1 p-2 rounded border ${adminSelected ? 'bg-slate-100 border-slate-200 opacity-60 pointer-events-none' : 'bg-white border-slate-200'}`}>
-                            <span className="font-semibold text-slate-800">Craft</span>
-                            <div className="flex flex-wrap gap-4">
-                              {['none','read','write'].map(level => (
-                                <label key={`craft-${level}`} className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="radio"
-                                    name="craft-access"
-                                    checked={getBranchLevel('CR','CW') === level}
-                                    onChange={() => setBranchLevel('CR','CW', level as any)}
-                                  />
-                                  <span>{level === 'none' ? 'Nessun accesso' : level === 'read' ? 'Solo lettura' : 'Lettura e modifica'}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className={`flex flex-col gap-1 p-2 rounded border ${adminSelected ? 'bg-slate-100 border-slate-200 opacity-60 pointer-events-none' : 'bg-white border-slate-200'}`}>
-                            <span className="font-semibold text-slate-800">Marchio</span>
-                            <div className="flex flex-wrap gap-4">
-                              {['none','read','write'].map(level => (
-                                <label key={`mark-${level}`} className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="radio"
-                                    name="mark-access"
-                                    checked={getBranchLevel('MR','MW') === level}
-                                    onChange={() => setBranchLevel('MR','MW', level as any)}
-                                  />
-                                  <span>{level === 'none' ? 'Nessun accesso' : level === 'read' ? 'Solo lettura' : 'Lettura e modifica'}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className={`flex flex-col gap-1 p-2 rounded border ${adminSelected ? 'bg-slate-100 border-slate-200 opacity-60 pointer-events-none' : 'bg-white border-slate-200'}`}>
-                            <span className="font-semibold text-slate-800">Arco Reale</span>
-                            <div className="flex flex-wrap gap-4">
-                              {['none','read','write'].map(level => (
-                                <label key={`arch-${level}`} className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="radio"
-                                    name="arch-access"
-                                    checked={getBranchLevel('AR','AW') === level}
-                                    onChange={() => setBranchLevel('AR','AW', level as any)}
-                                  />
-                                  <span>{level === 'none' ? 'Nessun accesso' : level === 'read' ? 'Solo lettura' : 'Lettura e modifica'}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className={`flex flex-col gap-1 p-2 rounded border ${adminSelected ? 'bg-slate-100 border-slate-200 opacity-60 pointer-events-none' : 'bg-white border-slate-200'}`}>
-                            <span className="font-semibold text-slate-800">RAM</span>
-                            <div className="flex flex-wrap gap-4">
-                              {['none','read','write'].map(level => (
-                                <label key={`ram-${level}`} className="flex items-center gap-2 cursor-pointer">
-                                  <input
-                                    type="radio"
-                                    name="ram-access"
-                                    checked={getBranchLevel('RR','RW') === level}
-                                    onChange={() => setBranchLevel('RR','RW', level as any)}
-                                  />
-                                  <span>{level === 'none' ? 'Nessun accesso' : level === 'read' ? 'Solo lettura' : 'Lettura e modifica'}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
+                      <input
+                        type="text"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        className="border border-slate-300 rounded px-2 py-1 text-sm w-full"
+                      />
+                    ) : (
+                      <span className="text-slate-800">{user.user_metadata?.name || user.email}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {editingId === user.id ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={adminSelected}
+                              onChange={(e) => toggleAdmin(e.target.checked)}
+                            />
+                            <span className="font-semibold">Admin (accesso totale)</span>
+                          </label>
                         </div>
-
+                        {!adminSelected && (
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            {[
+                              { label: 'Craft', r: 'CR', w: 'CW' },
+                              { label: 'Mark', r: 'MR', w: 'MW' },
+                              { label: 'Chapter', r: 'AR', w: 'AW' },
+                              { label: 'RAM', r: 'RR', w: 'RW' }
+                            ].map(({ label, r, w }) => (
+                              <div key={label} className="flex flex-col gap-1 border border-slate-200 p-2 rounded">
+                                <span className="font-semibold">{label}</span>
+                                <label className="flex items-center gap-1">
+                                  <input
+                                    type="radio"
+                                    checked={getBranchLevel(r as UserPrivilege, w as UserPrivilege, editingPrivileges) === 'none'}
+                                    onChange={() => setBranchLevel(r as UserPrivilege, w as UserPrivilege, 'none')}
+                                  />
+                                  Nessuno
+                                </label>
+                                <label className="flex items-center gap-1">
+                                  <input
+                                    type="radio"
+                                    checked={getBranchLevel(r as UserPrivilege, w as UserPrivilege, editingPrivileges) === 'read'}
+                                    onChange={() => setBranchLevel(r as UserPrivilege, w as UserPrivilege, 'read')}
+                                  />
+                                  Read
+                                </label>
+                                <label className="flex items-center gap-1">
+                                  <input
+                                    type="radio"
+                                    checked={getBranchLevel(r as UserPrivilege, w as UserPrivilege, editingPrivileges) === 'write'}
+                                    onChange={() => setBranchLevel(r as UserPrivilege, w as UserPrivilege, 'write')}
+                                  />
+                                  Write
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <div className="flex gap-2 mt-2">
                           <button
-                            onClick={() => handleSavePrivileges(user.id)}
-                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-semibold flex items-center gap-1"
+                            onClick={() => handleSavePrivileges(user)}
+                            disabled={loading}
+                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-semibold flex items-center gap-1 disabled:opacity-50"
                           >
                             <Check size={14} /> Salva
                           </button>
@@ -374,30 +439,16 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                           </button>
                         </div>
                       </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {user.user_metadata?.privileges && user.user_metadata.privileges.length > 0 ? (
+                          user.user_metadata.privileges.map(p => (
+                            <span key={p} className="px-2 py-1 bg-masonic-gold/10 text-masonic-gold rounded text-xs font-medium">
+                              {AVAILABLE_PRIVILEGES.find(priv => priv.code === p)?.label || p}
+                            </span>
+                          ))
                         ) : (
-                      <div className="space-y-1 text-xs text-slate-700">
-                        <div className="font-semibold text-slate-800">Accesso Admin: {user.privileges.includes('AD') ? 'Sì (pieno)' : 'No'}</div>
-                        {!user.privileges.includes('AD') && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                            {([
-                              { label: 'Craft', read: 'CR', write: 'CW' },
-                              { label: 'Marchio', read: 'MR', write: 'MW' },
-                              { label: 'Arco Reale', read: 'AR', write: 'AW' },
-                              { label: 'RAM', read: 'RR', write: 'RW' },
-                            ] as const).map((b) => {
-                              const level = getBranchLevelFrom(user.privileges, b.read as UserPrivilege, b.write as UserPrivilege);
-                              const desc = level === 'none' ? 'Nessun accesso' : level === 'read' ? 'Solo lettura' : 'Lettura e modifica';
-                              return (
-                                <div key={b.label} className="flex items-center justify-between rounded bg-slate-50 border border-slate-200 px-2 py-1">
-                                  <span className="font-semibold text-slate-800">{b.label}</span>
-                                  <span className="text-slate-600">{desc}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {user.privileges.length === 0 && (
-                          <span className="text-slate-400 italic">Nessun privilegio assegnato</span>
+                          <span className="text-slate-400 italic text-xs">Nessun privilegio</span>
                         )}
                       </div>
                     )}
@@ -407,15 +458,17 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                       {editingId !== user.id && (
                         <div className="flex justify-center gap-2">
                           <button
-                            onClick={() => handleStartEdit(user.id)}
-                            className="text-blue-600 hover:text-blue-800 transition-colors"
+                            onClick={() => handleStartEdit(user)}
+                            disabled={loading}
+                            className="text-blue-600 hover:text-blue-800 transition-colors disabled:opacity-50"
                             title="Modifica privilegi"
                           >
                             <Edit2 size={16} />
                           </button>
                           <button
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="text-red-600 hover:text-red-800 transition-colors"
+                            onClick={() => handleDeleteUser(user)}
+                            disabled={loading}
+                            className="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50"
                             title="Elimina utente"
                           >
                             <Trash2 size={16} />
@@ -431,66 +484,33 @@ export const UserManagement: React.FC<UserManagementProps> = ({
         </table>
       </div>
 
-      <div className="mt-8 pt-4 border-t border-slate-200">
-        <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Storico Modifiche Utenti</h4>
-        <div className="overflow-x-auto border border-slate-200 rounded-md bg-slate-50">
-          <table className="w-full text-[10px] leading-tight">
-            <thead className="bg-slate-200">
-              <tr>
-                <th className="text-left px-2 py-1 font-semibold text-slate-700 w-40">Timestamp UTC</th>
-                <th className="text-left px-2 py-1 font-semibold text-slate-700">Descrizione</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(() => {
-                const sorted = [...localChangelog].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-                const start = currentPage * itemsPerPage;
-                const end = start + itemsPerPage;
-                const pageItems = sorted.slice(start, end);
-                
-                if (pageItems.length === 0) {
-                  return (
-                    <tr>
-                      <td colSpan={2} className="text-center px-2 py-2 text-slate-500">
-                        Nessuna modifica registrata
-                      </td>
-                    </tr>
-                  );
-                }
-                
-                return pageItems.map((entry, idx) => {
-                  const description = `[${entry.action}] ${entry.userEmail} (modificato da ${entry.performedBy || 'Admin'}): ${entry.details}`;
-                  return (
-                    <tr key={idx} className={`border-t border-slate-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-100'}`}>
-                      <td className="px-2 py-1 text-slate-600 font-mono whitespace-nowrap">{entry.timestamp}</td>
-                      <td className="px-2 py-1 text-slate-700">{description}</td>
-                    </tr>
-                  );
-                });
-              })()}
-            </tbody>
-          </table>
-        </div>
-        {localChangelog.length > 5 && (
-          <div className="flex justify-between items-center mt-2 text-[10px] text-slate-600">
-            <button 
-              onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-              disabled={currentPage === 0}
-              className="px-2 py-1 rounded border border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-200 transition-colors"
-            >
-              ← Precedente
-            </button>
-            <span>Pagina {currentPage + 1} di {Math.ceil(localChangelog.length / itemsPerPage)}</span>
-            <button 
-              onClick={() => setCurrentPage(Math.min(Math.ceil(localChangelog.length / itemsPerPage) - 1, currentPage + 1))}
-              disabled={(currentPage + 1) * itemsPerPage >= localChangelog.length}
-              className="px-2 py-1 rounded border border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-200 transition-colors"
-            >
-              Successivo →
-            </button>
+      {/* Changelog */}
+      {localChangelog.length > 0 && (
+        <div className="mt-6 border-t border-slate-200 pt-4">
+          <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Log Modifiche Utenti</h4>
+          <div className="overflow-x-auto border border-slate-200 rounded-md bg-slate-50">
+            <table className="w-full text-[10px] leading-tight">
+              <thead className="bg-slate-200">
+                <tr>
+                  <th className="text-left px-2 py-1 font-semibold text-slate-700 w-32">Timestamp UTC</th>
+                  <th className="text-left px-2 py-1 font-semibold text-slate-700">Descrizione</th>
+                </tr>
+              </thead>
+              <tbody>
+                {localChangelog.slice(0, 10).map((entry, idx) => (
+                  <tr key={idx} className={`border-t border-slate-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-100'}`}>
+                    <td className="px-2 py-1 text-slate-600 font-mono whitespace-nowrap">{entry.timestamp}</td>
+                    <td className="px-2 py-1 text-slate-700">
+                      {entry.action} per {entry.userEmail} da {entry.performedBy}
+                      {entry.details && ` - ${entry.details}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

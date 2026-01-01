@@ -2,13 +2,26 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { Member, AppSettings, BranchType, Convocazione } from '../types';
 import { PublicLodgeConfig } from '../types/lodge';
+import { faker } from '@faker-js/faker/locale/it';
+import { INITIATION_TERMS } from '../constants';
 
 type MemberRow = { id: string; data: Member };
 type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_version: number };
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
+// Cache globale per client Supabase (evita istanze multiple in dev)
+const supabaseClientCache = new Map<string, SupabaseClient>();
+
+function getCachedSupabaseClient(url: string, key: string): SupabaseClient {
+  const cacheKey = `${url}:${key}`;
+  if (!supabaseClientCache.has(cacheKey)) {
+    supabaseClientCache.set(cacheKey, createClient(url, key, { auth: { persistSession: true } }));
+  }
+  return supabaseClientCache.get(cacheKey)!;
+}
+
 class DataService {
-  public APP_VERSION = '0.138';
+  public APP_VERSION = '0.142';
   public DB_VERSION = 12;
   public SUPABASE_SCHEMA_VERSION = 1;
 
@@ -31,12 +44,8 @@ class DataService {
     // Use service key if available (demo mode), otherwise use anon key
     const apiKey = config.supabaseServiceKey || config.supabaseAnonKey;
     
-    // Ricrea Supabase client con lodge config
-    this.supabase = createClient(
-      config.supabaseUrl,
-      apiKey,
-      { auth: { persistSession: true } }
-    );
+    // Usa client cachato per evitare istanze multiple
+    this.supabase = getCachedSupabaseClient(config.supabaseUrl, apiKey);
     
     // Re-init promise
     this.initPromise = this.ensureSchemaAndSeed();
@@ -82,10 +91,9 @@ class DataService {
     if (!settingsRow) {
       const defaultSettings: AppSettings = {
         lodgeName: 'Loggia Supabase Demo',
-        lodgeNumber: '105',
+        lodgeNumber: this.currentLodgeConfig?.glriNumber || '9999',
         province: 'MI',
         dbVersion: this.DB_VERSION,
-        users: [],
         userChangelog: [],
       };
       await client.from('app_settings').insert({
@@ -109,27 +117,43 @@ class DataService {
   public buildDemoMembers(): Member[] {
     const baseDate = new Date();
     const year = baseDate.getFullYear();
+    const today = new Date().toISOString().split('T')[0];
 
-    const craftActiveStatus = (date: string) => [{ date, status: 'ACTIVE', reason: 'Iniziazione' }];
+    // Gradi Craft Emulation in ordine
+    const craftEmulationDegrees = ['Apprendista Ammesso', 'Compagno di Mestiere', 'Maestro Muratore', 'Maestro Installato'];
+    
+    // Ruoli Craft Emulation disponibili
+    const craftEmulationRoles = [
+      'Maestro Venerabile', 'IEM', 'Primo Sorvegliante', 'Secondo Sorvegliante', 
+      'Cappellano', 'Tesoriere', 'Segretario', 'Assistente Segretario', 
+      'Direttore delle Cerimonie', 'Elemosiniere', 'Elemosiniare Assistente',
+      'Organista', 'Porta Stendardo', 'Porta Spada', 'Sovrintendente dei Lavori',
+      'Primo Diacono', 'Secondo Diacono', 'Steward Interno', 'Steward Esterno', 'Copritore'
+    ];
 
-    const makeMember = (
-      id: string,
-      matricula: string,
-      firstName: string,
-      lastName: string,
-      city: string,
-      email: string,
-      craftDegree?: string,
-      craftRole?: string,
-      chapterDegree?: string,
-      chapterRole?: string,
-      markDegree?: string,
-      markRole?: string,
-      ramDegree?: string,
-      ramRole?: string,
-    ): Member => {
-      const today = new Date().toISOString().split('T')[0];
-      const branchTemplate = () => ({
+    const members: Member[] = [];
+    const usedNames = new Set<string>();
+    const cities = ['Milano', 'Roma', 'Torino', 'Bologna', 'Firenze', 'Genova', 'Napoli', 'Venezia', 'Verona', 'Brescia'];
+
+    for (let i = 1; i <= 100; i++) {
+      // Genera nome univoco
+      let firstName: string;
+      let lastName: string;
+      let fullName: string;
+      do {
+        firstName = faker.person.firstName('male');
+        lastName = faker.person.lastName();
+        fullName = `${firstName} ${lastName}`;
+      } while (usedNames.has(fullName));
+      usedNames.add(fullName);
+
+      const matricula = String(100000 + i);
+      const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}@example.com`;
+      const city = cities[i % cities.length];
+      const phone = faker.phone.number('3## ### ####');
+
+      // Branch template per rami inattivi
+      const inactiveBranchTemplate = () => ({
         statusEvents: [],
         degrees: [],
         roles: [],
@@ -141,114 +165,61 @@ class DataService {
         initiationDate: today,
       });
 
-      const craft = branchTemplate();
-      craft.statusEvents = craftActiveStatus(today);
-      if (craftDegree) {
-        craft.degrees = [{ degreeName: craftDegree, date: today, meetingNumber: '1', location: 'Milano' }];
-      }
-      if (craftRole) {
-        craft.roles = [{ id: `role_${id}_craft`, yearStart: year, roleName: craftRole, branch: 'CRAFT' }];
+      // CRAFT - tutti attivi con gradi progressivi
+      const craft = inactiveBranchTemplate();
+      craft.statusEvents = [{ date: today, status: 'ACTIVE', reason: INITIATION_TERMS.CRAFT }];
+      
+      // Determina grado Craft (distribuiamo in modo realistico)
+      let degreeIndex: number;
+      if (i <= 10) degreeIndex = 3; // MI
+      else if (i <= 30) degreeIndex = 2; // MM
+      else if (i <= 60) degreeIndex = 1; // CM
+      else degreeIndex = 0; // AA
+
+      // Aggiungi TUTTI i gradi fino al grado finale
+      for (let d = 0; d <= degreeIndex; d++) {
+        const daysAgo = (degreeIndex - d) * 180; // 6 mesi tra gradi
+        const degreeDate = new Date(baseDate);
+        degreeDate.setDate(degreeDate.getDate() - daysAgo);
+        const dateStr = degreeDate.toISOString().split('T')[0];
+        
+        craft.degrees.push({
+          degreeName: craftEmulationDegrees[d],
+          date: dateStr,
+          meetingNumber: String(d + 1),
+          location: city
+        });
       }
 
-      const chapter = branchTemplate();
-      if (chapterDegree || chapterRole) {
-        chapter.statusEvents = craftActiveStatus(today);
-        if (chapterDegree) {
-          chapter.degrees = [{ degreeName: chapterDegree, date: today, meetingNumber: '1', location: 'Milano' }];
-        }
-        if (chapterRole) {
-          chapter.roles = [{ id: `role_${id}_chapter`, yearStart: year, roleName: chapterRole, branch: 'CHAPTER' }];
-        }
+      // Assegna ruoli Craft (solo ai primi 20)
+      if (i <= craftEmulationRoles.length) {
+        craft.roles = [{
+          id: `role_${i}_craft`,
+          yearStart: year,
+          roleName: craftEmulationRoles[i - 1],
+          branch: 'CRAFT'
+        }];
       }
 
-      const mark = branchTemplate();
-      if (markDegree || markRole) {
-        mark.statusEvents = craftActiveStatus(today);
-        if (markDegree) {
-          mark.degrees = [{ degreeName: markDegree, date: today, meetingNumber: '1', location: 'Milano' }];
-        }
-        if (markRole) {
-          mark.roles = [{ id: `role_${id}_mark`, yearStart: year, roleName: markRole, branch: 'MARK' }];
-        }
-      }
+      // Mark, Chapter, RAM - TUTTI INATTIVI
+      const mark = inactiveBranchTemplate();
+      const chapter = inactiveBranchTemplate();
+      const ram = inactiveBranchTemplate();
 
-      const ram = branchTemplate();
-      if (ramDegree || ramRole) {
-        ram.statusEvents = craftActiveStatus(today);
-        if (ramDegree) {
-          ram.degrees = [{ degreeName: ramDegree, date: today, meetingNumber: '1', location: 'Milano' }];
-        }
-        if (ramRole) {
-          ram.roles = [{ id: `role_${id}_ram`, yearStart: year, roleName: ramRole, branch: 'RAM' }];
-        }
-      }
-
-      return {
-        id,
+      members.push({
+        id: `seed-${i}`,
         matricula,
         firstName,
         lastName,
         city,
         email,
-        phone: '3330000000',
+        phone,
         craft,
         mark,
         chapter,
         ram,
         changelog: [],
-      };
-    };
-
-    const firstNames = ['Giovanni', 'Marco', 'Luca', 'Andrea', 'Paolo', 'Francesco', 'Alessandro', 'Matteo', 'Lorenzo', 'Davide', 'Simone', 'Federico', 'Riccardo', 'Giuseppe', 'Antonio', 'Stefano', 'Roberto', 'Michele', 'Giorgio', 'Claudio'];
-    const lastNames = ['Rossi', 'Bianchi', 'Conti', 'Ferrari', 'Russo', 'Romano', 'Colombo', 'Ricci', 'Marino', 'Greco', 'Bruno', 'Gallo', 'Costa', 'Fontana', 'Esposito', 'Gentile', 'Caruso', 'Ferrara', 'Marchetti', 'Villa'];
-    const cities = ['Milano', 'Torino', 'Bologna', 'Roma', 'Firenze', 'Genova', 'Napoli', 'Venezia', 'Verona', 'Brescia'];
-    
-    // Solo rituali di default: Emulation (Craft), Irlandese (Mark/Chapter), RAM
-    const craftEmulationDegrees = ['Apprendista Ammesso', 'Compagno di Mestiere', 'Maestro Muratore', 'Maestro Installato'];
-    const craftEmulationRoles = ['Maestro Venerabile', 'IEM', 'Primo Sorvegliante', 'Secondo Sorvegliante', 'Cappellano', 'Tesoriere', 'Segretario', 'Assistente Segretario', 'Direttore delle Cerimonie', 'Elemosiniere'];
-    
-    const markIrlandeseDegrees = ['Uomo del Marchio', 'Maestro del Marchio', 'Maestro Installato del Marchio'];
-    const markIrlandeseRoles = ['Maestro Venerabile', 'Primo Sorvegliante', 'Secondo Sorvegliante', 'Maestro Supervisore', 'Primo Supervisore'];
-    
-    const chapterIrlandeseDegrees = ["Compagno dell'Arco Reale", "Principale dell'Arco Reale"];
-    const chapterIrlandeseRoles = ['Re Eccellente', 'Sommo Sacerdote', 'Primo Scriba', 'Scriba E.', 'Scriba N.'];
-    
-    const ramDegrees = ["Marinaio dell'Arca Reale", 'Comandante del RAM'];
-    const ramRoles = ['Venerabile Comandante Noè', 'Iafet (Primo Sorvegliante)', 'Sem (Secondo Sorvegliante)'];
-    
-    const members: Member[] = [];
-    for (let i = 1; i <= 50; i++) {
-      const firstName = firstNames[i % firstNames.length];
-      const lastName = lastNames[Math.floor(i / 2.5) % lastNames.length];
-      const city = cities[i % cities.length];
-      const matricula = String(100000 + i);
-      const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i}@example.com`;
-      
-      const craftDegree = craftEmulationDegrees[0];
-      const craftRole = i <= 10 ? craftEmulationRoles[i - 1] : undefined;
-      
-      let chapterDegree: string | undefined;
-      let chapterRole: string | undefined;
-      if (i <= 10) {
-        chapterDegree = chapterIrlandeseDegrees[0];
-        chapterRole = i <= 5 ? chapterIrlandeseRoles[i - 1] : undefined;
-      }
-      
-      let markDegree: string | undefined;
-      let markRole: string | undefined;
-      if (i <= 10) {
-        markDegree = markIrlandeseDegrees[0];
-        markRole = i <= 5 ? markIrlandeseRoles[i - 1] : undefined;
-      }
-      
-      let ramDegree: string | undefined;
-      let ramRole: string | undefined;
-      if (i <= 6) {
-        ramDegree = ramDegrees[0];
-        ramRole = i <= 3 ? ramRoles[i - 1] : undefined;
-      }
-      
-      members.push(makeMember(`seed-${i}`, matricula, firstName, lastName, city, email, craftDegree, craftRole, chapterDegree, chapterRole, markDegree, markRole, ramDegree, ramRole));
+      });
     }
     
     return members;
@@ -358,12 +329,11 @@ class DataService {
     if (error) throw error;
     const row = data as SettingsRow | null;
     if (!row) {
-      return { lodgeName: '', lodgeNumber: '', province: '', dbVersion: this.DB_VERSION, users: [], userChangelog: [] };
+      return { lodgeName: '', lodgeNumber: '', province: '', dbVersion: this.DB_VERSION, userChangelog: [] };
     }
     const merged: AppSettings = {
       ...row.data,
       dbVersion: this.DB_VERSION,
-      users: row.data.users || [],
       userChangelog: row.data.userChangelog || [],
     };
     return merged;
@@ -375,7 +345,6 @@ class DataService {
     const settingsToSave: AppSettings = {
       ...settings,
       dbVersion: this.DB_VERSION,
-      users: settings.users || [],
       userChangelog: (settings.userChangelog || []).slice(-100),
     };
 

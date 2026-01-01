@@ -4,103 +4,184 @@ import { UserPrivilege } from '../types';
 export interface AuthSession {
   email: string;
   name: string;
-  picture?: string;
+  userId?: string;
   accessToken: string;
-  expiresIn: number;
+  refreshToken?: string;
+  expiresAt?: number;
   privileges: UserPrivilege[];
+  mustChangePassword?: boolean;
 }
 
-/**
- * Verifies email in a lodge's Supabase and creates authenticated session
- * Checks if user exists in app_settings.users table and retrieves privileges
- */
-export async function verifyEmailAndCreateSession(
-  email: string,
-  googleName: string,
-  googlePicture: string | undefined,
-  supabaseUrl: string,
-  supabaseAnonKey: string,
-  lodgeName: string,
-  lodgeNumber: string
-): Promise<AuthSession> {
-  try {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    
-    // Get app_settings to check users list
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('data')
-      .eq('id', 'app')
-      .maybeSingle();
-    
-    if (error) {
-      console.error('[EMAIL_AUTH] Error fetching app_settings:', error);
-      throw new Error('Errore verifica utenti');
-    }
-    
-    if (!data || !data.data) {
-      console.error('[EMAIL_AUTH] No app_settings found');
-      throw new Error('Configurazione loggia non trovata');
-    }
-    
-    const appSettings = data.data;
-    const users = appSettings.users || [];
-    
-    // Find user by email in users array
-    const user = users.find((u: any) => u.email === email);
-    
-    if (!user) {
-      console.warn(`[EMAIL_AUTH] User ${email} not found in lodge ${lodgeNumber}`);
-      throw new Error(
-        `Utente ${email} non abilitato per la loggia ${lodgeName} n. ${lodgeNumber}.\n\nContattare il proprio Segretario per richiedere l'accesso.`
-      );
-    }
-    
-    // User exists - create session with privileges
-    const session: AuthSession = {
-      email,
-      name: user.name || googleName,
-      picture: googlePicture,
-      accessToken: supabaseAnonKey, // Use anon key as bearer token
-      expiresIn: 86400 * 365, // 1 year
-      privileges: user.privileges || []
-    };
-    
-    console.log('[EMAIL_AUTH] Session created for:', email, 'with privileges:', user.privileges);
-    return session;
-  } catch (err: any) {
-    console.error('[EMAIL_AUTH] Verification failed:', err);
-    throw err;
+const STORAGE_KEY = 'gadu_auth_session';
+
+// Cache singleton per evitare multiple istanze GoTrueClient
+const clientCache = new Map<string, SupabaseClient>();
+
+export function createAuthClient(supabaseUrl: string, supabaseAnonKey: string): SupabaseClient {
+  const cacheKey = `${supabaseUrl}:${supabaseAnonKey}`;
+  
+  if (clientCache.has(cacheKey)) {
+    return clientCache.get(cacheKey)!;
   }
+  
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  });
+  
+  clientCache.set(cacheKey, client);
+  return client;
+}
+
+async function fetchUserPrivilegesFromMetadata(userId: string, email: string, userMetadata?: any): Promise<{ name?: string; privileges: UserPrivilege[] } | null> {
+  // Privileges are now stored in Supabase user_metadata
+  if (!userMetadata) return null;
+  
+  const privileges = userMetadata.privileges || [];
+  const name = userMetadata.name || email;
+  
+  console.log(`[EMAIL_AUTH] User ${email} has privileges:`, privileges);
+  return { name, privileges };
 }
 
 /**
- * Checks if current session is valid
+ * Signs in a user with email and password
+ * Checks if user exists in app_settings.users before allowing login
  */
-export function isSessionValid(session: AuthSession | null): boolean {
-  if (!session) return false;
-  if (!session.email || !session.accessToken) return false;
-  return true;
+export async function signInWithPassword(
+  email: string,
+  password: string,
+  supabaseUrl: string,
+  supabaseAnonKey: string
+): Promise<AuthSession> {
+  const client = createAuthClient(supabaseUrl, supabaseAnonKey);
+
+  // Attempt login
+  const { data, error } = await client.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    console.error('[EMAIL_AUTH] Login error:', error);
+    throw new Error('Email o password errati');
+  }
+
+  if (!data.session || !data.user?.email) {
+    throw new Error('Nessuna sessione creata');
+  }
+
+  // Check if user has privileges in metadata
+  let privilegesInfo: { name?: string; privileges: UserPrivilege[] } | null = null;
+  try {
+    privilegesInfo = await fetchUserPrivilegesFromMetadata(
+      data.user.id,
+      data.user.email,
+      data.user.user_metadata
+    );
+  } catch (err) {
+    console.error('[EMAIL_AUTH] Privilege lookup failed:', err);
+    await client.auth.signOut();
+    throw new Error('Impossibile verificare i privilegi utente');
+  }
+
+  if (!privilegesInfo || !privilegesInfo.privileges?.length) {
+    // Permetti login per utente demo della loggia 9999 anche senza privilegi
+    // (verranno ripristinati automaticamente dopo il login)
+    if (email.toLowerCase() !== 'demo@demo.app') {
+      await client.auth.signOut();
+      throw new Error('Utente non autorizzato: nessun privilegio configurato');
+    }
+    // Utente demo senza privilegi: imposta array vuoto temporaneo
+    privilegesInfo = { name: email, privileges: [] };
+  }
+
+  const authSession: AuthSession = {
+    email: data.user.email,
+    name: privilegesInfo.name || data.user.email,
+    userId: data.user.id,
+    accessToken: data.session.access_token,
+    refreshToken: data.session.refresh_token,
+    expiresAt: data.session.expires_at ? data.session.expires_at * 1000 : undefined,
+    privileges: privilegesInfo.privileges,
+    mustChangePassword: data.user.user_metadata?.mustChangePassword || false,
+  };
+
+  saveSession(authSession);
+  return authSession;
 }
 
-/**
- * Stores session in localStorage
- */
+export async function loadActiveSession(
+  supabaseUrl: string,
+  supabaseAnonKey: string
+): Promise<AuthSession | null> {
+  const client = createAuthClient(supabaseUrl, supabaseAnonKey);
+  const { data, error } = await client.auth.getSession();
+
+  if (error) {
+    console.error('[EMAIL_AUTH] Failed to read session:', error);
+    return null;
+  }
+
+  const session = data.session;
+  if (!session || !session.user?.email) {
+    return null;
+  }
+
+  let privilegesInfo: { name?: string; privileges: UserPrivilege[] } | null = null;
+  try {
+    privilegesInfo = await fetchUserPrivilegesFromMetadata(
+      session.user.id,
+      session.user.email,
+      session.user.user_metadata
+    );
+  } catch (err) {
+    console.error('[EMAIL_AUTH] Privilege lookup failed:', err);
+    privilegesInfo = null;
+  }
+
+  if (!privilegesInfo || !privilegesInfo.privileges?.length) {
+    await client.auth.signOut();
+    return null;
+  }
+
+  const authSession: AuthSession = {
+    email: session.user.email,
+    name: privilegesInfo.name || session.user.email,
+    userId: session.user.id,
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token,
+    expiresAt: session.expires_at ? session.expires_at * 1000 : undefined,
+    privileges: privilegesInfo.privileges,
+    mustChangePassword: session.user.user_metadata?.mustChangePassword || false,
+  };
+
+  saveSession(authSession);
+  return authSession;
+}
+
+export async function clearSupabaseSession(
+  supabaseUrl: string,
+  supabaseAnonKey: string
+): Promise<void> {
+  const client = createAuthClient(supabaseUrl, supabaseAnonKey);
+  await client.auth.signOut();
+  clearSession();
+}
+
 export function saveSession(session: AuthSession): void {
   try {
-    localStorage.setItem('gadu_auth_session', JSON.stringify(session));
-    console.log('[EMAIL_AUTH] Session saved');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   } catch (err) {
     console.error('[EMAIL_AUTH] Failed to save session:', err);
   }
 }
 
-/**
- * Retrieves session from localStorage
- */
 export function getStoredSession(): AuthSession | null {
   try {
-    const stored = localStorage.getItem('gadu_auth_session');
+    const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return null;
     return JSON.parse(stored) as AuthSession;
   } catch (err) {
@@ -109,13 +190,9 @@ export function getStoredSession(): AuthSession | null {
   }
 }
 
-/**
- * Clears session from localStorage
- */
 export function clearSession(): void {
   try {
-    localStorage.removeItem('gadu_auth_session');
-    console.log('[EMAIL_AUTH] Session cleared');
+    localStorage.removeItem(STORAGE_KEY);
   } catch (err) {
     console.error('[EMAIL_AUTH] Failed to clear session:', err);
   }

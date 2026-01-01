@@ -1,14 +1,14 @@
 export interface PublicLodgeConfig {
-  glriNumber: string;        // "105"
-  lodgeName: string;         // "I Lapicidi"
-  province: string;          // "AN"
+  glriNumber: string;        // "9999"
+  lodgeName: string;         // "Loggia Demo"
+  province: string;          // "MI"
   supabaseUrl: string;
   supabaseAnonKey: string;
   supabaseServiceKey?: string;  // Only for demo mode!
 }
 
 export interface LodgeConfig extends PublicLodgeConfig {
-  supabaseServiceKey: string;  // Backend only!
+  supabaseServiceKey: string;  // Backend only - for Admin API user creation
   createdAt: Date;
   lastAccess: Date;
   isActive: boolean;

@@ -110,7 +110,7 @@ GADU supporta **multi-tenant**: ogni loggia ha il proprio database Supabase isol
 2. Frontend chiama `/.netlify/functions/get-lodge-config?number=XXX`
 3. Backend restituisce URL Supabase + anon key
 4. Frontend inizializza `dataService.initializeLodge(config)`
-5. OAuth login (TODO: Google OAuth)
+5. Login con link magico Supabase
 6. App caricata con dati della loggia
 
 ### Deployment Netlify
@@ -142,28 +142,34 @@ GADU supporta **multi-tenant**: ogni loggia ha il proprio database Supabase isol
 
 ## 🔐 Autenticazione
 
-GADU utilizza **Google OAuth centralizzato** per tutte le logge, con verifica email per-loggia in Supabase.
+GADU utilizza **autenticazione email + password Supabase** con privilegi memorizzati in **user_metadata**:
 
-### Google OAuth Setup
+- L'utente inserisce email e password nel form di login.
+- Se le credenziali sono valide e l'utente ha privilegi configurati in `user_metadata`, l'accesso è consentito.
+- I privilegi GADU (`AD`, `CR`, `CW`, etc.) sono salvati in `user.user_metadata.privileges`.
+- Le sessioni si auto-rinfrescano con i token Supabase e vengono salvate nel browser.
+- **Single source of truth**: solo Supabase Auth users, nessun doppione in `app_settings`.
 
-Per abilitare Google OAuth:
+### Gestione Utenti
 
-1. Crea un progetto Google OAuth (vedi [GOOGLE_OAUTH_SETUP.md](./GOOGLE_OAUTH_SETUP.md))
-2. Imposta variabili d'ambiente:
-   - **Frontend**: `VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_REDIRECT_URI`
-   - **Backend**: `GOOGLE_CLIENT_SECRET`
-3. Per ogni loggia, configura utenti verificati in Supabase auth
-4. Utenti con email verificata possono accedere tramite Google
+Gli utenti vengono creati tramite **Supabase Admin API** (service key):
+- Netlify Function `manage-supabase-users` con actions:
+  - `create`: Crea utente con email, password, nome e privilegi
+  - `updatePassword`: Modifica password utente esistente
+  - `updatePrivileges`: Modifica nome e privilegi utente
+  - `delete`: Elimina utente
 
-### Architettura Autenticazione
+### Struttura user_metadata
 
-- **Centralized**: Un unico Google OAuth Project serve tutte le logge
-- **Secure**: Client secret non esposto al frontend (backend-only)
-- **Email-only**: Solo email ritornata al client (GDPR compliant)
-- **Per-lodge verification**: Email verificata contro Supabase di ogni loggia
-- **Session-based**: Sessioni salvate in localStorage
+```json
+{
+  "name": "Mario Rossi",
+  "privileges": ["AD", "CR", "CW"]
+}
+```
 
-Per dettagli completi, vedi [GOOGLE_OAUTH_SETUP.md](./GOOGLE_OAUTH_SETUP.md).
+Requisiti:
+- Variabili per ogni loggia nel registry Netlify: `supabaseUrl`, `supabaseAnonKey`, `supabaseServiceKey`.
 
 ---
 
@@ -218,12 +224,12 @@ Il sistema di autenticazione Supabase è **preparato ma disattivato** di default
 
 ### Attivazione (quando pronto)
 
-1. Imposta env: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
-2. In `utils/authService.ts` → `SUPABASE_AUTH_ENABLED = true`
-3. Monta `AuthProvider` in `index.tsx`
-4. Aggiungi pagina login (email OTP/OAuth)
-5. Applica controlli di `permissionChecker` nei componenti protetti
-6. Aggiorna policy RLS Supabase per auth lato backend
+1. Imposta env: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_SERVICE_KEY`
+2. Crea utenti con Netlify Function `manage-supabase-users` (richiede service key)
+3. Login con email + password tramite `LoginInterface.tsx`
+4. Le sessioni vengono gestite automaticamente da Supabase Auth
+5. I privilegi sono verificati in `app_settings.users` dopo il login
+6. (Opzionale) Aggiorna policy RLS Supabase per restrizioni lato backend
 
 ---
 
@@ -319,4 +325,4 @@ MIT License - vedi LICENSE file per dettagli.
 
 ---
 
-**Stato**: ✅ Multi-tenant core implementato | ⏳ Setup Wizard e OAuth in TODO
+**Stato**: ✅ Multi-tenant core implementato | ✅ Autenticazione email+password | ⏳ Setup Wizard in TODO

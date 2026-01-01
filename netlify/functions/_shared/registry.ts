@@ -4,8 +4,9 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
-// Local development fallback - AWS_LAMBDA_FUNCTION_NAME is always present on Netlify Functions
-const isLocalDev = !process.env.AWS_LAMBDA_FUNCTION_NAME;
+// Local development fallback - check NETLIFY_DEV instead of AWS_LAMBDA_FUNCTION_NAME
+// because AWS_LAMBDA_FUNCTION_NAME is set even in netlify dev
+const isLocalDev = process.env.NETLIFY_DEV === 'true' || !process.env.NETLIFY;
 const localRegistryPath = join(process.cwd(), '.netlify', 'registry.json');
 
 // Encryption settings

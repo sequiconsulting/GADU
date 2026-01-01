@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Member, BranchType, StatusType, AppSettings, CapitazioneTipo, TitoloCraftMarchio, TitoloArcoRam } from '../types';
-import { BRANCHES, isMemberActiveInYear, calculateMasonicYearString, STATUS_REASONS, getDegreesByRitual, CAPITAZIONI_CRAFT, CAPITAZIONE_DEFAULT } from '../constants';
+import { BRANCHES, isMemberActiveInYear, calculateMasonicYearString, STATUS_REASONS, getDegreesByRitual, CAPITAZIONI_CRAFT, CAPITAZIONE_DEFAULT, INITIATION_TERMS } from '../constants';
 import { HistoryEditor } from './HistoryEditor';
 import { RoleEditor } from './RoleEditor';
 import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, X, Trash2 } from 'lucide-react';
@@ -230,6 +230,31 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   const updateBranchData = (branch: BranchType, data: any) => {
     if (!member) return;
     const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+    const currentBranchData = member[branchKey];
+    
+    // Auto-aggiungi evento ACTIVE quando viene aggiunto il primo grado
+    if (data.degrees) {
+      const hadNoDegrees = currentBranchData.degrees.length === 0;
+      const willHaveDegrees = data.degrees.length > 0;
+      const hasNoActiveEvent = !currentBranchData.statusEvents.some(e => e.status === 'ACTIVE');
+      
+      // Se prima non c'erano gradi, ora ce ne sono, e non c'è un evento ACTIVE, aggiungilo
+      if (hadNoDegrees && willHaveDegrees && hasNoActiveEvent) {
+        const firstDegreeDate = data.degrees[0]?.date || new Date().toISOString().split('T')[0];
+        const autoEvent = {
+          date: firstDegreeDate,
+          status: 'ACTIVE' as const,
+          reason: INITIATION_TERMS[branch]
+        };
+        
+        // Aggiungi anche l'evento ACTIVE insieme ai gradi
+        data = {
+          ...data,
+          statusEvents: [...currentBranchData.statusEvents, autoEvent]
+        };
+      }
+    }
+    
     setMember({
       ...member,
       [branchKey]: { ...member[branchKey], ...data }

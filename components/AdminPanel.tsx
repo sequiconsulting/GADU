@@ -10,11 +10,12 @@ interface AdminPanelProps {
   currentSettings: AppSettings;
   onSave: (settings: AppSettings) => Promise<void> | void;
   onDataChange?: () => void;
+  currentUserEmail?: string;
 }
 
 type Tab = 'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM';
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave, onDataChange }) => {
+export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave, onDataChange, currentUserEmail }) => {
   const withDefaults = (s: AppSettings): AppSettings => ({
     ...s,
     userChangelog: s.userChangelog || [],
@@ -39,19 +40,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
   const handleSave = async () => {
     await Promise.resolve(onSave(settings));
     setMessage("Impostazioni salvate con successo.");
-    setTimeout(() => setMessage(null), 3000);
-  };
-
-  const handleUsersChange = async (users: any[]) => {
-    let next: AppSettings | undefined;
-    setSettings(prev => {
-      next = { ...prev, users };
-      return next;
-    });
-    if (next) {
-      await onSave(next);
-    }
-    setMessage('Utenti aggiornati');
     setTimeout(() => setMessage(null), 3000);
   };
 
@@ -602,12 +590,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
           <>
             {/* USERS TAB */}
             <UserManagement
-              users={settings.users || []}
+              lodgeNumber={settings.lodgeNumber}
               changelog={settings.userChangelog || []}
-              canManage={true}  // In future, check if current user is admin
+              canManage={true}
               canView={true}
-              currentUserEmail="Admin" // Will be replaced with actual current user email when auth is enabled
-              onUsersChange={handleUsersChange}
+              currentUserEmail={currentUserEmail || 'Admin'}
               onChangelogChange={handleUserChangelogChange}
             />
             {message && (

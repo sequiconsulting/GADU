@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
-import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings, FileText, DollarSign, ClipboardList, Crown, Star } from 'lucide-react';
+import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings, FileText, DollarSign, ClipboardList, Crown, Star, Key, User } from 'lucide-react';
 import { Member, AppSettings } from './types';
 import { PublicLodgeConfig } from './types/lodge';
 import { dataService } from './services/dataService';
@@ -9,7 +9,7 @@ import { lodgeRegistry } from './services/lodgeRegistry';
 import { LoginInterface } from './components/LoginInterface';
 import { SetupWizard } from './components/SetupWizard';
 import { InvalidLodge } from './components/InvalidLodge';
-import { getStoredSession, clearSession, AuthSession } from './utils/emailAuthService';
+import { AuthSession, clearSession, clearSupabaseSession, getStoredSession, loadActiveSession } from './utils/emailAuthService';
 const MemberDetail = React.lazy(() => import('./components/MemberDetail').then(m => ({ default: m.MemberDetail })));
 const RolesReport = React.lazy(() => import('./components/RolesReport').then(m => ({ default: m.RolesReport })));
 const RoleAssignment = React.lazy(() => import('./components/RoleAssignment').then(m => ({ default: m.RoleAssignment })));
@@ -69,39 +69,55 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   const [isRolesMenuOpen, setIsRolesMenuOpen] = useState(false);
   const [isSecretaryMenuOpen, setIsSecretaryMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [isPasswordChangeForced, setIsPasswordChangeForced] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  // Check if user must change password on first login
+  useEffect(() => {
+    if (currentUser?.mustChangePassword) {
+      setShowChangePasswordModal(true);
+      setIsPasswordChangeForced(true);
+    }
+  }, [currentUser]);
 
   // Check for saved lodge on mount and load config from URL param
   useEffect(() => {
     const initializeLodgeFromURL = async () => {
       try {
-        // First check if there's a stored session from previous OAuth
-        const storedSession = getStoredSession();
-        
-        // Fetch lodge config from registry
+        setCheckingAuth(true);
         const config = await lodgeRegistry.getLodgeConfig(glriNumber);
         
         if (!config) {
-          // Lodge not found - redirect to home
           window.location.href = '/';
           return;
         }
         
-        // Lodge found - set it
         setCurrentLodge(config);
-        
-        // If we have a stored session, automatically authenticate
-        if (storedSession) {
-          setCurrentUser(storedSession);
+
+        const activeSession = await loadActiveSession(config.supabaseUrl, config.supabaseAnonKey);
+        if (activeSession) {
+          dataService.initializeLodge(config);
+          setCurrentUser(activeSession);
           setIsAuthenticated(true);
-          setCheckingAuth(false);
+          setShowLogin(false);
         } else {
-          // No stored session - show login interface
-          setShowLogin(true);
-          setCheckingAuth(false);
+          const storedSession = getStoredSession();
+          if (storedSession) {
+            setCurrentUser(storedSession);
+            setIsAuthenticated(true);
+            setShowLogin(false);
+          } else {
+            setShowLogin(true);
+          }
         }
+        setCheckingAuth(false);
       } catch (err) {
         console.error('Error loading lodge config:', err);
-        // On error, redirect to home
         window.location.href = '/';
       }
     };
@@ -123,9 +139,13 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     document.title = title;
   }, [appSettings]);
 
-  const loadData = async () => { 
+  const loadData = async () => {
+    try {
       setMembers(await dataService.getMembers()); 
       setAppSettings(await dataService.getSettings());
+    } catch (err) {
+      console.error('[APP] Error loading data:', err);
+    }
   };
 
   const handleMemberClick = (id: string, origin: View = 'MEMBERS') => {
@@ -169,32 +189,106 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     setSelectedYear(prevYear);
   };
 
-  const handleLoginSuccess = (lodge: PublicLodgeConfig) => {
+  const handleLoginSuccess = (lodge: PublicLodgeConfig, session?: AuthSession) => {
     lodgeRegistry.saveCurrentLodge(lodge);
-    // Inizializza dataService con la configurazione della loggia
     dataService.initializeLodge(lodge);
     setCurrentLodge(lodge);
-    
-    // Load stored session to get user privileges
-    const storedSession = getStoredSession();
-    if (storedSession) {
-      setCurrentUser(storedSession);
-      // currentUser.privileges now available for access control
-      console.log('[APP] User authenticated with privileges:', storedSession.privileges);
-    }
-    
-    setShowLogin(false);
-    setIsAuthenticated(true);
+
+    const hydrateSession = async () => {
+      try {
+        const activeSession = session || (await loadActiveSession(lodge.supabaseUrl, lodge.supabaseAnonKey)) || getStoredSession();
+        if (activeSession) {
+          setCurrentUser(activeSession);
+          console.log('[APP] User authenticated with privileges:', activeSession.privileges);
+        }
+      } finally {
+        setShowLogin(false);
+        setIsAuthenticated(true);
+      }
+    };
+
+    void hydrateSession();
   };
 
-  const handleLogout = () => {
-    clearSession(); // Clear OAuth session
+  const handleLogout = async () => {
+    const lodge = currentLodge;
+    
+    // Pulisci sessione Supabase e token
+    if (lodge) {
+      await clearSupabaseSession(lodge.supabaseUrl, lodge.supabaseAnonKey);
+    }
+    
+    // Cancella TUTTO il localStorage per sicurezza
+    localStorage.clear();
+    
+    // Pulisci registry
     lodgeRegistry.clearCurrentLodge();
+    
+    // Reset stato applicazione
     setCurrentLodge(null);
     setCurrentUser(null);
     setIsAuthenticated(false);
     setMembers([]);
     setAppSettings({ lodgeName: '', lodgeNumber: '', province: '', dbVersion: 5 });
+    
+    // Redirect alla pagina iniziale (login)
+    window.location.href = '/';
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentLodge || !currentUser) return;
+    
+    setPasswordError(null);
+    setPasswordSuccess(false);
+    
+    if (!newPassword || newPassword.length < 8) {
+      setPasswordError('La password deve essere di almeno 8 caratteri');
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Le password non coincidono');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/.netlify/functions/manage-supabase-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'updatePassword',
+          lodgeNumber: currentLodge.glriNumber,
+          email: currentUser.email,
+          password: newPassword
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Errore durante il cambio password');
+      }
+      
+      setPasswordSuccess(true);
+      setNewPassword('');
+      setConfirmPassword('');
+      
+      // Ricarica la sessione per aggiornare mustChangePassword
+      if (isPasswordChangeForced && currentLodge) {
+        const updatedSession = await loadActiveSession(currentLodge.supabaseUrl, currentLodge.supabaseAnonKey);
+        if (updatedSession) {
+          setCurrentUser(updatedSession);
+          setIsPasswordChangeForced(false);
+        }
+      }
+      
+      setTimeout(() => {
+        setShowChangePasswordModal(false);
+        setPasswordSuccess(false);
+      }, 2000);
+    } catch (err: any) {
+      setPasswordError(err.message || 'Errore durante il cambio password');
+    }
   };
 
   // Show login interface if lodge found but not authenticated
@@ -331,16 +425,6 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
                 </div>
             </div>
             <p className="text-xs text-slate-500 mt-2 uppercase tracking-wide">Gestione Associazioni Decisamente User-friendly</p>
-            {currentLodge && (
-              <div className="mt-3 pt-3 border-t border-slate-800">
-                <p className="text-sm text-white font-medium">
-                  {currentLodge.glriNumber === '9999' ? 'Utente Admin' : 'Nome Utente'}
-                </p>
-                <p className="text-xs text-slate-400 mt-1">
-                  {currentLodge.glriNumber === '9999' ? 'admin@gadu.app' : 'email@loggia.it'}
-                </p>
-              </div>
-            )}
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-slate-400 hover:text-white">
             <X size={24} />
@@ -429,9 +513,55 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
             <button onClick={() => handleViewChange('ADMIN')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'ADMIN' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
                 <Settings size={16} /> Admin
             </button>
-            <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-slate-400 hover:text-red-400 transition-colors w-full px-4 py-2">
-                <LogOut size={16} /> Logout
-            </button>
+            
+            {currentLodge && (
+              <div className="pt-2 border-t border-slate-800">
+                <div className="relative">
+                  <button
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="w-full text-left flex items-center justify-between hover:bg-slate-800/50 rounded-lg p-2 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <User size={16} className="text-slate-400 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-white font-medium truncate">
+                          {currentUser?.name || 'Utente'}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5 truncate">
+                          {currentUser?.email || 'email@loggia.it'}
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronDown size={16} className={`text-slate-400 transition-transform flex-shrink-0 ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {isUserMenuOpen && (
+                    <div className="mt-1 bg-slate-800 rounded-lg border border-slate-700 shadow-lg overflow-hidden">
+                      <button
+                        onClick={() => {
+                          setShowChangePasswordModal(true);
+                          setIsUserMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700 transition-colors"
+                      >
+                        <Key size={14} />
+                        Cambia Password
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          handleLogout();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-slate-700 transition-colors border-t border-slate-700"
+                      >
+                        <LogOut size={14} />
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
         </div>
       </aside>
 
@@ -650,7 +780,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
 
           {currentView === 'ADMIN' && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento pannello admin...</div>}>
-              <AdminPanel currentSettings={appSettings} onSave={handleSaveSettings} onDataChange={loadData} />
+              <AdminPanel currentSettings={appSettings} onSave={handleSaveSettings} onDataChange={loadData} currentUserEmail={currentUser?.email} />
             </React.Suspense>
           )}
 
@@ -711,6 +841,100 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
           )}
         </div>
       </main>
+      
+      {/* Modale Cambio Password */}
+      {showChangePasswordModal && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            // Impedisci chiusura con click sul backdrop se password change è forzato
+            if (!isPasswordChangeForced && e.target === e.currentTarget) {
+              setShowChangePasswordModal(false);
+              setNewPassword('');
+              setConfirmPassword('');
+              setPasswordError(null);
+              setPasswordSuccess(false);
+            }
+          }}
+        >
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-masonic-gold/10 rounded-full flex items-center justify-center">
+                <Key className="text-masonic-gold" size={20} />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900">
+                {isPasswordChangeForced ? 'Cambio Password Obbligatorio' : 'Cambia Password'}
+              </h3>
+            </div>
+            
+            {isPasswordChangeForced && (
+              <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg text-sm">
+                <p className="font-medium">Per motivi di sicurezza, devi cambiare la password prima di accedere all'applicazione.</p>
+              </div>
+            )}
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Nuova Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-masonic-gold"
+                  placeholder="Minimo 8 caratteri"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Conferma Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-masonic-gold"
+                  placeholder="Ripeti la password"
+                />
+              </div>
+              
+              {passwordError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  {passwordError}
+                </div>
+              )}
+              
+              {passwordSuccess && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+                  Password modificata con successo!
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              {!isPasswordChangeForced && (
+                <button
+                  onClick={() => {
+                    setShowChangePasswordModal(false);
+                    setNewPassword('');
+                    setConfirmPassword('');
+                    setPasswordError(null);
+                    setPasswordSuccess(false);
+                  }}
+                  className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Annulla
+                </button>
+              )}
+              <button
+                onClick={handleChangePassword}
+                disabled={passwordSuccess}
+                className={`${isPasswordChangeForced ? 'w-full' : 'flex-1'} px-4 py-2 bg-masonic-gold text-white rounded-lg hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                Conferma
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
