@@ -27,8 +27,12 @@ export default async (request: Request) => {
     
     const registry = await loadRegistry();
     
+    console.log(`[SETUP-LODGE] Attempting to register lodge ${glriNumber}`);
+    console.log(`[SETUP-LODGE] Registry keys: ${Object.keys(registry).join(', ')}`);
+    
     // Check if already exists
     if (registry[glriNumber]) {
+      console.log(`[SETUP-LODGE] Lodge ${glriNumber} already exists in registry`);
       return new Response(
         JSON.stringify({ error: 'Lodge number already registered' }),
         { status: 409, headers: { 'Content-Type': 'application/json' } }
