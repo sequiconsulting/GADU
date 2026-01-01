@@ -15,8 +15,13 @@ const AUTH_TAG_LENGTH = 16;
 
 function getEncryptionKey(): Buffer | null {
   const key = process.env.REGISTRY_ENCRYPTION_KEY;
-  if (!key) return null;
-  return Buffer.from(key, 'hex');
+  if (!key) {
+    console.log('[CRYPTO] No REGISTRY_ENCRYPTION_KEY env var found');
+    return null;
+  }
+  const buffer = Buffer.from(key, 'hex');
+  console.log(`[CRYPTO] Key loaded: ${buffer.length} bytes (expected 32)`);
+  return buffer;
 }
 
 function encryptData(text: string): string {
