@@ -206,15 +206,15 @@ Il sistema di autenticazione Supabase è **preparato ma disattivato** di default
 
 | Codice | Significato |
 |--------|-------------|
-| `AD` | Admin (config loggia) |
-| `CR` | Read membri |
-| `CW` | Write membri |
-| `MR` | Read admin panel |
-| `MW` | Write admin panel |
-| `AR` | Read report |
-| `AW` | Write report |
-| `RR` | Read ruoli |
-| `RW` | Write ruoli |
+| `AD` | Amministratore (configurazione loggia e utenti) |
+| `CR` | Craft - Lettura (visualizza membri Craft) |
+| `CW` | Craft - Scrittura (modifica membri Craft) |
+| `MR` | Mark - Lettura (visualizza membri Mark) |
+| `MW` | Mark - Scrittura (modifica membri Mark) |
+| `AR` | Chapter - Lettura (visualizza membri Chapter) |
+| `AW` | Chapter - Scrittura (modifica membri Chapter) |
+| `RR` | RAM - Lettura (visualizza membri Royal Ark Mariner) |
+| `RW` | RAM - Scrittura (modifica membri Royal Ark Mariner) |
 
 ### Attivazione (quando pronto)
 
