@@ -52,7 +52,7 @@ export interface OfficerRole {
   installationMeeting?: string; // Number of the meeting where installed
 }
 
-export type CapitazioneTipo = 'Ordinaria' | 'Ridotta Settembre' | 'Doppia Appartenenza' | 'Ridotta Studenti' | 'Ridotta Ministri di Culto' | 'Onorario';
+export type CapitazioneTipo = 'Ordinaria' | 'Ridotta Settembre' | 'Studenti' | 'Over 80' | 'Stranieri Residenti Italia' | 'Italiani Residenti Estero' | 'Stranieri Residenti Estero' | 'Doppia Appartenenza' | 'Loggia di Ricerca';
 
 export interface CapitazioneEvent {
   year: number; // Masonic year start (e.g., 2025 for 2025-2026)

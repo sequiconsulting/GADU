@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Member, BranchType, StatusType, AppSettings, CapitazioneTipo, TitoloCraftMarchio, TitoloArcoRam } from '../types';
-import { BRANCHES, isMemberActiveInYear, calculateMasonicYearString, STATUS_REASONS, getDegreesByRitual } from '../constants';
+import { BRANCHES, isMemberActiveInYear, calculateMasonicYearString, STATUS_REASONS, getDegreesByRitual, CAPITAZIONI_CRAFT, CAPITAZIONE_DEFAULT } from '../constants';
 import { HistoryEditor } from './HistoryEditor';
 import { RoleEditor } from './RoleEditor';
 import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, X, Trash2 } from 'lucide-react';
@@ -545,7 +545,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                 <select
                                   value={(() => {
                                     const capitazione = branchData.capitazioni?.find(c => c.year === defaultYear);
-                                    return capitazione?.tipo || 'Ordinaria';
+                                    return capitazione?.tipo || CAPITAZIONE_DEFAULT;
                                   })()}
                                   onChange={(e) => {
                                     const newCapitazioni = [...(branchData.capitazioni || [])];
@@ -559,12 +559,9 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                   }}
                                   className="w-40 px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 focus:ring-2 focus:ring-masonic-gold focus:border-transparent"
                                 >
-                                  <option value="Ordinaria">Ordinaria</option>
-                                  <option value="Ridotta Settembre">Ridotta Settembre</option>
-                                  <option value="Doppia Appartenenza">Doppia Appartenenza</option>
-                                  <option value="Ridotta Studenti">Ridotta Studenti</option>
-                                  <option value="Ridotta Ministri di Culto">Ridotta Ministri di Culto</option>
-                                  <option value="Onorario">Onorario</option>
+                                  {CAPITAZIONI_CRAFT.map(cap => (
+                                    <option key={cap.tipo} value={cap.tipo}>{cap.tipo}</option>
+                                  ))}
                                 </select>
                              </div>
 

@@ -2,6 +2,23 @@
 import { BranchType, MasonicBranchData } from "./types";
 
 // ============================================================
+// CAPITAZIONI CRAFT (Membership Fees)
+// ============================================================
+export const CAPITAZIONI_CRAFT = [
+  { tipo: 'Ordinaria', importo: 360 },
+  { tipo: 'Ridotta Settembre', importo: 100 },
+  { tipo: 'Studenti', importo: 150 },
+  { tipo: 'Over 80', importo: 180 },
+  { tipo: 'Stranieri Residenti Italia', importo: 360 },
+  { tipo: 'Italiani Residenti Estero', importo: 100 },
+  { tipo: 'Stranieri Residenti Estero', importo: 50 },
+  { tipo: 'Doppia Appartenenza', importo: 100 },
+  { tipo: 'Loggia di Ricerca', importo: 50 }
+] as const;
+
+export const CAPITAZIONE_DEFAULT = 'Ordinaria';
+
+// ============================================================
 // DEGREE DEFINITIONS BY RITUAL
 // ============================================================
 // Degrees are organized by (branch, ritual) pairs.
