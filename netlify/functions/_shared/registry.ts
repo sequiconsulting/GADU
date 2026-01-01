@@ -4,8 +4,8 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
-// Local development fallback
-const isLocalDev = !process.env.NETLIFY;
+// Local development fallback - check for Netlify Functions environment
+const isLocalDev = !process.env.NETLIFY_FUNCTIONS_ORIGIN;
 const localRegistryPath = join(process.cwd(), '.netlify', 'registry.json');
 
 // Encryption settings
