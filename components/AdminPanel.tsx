@@ -503,6 +503,61 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
               </div>
             </div>
 
+            {/* DATI ASSOCIAZIONE (Read-only from registry) */}
+            <div className="mb-8">
+              <h3 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">Dati Associazione</h3>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-sm text-blue-800">
+                ℹ️ I seguenti dati sono stati configurati durante il setup e non possono essere modificati qui. Per cambiarli, contatta il super-admin.
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Nome Associazione</label>
+                    <input 
+                        type="text" 
+                        value={settings.associationName || ''} 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700" 
+                        readOnly
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Codice Fiscale</label>
+                    <input 
+                        type="text" 
+                        value={settings.taxCode || ''} 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700 font-mono" 
+                        readOnly
+                    />
+                </div>
+                <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Indirizzo</label>
+                    <input 
+                        type="text" 
+                        value={settings.address || ''} 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700" 
+                        readOnly
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">CAP</label>
+                    <input 
+                        type="text" 
+                        value={settings.zipCode || ''} 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700" 
+                        readOnly
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Città</label>
+                    <input 
+                        type="text" 
+                        value={settings.city || ''} 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700" 
+                        readOnly
+                    />
+                </div>
+              </div>
+            </div>
+
             <div className="mb-8">
               <h3 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">Preferenze Rami</h3>
               {renderPreferences()}

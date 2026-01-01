@@ -8,6 +8,11 @@ interface SetupFormData {
   glriNumber: string;
   lodgeName: string;
   province: string;
+  associationName: string;
+  address: string;
+  zipCode: string;
+  city: string;
+  taxCode: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
   supabaseServiceKey: string;
@@ -30,6 +35,11 @@ export function SetupWizard() {
     glriNumber: urlGlriNumber || '',
     lodgeName: '',
     province: '',
+    associationName: '',
+    address: '',
+    zipCode: '',
+    city: '',
+    taxCode: '',
     supabaseUrl: '',
     supabaseAnonKey: '',
     supabaseServiceKey: '',
@@ -104,8 +114,28 @@ export function SetupWizard() {
         }
         return true;
       case 3:
+        if (!formData.associationName) {
+          setError('Inserisci il nome dell\'associazione');
+          return false;
+        }
+        if (!formData.address) {
+          setError('Inserisci l\'indirizzo');
+          return false;
+        }
+        if (!formData.zipCode || formData.zipCode.length !== 5) {
+          setError('Inserisci un CAP valido (5 cifre)');
+          return false;
+        }
+        if (!formData.city) {
+          setError('Inserisci la città');
+          return false;
+        }
         if (!formData.province) {
           setError('Seleziona una provincia');
+          return false;
+        }
+        if (!formData.taxCode || formData.taxCode.length !== 16) {
+          setError('Inserisci un codice fiscale valido (16 caratteri)');
           return false;
         }
         return true;
@@ -299,21 +329,83 @@ export function SetupWizard() {
 
           {currentStep === 3 && (
             <div className="space-y-4 animate-fadeIn">
-              <h2 className="text-xl font-bold text-slate-800">Provincia</h2>
-              <p className="text-slate-600 text-sm">Seleziona la provincia della loggia</p>
-              <select
-                value={formData.province}
-                onChange={(e) => updateField('province', e.target.value)}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none"
-                autoFocus
-              >
-                <option value="">Seleziona...</option>
-                {ITALIAN_PROVINCES.map(prov => (
-                  <option key={prov.code} value={prov.code}>
-                    {prov.name} ({prov.code})
-                  </option>
-                ))}
-              </select>
+              <h2 className="text-xl font-bold text-slate-800">Dati Associazione</h2>
+              <p className="text-slate-600 text-sm">Informazioni ufficiali dell'associazione</p>
+              
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Nome Associazione</label>
+                <input
+                  type="text"
+                  value={formData.associationName}
+                  onChange={(e) => updateField('associationName', e.target.value)}
+                  placeholder="es: Associazione Culturale Demo"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Indirizzo</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => updateField('address', e.target.value)}
+                  placeholder="es: Via Roma 123"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">CAP</label>
+                  <input
+                    type="text"
+                    value={formData.zipCode}
+                    onChange={(e) => updateField('zipCode', e.target.value)}
+                    placeholder="es: 00100"
+                    maxLength={5}
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Città</label>
+                  <input
+                    type="text"
+                    value={formData.city}
+                    onChange={(e) => updateField('city', e.target.value)}
+                    placeholder="es: Roma"
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Provincia</label>
+                <select
+                  value={formData.province}
+                  onChange={(e) => updateField('province', e.target.value)}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none"
+                >
+                  <option value="">Seleziona...</option>
+                  {ITALIAN_PROVINCES.map(prov => (
+                    <option key={prov.code} value={prov.code}>
+                      {prov.name} ({prov.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Codice Fiscale</label>
+                <input
+                  type="text"
+                  value={formData.taxCode}
+                  onChange={(e) => updateField('taxCode', e.target.value.toUpperCase())}
+                  placeholder="es: ABCDEF12G34H567I"
+                  maxLength={16}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none font-mono"
+                />
+              </div>
             </div>
           )}
 

@@ -13,6 +13,11 @@ export interface LodgeConfig extends PublicLodgeConfig {
   lastAccess: Date;
   isActive: boolean;
   adminEmail?: string;
+  associationName?: string;
+  address?: string;
+  zipCode?: string;
+  city?: string;
+  taxCode?: string;
 }
 
 export interface Registry {
