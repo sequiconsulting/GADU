@@ -1,6 +1,19 @@
 import { Handler } from '@netlify/functions';
-import { loadRegistry } from './_shared/registry';
+import { loadRegistry, saveRegistry } from './_shared/registry';
 import { PublicLodgeConfig } from '../../types/lodge';
+
+const DEMO_LODGE_CONFIG = {
+  glriNumber: '9999',
+  lodgeName: 'Demo Loggia',
+  province: 'Demo',
+  supabaseUrl: process.env.VITE_SUPABASE_URL || 'https://demo.supabase.co',
+  supabaseAnonKey: process.env.VITE_SUPABASE_ANON_KEY || 'demo-key',
+  supabaseServiceKey: process.env.VITE_SUPABASE_SERVICE_KEY || 'demo-service-key',
+  createdAt: new Date(),
+  lastAccess: new Date(),
+  isActive: true,
+  adminEmail: 'admin@gadu.app'
+};
 
 export const handler: Handler = async (event) => {
   const glriNumber = event.queryStringParameters?.glriNumber || event.queryStringParameters?.number;
@@ -10,7 +23,14 @@ export const handler: Handler = async (event) => {
   }
   
   try {
-    const registry = await loadRegistry();
+    let registry = await loadRegistry();
+    
+    // Auto-seed 9999 if registry is empty and 9999 is requested
+    if (Object.keys(registry).length === 0 && glriNumber === '9999') {
+      registry['9999'] = DEMO_LODGE_CONFIG;
+      await saveRegistry(registry);
+    }
+    
     const lodge = registry[glriNumber];
     
     if (!lodge) {

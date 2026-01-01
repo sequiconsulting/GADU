@@ -26,14 +26,6 @@ export const handler: Handler = async (event) => {
       };
     }
     
-    // Block reserved demo number
-    if (glriNumber === '9999') {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Lodge number 9999 is reserved for demo mode' })
-      };
-    }
-    
     const registry = await loadRegistry();
     
     // Check if already exists
