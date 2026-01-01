@@ -2,14 +2,17 @@
 
 ## Overview
 
-GADU utilizes centralized Google OAuth authentication for all lodges. A single Google OAuth Project serves all lodge instances, with email verification handled per lodge in Supabase.
+GADU utilizes centralized Google OAuth authentication for all lodges. A single Google OAuth Project serves all lodge instances, with **user verification handled per lodge in Supabase `app_settings.users` table**.
 
 **Architecture:**
 - ✅ Centralized: One Google OAuth project for all GADU lodges
 - ✅ Email-only: Only email returned to client (GDPR compliant)
-- ✅ Per-lodge verification: Email verified against each lodge's Supabase auth users
+- ✅ **Per-lodge verification: Email verified against lodge's `app_settings.users` table**
+- ✅ **Privilege-based: User privileges loaded from database and stored in session**
 - ✅ Secure: Client secret never exposed to frontend
 - ✅ Session-based: Sessions stored in localStorage after verification
+
+**Important:** Users must be added to the lodge's `app_settings.users` array via AdminPanel before they can authenticate. If a user's email is not in the database, they will see: *"Utente xxx non abilitato per loggia xxx. Contattare il proprio Segretario."*
 
 ## Steps to Enable Google OAuth
 
@@ -75,41 +78,59 @@ Or use Supabase Dashboard → Authentication → Add user → Set email as verif
 
 ### Login Flow
 
-1. **User clicks Google button** on LoginInterface
+1. **User accesses lodge URL**
+   - Navigate to `/?glriNumber=1234`
+   - App loads lodge config from registry
+
+2. **User clicks Google button** on LoginInterface
    - Redirects to Google consent screen via `initiateGoogleLogin()`
 
-2. **User authorizes**
+3. **User authorizes**
    - Google redirects back with auth code: `?code=xyz&glriNumber=1234`
 
-3. **Backend code exchange** (via `google-auth-callback.ts`)
+4. **Backend code exchange** (via `google-auth-callback.ts`)
    - Frontend detects auth code in URL
    - Calls backend function to exchange code for Google access token
    - Backend fetches user info (email, name, picture)
    - **Returns only email, name, picture** (no token stored for GDPR)
 
-4. **Email verification** (in `emailAuthService.ts`)
-   - `verifyEmailAndCreateSession()` checks if email exists in lodge's Supabase
-   - Verifies email is confirmed in Supabase auth
-   - Creates session object with email + Google profile
+5. **User verification** (in `emailAuthService.ts`)
+   - `verifyEmailAndCreateSession()` queries lodge's `app_settings` table
+   - Searches for user email in `data.users[]` array
+   - **If not found**: throws error *"Utente xxx non abilitato per loggia xxx. Contattare il proprio Segretario."*
+   - **If found**: loads user privileges (AD, CR, MR, etc.) from database
+   - Creates session object with email, name, picture, **and privileges**
    - Session saved to localStorage
 
-5. **App authenticated**
+6. **App authenticated**
    - User can now access lodge data
    - Session persists across page refreshes (stored in localStorage)
+   - `currentUser.privileges` available for access control
 
-6. **Logout**
+7. **Logout**
    - Clears session from localStorage
    - Returns to LoginInterface
 
+## User Management
+
+### Adding Users (Segretario)
+
+1. Login to lodge as admin (with `AD` privilege)
+2. Go to **Impostazioni** (AdminPanel)
+3. Scroll to **Utenti Autorizzati**
+4. Click **Aggiungi Utente**
+5. Enter email and name
+6. Select privileges (AD, CR, MR, AR, RR, CW, MW, AW, RW)
+7. Click **Salva**
+
+User will now be able to authenticate with their Google email.
+
 ## Troubleshooting
 
-### "Email not found" Error
-- Check that user's email is created in Supabase auth for that lodge
-- Verify email is marked as "Email Confirmed" in Supabase
-
-### "Email not verified" Error
-- In Supabase Dashboard, go to Authentication → Users
-- Click on user email → Mark email as confirmed
+### "Utente xxx non abilitato per loggia xxx" Error
+- User's email must be added to `app_settings.users` by lodge Segretario
+- Go to AdminPanel → Utenti Autorizzati → Add user with correct email
+- Email must match exactly (case-sensitive)
 
 ### OAuth Redirect Not Working
 - Verify `VITE_GOOGLE_REDIRECT_URI` matches Google Cloud Console settings

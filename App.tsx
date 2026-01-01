@@ -174,6 +174,15 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     // Inizializza dataService con la configurazione della loggia
     dataService.initializeLodge(lodge);
     setCurrentLodge(lodge);
+    
+    // Load stored session to get user privileges
+    const storedSession = getStoredSession();
+    if (storedSession) {
+      setCurrentUser(storedSession);
+      // currentUser.privileges now available for access control
+      console.log('[APP] User authenticated with privileges:', storedSession.privileges);
+    }
+    
     setShowLogin(false);
     setIsAuthenticated(true);
   };

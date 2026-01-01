@@ -89,7 +89,9 @@ export function LoginInterface({ onLoginSuccess, glriNumber }: Props) {
         googleUser.name,
         googleUser.picture,
         lodgeConfig.supabaseUrl,
-        lodgeConfig.supabaseAnonKey
+        lodgeConfig.supabaseAnonKey,
+        lodgeConfig.lodgeName,
+        lodgeConfig.glriNumber
       );
       
       // Save session to localStorage
@@ -124,11 +126,28 @@ export function LoginInterface({ onLoginSuccess, glriNumber }: Props) {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
             <AlertCircle size={32} className="text-red-600" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Loggia non trovata</h2>
-          <p className="text-slate-600 mb-4">{error || 'La loggia non esiste nel sistema'}</p>
-          <p className="text-sm text-slate-500">
-            Controlla che il numero nella URL sia corretto: <span className="font-mono text-masonic-gold">{glriNumber}</span>
-          </p>
+          <h2 className="text-xl font-bold text-slate-900 mb-4">
+            {error?.includes('non abilitato') ? 'Accesso Negato' : 'Loggia non trovata'}
+          </h2>
+          <div className="text-slate-600 mb-4 whitespace-pre-line">
+            {error || 'La loggia non esiste nel sistema'}
+          </div>
+          {!error?.includes('non abilitato') && (
+            <p className="text-sm text-slate-500">
+              Controlla che il numero nella URL sia corretto: <span className="font-mono text-masonic-gold">{glriNumber}</span>
+            </p>
+          )}
+          {error?.includes('non abilitato') && (
+            <button
+              onClick={() => {
+                setError(null);
+                setAuthenticating(false);
+              }}
+              className="mt-4 px-6 py-2 bg-masonic-gold hover:bg-yellow-600 text-white rounded-lg font-semibold transition-colors"
+            >
+              Riprova con altro account
+            </button>
+          )}
         </div>
       </div>
     );
