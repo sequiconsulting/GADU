@@ -1,13 +1,14 @@
-import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import { loadRegistry, logAuditEvent } from './_shared/registry';
 
-export const handler: Handler = async (event) => {
+export default async (request: Request) => {
   // GET - List users
-  if (event.httpMethod === 'GET') {
-    const lodgeNumber = event.queryStringParameters?.lodge;
+  if (request.method === 'GET') {
+    const url = new URL(request.url);
+    const lodgeNumber = url.searchParams.get('lodge');
+    
     if (!lodgeNumber) {
-      return { statusCode: 400, body: 'Missing lodge parameter' };
+      return new Response('Missing lodge parameter', { status: 400 });
     }
     
     try {
@@ -15,7 +16,7 @@ export const handler: Handler = async (event) => {
       const lodge = registry[lodgeNumber];
       
       if (!lodge) {
-        return { statusCode: 404, body: 'Lodge not found' };
+        return new Response('Lodge not found', { status: 404 });
       }
       
       const supabase = createClient(lodge.supabaseUrl, lodge.supabaseServiceKey);
@@ -23,29 +24,28 @@ export const handler: Handler = async (event) => {
       
       if (error) throw error;
       
-      return {
-        statusCode: 200,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ success: true, users })
-      };
+      return new Response(
+        JSON.stringify({ success: true, users }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
     } catch (error: any) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: error.message })
-      };
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
     }
   }
   
   // POST - Create/Delete/Update user
-  if (event.httpMethod === 'POST') {
+  if (request.method === 'POST') {
     try {
-      const { action, lodgeNumber, email, password, metadata } = JSON.parse(event.body || '{}');
+      const { action, lodgeNumber, email, password, metadata } = await request.json() as any;
       
       const registry = await loadRegistry();
       const lodge = registry[lodgeNumber];
       
       if (!lodge) {
-        return { statusCode: 404, body: 'Lodge not found' };
+        return new Response('Lodge not found', { status: 404 });
       }
       
       const supabase = createClient(lodge.supabaseUrl, lodge.supabaseServiceKey);
@@ -62,11 +62,10 @@ export const handler: Handler = async (event) => {
         
         await logAuditEvent('user_created', { lodgeNumber, email });
         
-        return {
-          statusCode: 200,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ success: true, user: data.user })
-        };
+        return new Response(
+          JSON.stringify({ success: true, user: data.user }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
       }
       
       if (action === 'delete') {
@@ -74,7 +73,7 @@ export const handler: Handler = async (event) => {
         const user = users?.find((u: any) => u.email === email);
         
         if (!user) {
-          return { statusCode: 404, body: 'User not found' };
+          return new Response('User not found', { status: 404 });
         }
         
         const { error } = await supabase.auth.admin.deleteUser(user.id);
@@ -82,24 +81,23 @@ export const handler: Handler = async (event) => {
         
         await logAuditEvent('user_deleted', { lodgeNumber, email });
         
-        return {
-          statusCode: 200,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ success: true })
-        };
+        return new Response(
+          JSON.stringify({ success: true }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
       }
       
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Invalid action' })
-      };
+      return new Response(
+        JSON.stringify({ error: 'Invalid action' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
     } catch (error: any) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: error.message })
-      };
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
     }
   }
   
-  return { statusCode: 405, body: 'Method Not Allowed' };
+  return new Response('Method Not Allowed', { status: 405 });
 };

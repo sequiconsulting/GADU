@@ -1,5 +1,3 @@
-import { Handler } from '@netlify/functions';
-import { connectLambda } from '@netlify/blobs';
 import { loadRegistry, saveRegistry } from './_shared/registry';
 import { PublicLodgeConfig } from '../../types/lodge';
 
@@ -16,17 +14,15 @@ const DEMO_LODGE_CONFIG = {
   adminEmail: 'admin@gadu.app'
 };
 
-export const handler: Handler = async (event) => {
-  // CRITICAL: Initialize Netlify Blobs for Lambda functions
-  connectLambda(event);
-  
-  const glriNumber = event.queryStringParameters?.glriNumber || event.queryStringParameters?.number;
-  
-  if (!glriNumber) {
-    return { statusCode: 400, body: 'Missing glriNumber parameter' };
-  }
-  
+export default async (request: Request) => {
   try {
+    const url = new URL(request.url);
+    const glriNumber = url.searchParams.get('glriNumber') || url.searchParams.get('number');
+    
+    if (!glriNumber) {
+      return new Response('Missing glriNumber parameter', { status: 400 });
+    }
+    
     let registry = await loadRegistry();
     
     // Auto-seed 9999 if registry is empty and 9999 is requested
@@ -38,7 +34,7 @@ export const handler: Handler = async (event) => {
     const lodge = registry[glriNumber];
     
     if (!lodge) {
-      return { statusCode: 404, body: 'Lodge not found' };
+      return new Response('Lodge not found', { status: 404 });
     }
     
     // Remove service key before sending to client
@@ -50,15 +46,14 @@ export const handler: Handler = async (event) => {
       supabaseAnonKey: lodge.supabaseAnonKey
     };
     
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(publicConfig)
-    };
+    return new Response(JSON.stringify(publicConfig), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
   } catch (error: any) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message })
-    };
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
   }
 };

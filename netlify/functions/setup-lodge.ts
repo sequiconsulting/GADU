@@ -1,14 +1,9 @@
-import { Handler } from '@netlify/functions';
-import { connectLambda } from '@netlify/blobs';
 import { loadRegistry, saveRegistry, logAuditEvent } from './_shared/registry';
 import { LodgeConfig } from '../../types/lodge';
 
-export const handler: Handler = async (event) => {
-  // CRITICAL: Initialize Netlify Blobs for Lambda functions
-  connectLambda(event);
-  
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+export default async (request: Request) => {
+  if (request.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 });
   }
   
   try {
@@ -20,24 +15,24 @@ export const handler: Handler = async (event) => {
       supabaseAnonKey,
       supabaseServiceKey,
       adminEmail
-    } = JSON.parse(event.body || '{}');
+    } = await request.json() as any;
     
     // Validate
     if (!glriNumber || !lodgeName || !supabaseUrl || !supabaseServiceKey) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Missing required fields' })
-      };
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
     }
     
     const registry = await loadRegistry();
     
     // Check if already exists
     if (registry[glriNumber]) {
-      return {
-        statusCode: 409,
-        body: JSON.stringify({ error: 'Lodge number already registered' })
-      };
+      return new Response(
+        JSON.stringify({ error: 'Lodge number already registered' }),
+        { status: 409, headers: { 'Content-Type': 'application/json' } }
+      );
     }
     
     // Create config
@@ -58,15 +53,14 @@ export const handler: Handler = async (event) => {
     await saveRegistry(registry);
     await logAuditEvent('lodge_created', { glriNumber, lodgeName });
     
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: true })
-    };
+    return new Response(
+      JSON.stringify({ success: true }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
   } catch (error: any) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message })
-    };
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 };

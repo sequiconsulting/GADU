@@ -1,22 +1,21 @@
-import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { logAuditEvent } from './_shared/registry';
 
-export const handler: Handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+export default async (request: Request) => {
+  if (request.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 });
   }
   
   try {
-    const { supabaseUrl, supabaseServiceKey } = JSON.parse(event.body || '{}');
+    const { supabaseUrl, supabaseServiceKey } = await request.json() as any;
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Missing credentials' })
-      };
+      return new Response(
+        JSON.stringify({ error: 'Missing credentials' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
     }
     
     // Create admin client
@@ -46,30 +45,29 @@ export const handler: Handler = async (event) => {
       
       if (checkError && checkError.code === 'PGRST116') {
         // Table doesn't exist - need to run SQL manually
-        return {
-          statusCode: 500,
-          body: JSON.stringify({ 
+        return new Response(
+          JSON.stringify({ 
             error: `Table ${table} not found. Please run supabase-schema.sql manually in Supabase SQL Editor`,
             sqlPath: schemaPath
-          })
-        };
+          }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
       }
     }
     
     await logAuditEvent('schema_initialized', { supabaseUrl });
     
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
+    return new Response(
+      JSON.stringify({ 
         success: true, 
         tablesCreated: tables 
-      })
-    };
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
   } catch (error: any) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message })
-    };
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 };
