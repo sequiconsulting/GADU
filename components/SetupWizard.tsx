@@ -39,7 +39,10 @@ export function SetupWizard() {
   };
 
   const handleNext = async () => {
+    console.log(`[SETUP-WIZARD] handleNext called, currentStep: ${currentStep}`);
+    
     if (!validateStep(currentStep)) {
+      console.log(`[SETUP-WIZARD] Validation failed for step ${currentStep}`);
       return;
     }
 
