@@ -138,15 +138,34 @@ GADU supporta **multi-tenant**: ogni loggia ha il proprio database Supabase isol
 - **`initialize-schema`** – Inizializza schema Supabase per nuova loggia
 - **`manage-supabase-users`** – CRUD utenti (da implementare con Auth)
 
-### Testing Locale
+---
 
-#### Con Netlify Dev (raccomandato)
+## 🔐 Autenticazione
 
-```bash
-nnetlify dev
-```
+GADU utilizza **Google OAuth centralizzato** per tutte le logge, con verifica email per-loggia in Supabase.
 
-Netlify Dev simula l'ambiente completo con le Netlify Functions.
+### Google OAuth Setup
+
+Per abilitare Google OAuth:
+
+1. Crea un progetto Google OAuth (vedi [GOOGLE_OAUTH_SETUP.md](./GOOGLE_OAUTH_SETUP.md))
+2. Imposta variabili d'ambiente:
+   - **Frontend**: `VITE_GOOGLE_CLIENT_ID`, `VITE_GOOGLE_REDIRECT_URI`
+   - **Backend**: `GOOGLE_CLIENT_SECRET`
+3. Per ogni loggia, configura utenti verificati in Supabase auth
+4. Utenti con email verificata possono accedere tramite Google
+
+### Architettura Autenticazione
+
+- **Centralized**: Un unico Google OAuth Project serve tutte le logge
+- **Secure**: Client secret non esposto al frontend (backend-only)
+- **Email-only**: Solo email ritornata al client (GDPR compliant)
+- **Per-lodge verification**: Email verificata contro Supabase di ogni loggia
+- **Session-based**: Sessioni salvate in localStorage
+
+Per dettagli completi, vedi [GOOGLE_OAUTH_SETUP.md](./GOOGLE_OAUTH_SETUP.md).
+
+---
 
 #### Solo Frontend (senza Netlify Functions)
 
