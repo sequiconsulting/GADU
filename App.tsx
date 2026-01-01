@@ -9,6 +9,7 @@ import { lodgeRegistry } from './services/lodgeRegistry';
 import { LoginInterface } from './components/LoginInterface';
 import { SetupWizard } from './components/SetupWizard';
 import { InvalidLodge } from './components/InvalidLodge';
+import { getStoredSession, clearSession, AuthSession } from './utils/emailAuthService';
 const MemberDetail = React.lazy(() => import('./components/MemberDetail').then(m => ({ default: m.MemberDetail })));
 const RolesReport = React.lazy(() => import('./components/RolesReport').then(m => ({ default: m.RolesReport })));
 const RoleAssignment = React.lazy(() => import('./components/RoleAssignment').then(m => ({ default: m.RoleAssignment })));
@@ -43,6 +44,7 @@ interface AppWithLodgeProps {
 
 const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   const [currentLodge, setCurrentLodge] = useState<PublicLodgeConfig | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthSession | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
@@ -72,6 +74,9 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   useEffect(() => {
     const initializeLodgeFromURL = async () => {
       try {
+        // First check if there's a stored session from previous OAuth
+        const storedSession = getStoredSession();
+        
         // Fetch lodge config from registry
         const config = await lodgeRegistry.getLodgeConfig(glriNumber);
         
@@ -81,10 +86,19 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
           return;
         }
         
-        // Lodge found - show login interface
+        // Lodge found - set it
         setCurrentLodge(config);
-        setShowLogin(true);
-        setCheckingAuth(false);
+        
+        // If we have a stored session, automatically authenticate
+        if (storedSession) {
+          setCurrentUser(storedSession);
+          setIsAuthenticated(true);
+          setCheckingAuth(false);
+        } else {
+          // No stored session - show login interface
+          setShowLogin(true);
+          setCheckingAuth(false);
+        }
       } catch (err) {
         console.error('Error loading lodge config:', err);
         // On error, redirect to home
@@ -163,8 +177,10 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   };
 
   const handleLogout = () => {
+    clearSession(); // Clear OAuth session
     lodgeRegistry.clearCurrentLodge();
     setCurrentLodge(null);
+    setCurrentUser(null);
     setIsAuthenticated(false);
     setMembers([]);
     setAppSettings({ lodgeName: '', lodgeNumber: '', province: '', dbVersion: 5 });
