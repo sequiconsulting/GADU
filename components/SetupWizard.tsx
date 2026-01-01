@@ -48,9 +48,9 @@ export function SetupWizard() {
       setLoading(true);
       setError(null);
       
-      // Blocca il numero 9999 riservato alla demo
+      // Block setup for lodge 9999 (already configured in production)
       if (formData.glriNumber === '9999') {
-        setError('Il numero 9999 è riservato alla modalità demo');
+        setError('La loggia 9999 è già configurata nel sistema e non può essere modificata');
         setLoading(false);
         return;
       }
