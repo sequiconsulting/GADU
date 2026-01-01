@@ -41,7 +41,7 @@ export function InvalidLodge() {
           </button>
 
           <button
-            onClick={() => navigate('/999')}
+            onClick={() => navigate('/9999')}
             className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             <Sparkles size={18} />

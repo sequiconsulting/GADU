@@ -79,26 +79,6 @@ cd GADU
 npm install
 ```
 
-### Modalità Demo
-
-Crea `.env.local`:
-
-```bash
-VITE_DEMO_LODGE_NUMBER="999"
-VITE_DEMO_LODGE_NAME="Loggia Demo"
-VITE_DEMO_PROVINCE="DEMO"
-VITE_DEMO_SUPABASE_URL="your_demo_supabase_url"
-VITE_DEMO_SUPABASE_ANON_KEY="your_demo_anon_key"
-```
-
-Avvia:
-
-```bash
-npm run dev
-```
-
-Clicca "Modalità Demo" per accesso immediato con dati di esempio.
-
 ### Setup Supabase
 
 1. Crea un progetto Supabase
@@ -137,11 +117,19 @@ GADU supporta **multi-tenant**: ogni loggia ha il proprio database Supabase isol
 
 1. Push repo su GitHub/GitLab
 2. Connetti a Netlify
-3. Imposta variabili d'ambiente:
-   - `REGISTRY_ENCRYPTION_KEY` (32 caratteri random)
-   - `VITE_DEMO_*` (opzionale, per modalità demo)
-4. Abilita **Netlify Blobs** nelle impostazioni del sito
-5. Deploy!
+3. **Genera chiave di cifratura** (32 byte = 64 caratteri hex):
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+4. Imposta variabili d'ambiente su Netlify:
+   - Vai su **Site configuration → Environment variables**
+   - Aggiungi: `REGISTRY_ENCRYPTION_KEY` = (la chiave generata al punto 3)
+   - ⚠️ **IMPORTANTE**: Salva questa chiave in modo sicuro! Senza di essa non potrai decifrare il registry
+5. Abilita **Netlify Blobs** nelle impostazioni del sito:
+   - Vai su **Integrations → Netlify Blobs → Enable**
+6. Deploy!
+
+**Nota sulla cifratura**: Il registry in produzione viene cifrato con AES-256-GCM prima di essere salvato su Netlify Blobs. In sviluppo locale, i dati rimangono in chiaro nel file `.netlify/registry.json` (gitignored).
 
 ### Funzioni Backend
 
@@ -152,13 +140,35 @@ GADU supporta **multi-tenant**: ogni loggia ha il proprio database Supabase isol
 
 ### Testing Locale
 
-```bash
-# Con Netlify Dev (raccomandato)
-netlify dev
+#### Con Netlify Dev (raccomandato)
 
-# Solo frontend
-npm run dev
+```bash
+nnetlify dev
 ```
+
+Netlify Dev simula l'ambiente completo con le Netlify Functions.
+
+#### Solo Frontend (senza Netlify Functions)
+
+Se usi `npm run dev` (Vite diretto), le Netlify Functions non saranno disponibili.
+Per simulare il registry in locale, viene usato un file `.netlify/registry.json`:
+
+```json
+{
+  "9999": {
+    "glriNumber": "9999",
+    "lodgeName": "Loggia Demo",
+    "province": "DEMO",
+    "supabaseUrl": "https://your-demo-project.supabase.co",
+    "supabaseAnonKey": "your_anon_key"
+  }
+}
+```
+
+Questo file viene letto automaticamente in locale dalle Netlify Functions quando non sei su Netlify.
+Per aggiungere altre logge di test, aggiungi semplicemente altri oggetti nel registry.
+
+**Nota**: Il file `.netlify/registry.json` è locale e non viene commitato (è in `.gitignore`). In produzione, il registry usa Netlify Blobs cifrato.
 
 ---
 
@@ -216,7 +226,7 @@ netlify dev       # Dev server con Netlify Functions
 ├── components/           # UI components (MemberDetail, RolesReport, ecc.)
 ├── contexts/             # React contexts (Auth)
 ├── netlify/functions/    # Backend serverless
-├── services/             # Data layer (dataService, demoModeService)
+├── services/             # Data layer (dataService, lodgeRegistry)
 ├── types/                # TypeScript types
 ├── utils/                # Auth e permission checkers
 ├── App.tsx               # Main app (9 views, navigation, state)

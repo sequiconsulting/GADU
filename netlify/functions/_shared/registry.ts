@@ -2,10 +2,68 @@ import { getStore } from '@netlify/blobs';
 import { LodgeConfig, Registry } from '../../../types/lodge';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
 // Local development fallback
 const isLocalDev = !process.env.NETLIFY;
 const localRegistryPath = join(process.cwd(), '.netlify', 'registry.json');
+
+// Encryption settings
+const ALGORITHM = 'aes-256-gcm';
+const IV_LENGTH = 16;
+const AUTH_TAG_LENGTH = 16;
+
+function getEncryptionKey(): Buffer | null {
+  const key = process.env.REGISTRY_ENCRYPTION_KEY;
+  if (!key) return null;
+  return Buffer.from(key, 'hex');
+}
+
+function encryptData(text: string): string {
+  const key = getEncryptionKey();
+  if (!key) {
+    // No encryption key - return plain text (dev mode)
+    return text;
+  }
+  
+  const iv = randomBytes(IV_LENGTH);
+  const cipher = createCipheriv(ALGORITHM, key, iv);
+  
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  
+  const authTag = cipher.getAuthTag();
+  
+  // Format: iv:authTag:encryptedData
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
+}
+
+function decryptData(encryptedText: string): string {
+  const key = getEncryptionKey();
+  if (!key) {
+    // No encryption key - assume plain text (dev mode)
+    return encryptedText;
+  }
+  
+  // Check if data is encrypted (has the iv:authTag:data format)
+  const parts = encryptedText.split(':');
+  if (parts.length !== 3) {
+    // Not encrypted format - return as is (backwards compatibility)
+    return encryptedText;
+  }
+  
+  const [ivHex, authTagHex, encrypted] = parts;
+  const iv = Buffer.from(ivHex, 'hex');
+  const authTag = Buffer.from(authTagHex, 'hex');
+  
+  const decipher = createDecipheriv(ALGORITHM, key, iv);
+  decipher.setAuthTag(authTag);
+  
+  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  
+  return decrypted;
+}
 
 function ensureLocalRegistryDir() {
   const dir = join(process.cwd(), '.netlify');
@@ -31,7 +89,8 @@ export async function loadRegistry(): Promise<Registry> {
   if (!data) return {};
   
   // Convert ArrayBuffer to string if needed
-  const jsonString = typeof data === 'string' ? data : new TextDecoder().decode(data);
+  const encryptedString = typeof data === 'string' ? data : new TextDecoder().decode(data);
+  const jsonString = decryptData(encryptedString);
   return JSON.parse(jsonString);
 }
 
@@ -45,8 +104,13 @@ export async function saveRegistry(registry: Registry): Promise<void> {
   
   // Production: use Netlify Blobs
   const store = getStore('gadu-registry');
-  await store.set('lodges', JSON.stringify(registry), {
-    metadata: { lastUpdate: new Date().toISOString() }
+  const jsonString = JSON.stringify(registry);
+  const encryptedData = encryptData(jsonString);
+  await store.set('lodges', encryptedData, {
+    metadata: { 
+      lastUpdate: new Date().toISOString(),
+      encrypted: !!getEncryptionKey()
+    }
   });
 }
 

@@ -6,7 +6,6 @@ import { Member, AppSettings } from './types';
 import { PublicLodgeConfig } from './types/lodge';
 import { dataService } from './services/dataService';
 import { lodgeRegistry } from './services/lodgeRegistry';
-import { demoMode } from './services/demoModeService';
 import { LoginInterface } from './components/LoginInterface';
 import { SetupWizard } from './components/SetupWizard';
 import { InvalidLodge } from './components/InvalidLodge';
@@ -46,6 +45,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   const [currentLodge, setCurrentLodge] = useState<PublicLodgeConfig | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [showLogin, setShowLogin] = useState(false);
   
   const [currentView, setCurrentView] = useState<View>('DASHBOARD');
   const [returnView, setReturnView] = useState<View>('MEMBERS');
@@ -72,35 +72,24 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   useEffect(() => {
     const initializeLodgeFromURL = async () => {
       try {
-        // Special case: 999 = demo mode
-        if (glriNumber === '999') {
-          const demoConfig = demoMode.getDemoConfig();
-          demoMode.activateDemoMode();
-          dataService.initializeLodge(demoConfig);
-          setCurrentLodge(demoConfig);
-          setIsAuthenticated(true);
-          setCheckingAuth(false);
-          return;
-        }
-        
         // Fetch lodge config from registry
         const config = await lodgeRegistry.getLodgeConfig(glriNumber);
         
         if (!config) {
-          // Lodge not found
-          setCheckingAuth(false);
+          // Lodge not found - redirect to home
+          window.location.href = '/';
           return;
         }
         
-        dataService.initializeLodge(config);
+        // Lodge found - show login interface
         setCurrentLodge(config);
-        setIsAuthenticated(true);
+        setShowLogin(true);
+        setCheckingAuth(false);
       } catch (err) {
         console.error('Error loading lodge config:', err);
-        setCheckingAuth(false);
+        // On error, redirect to home
+        window.location.href = '/';
       }
-      
-      setCheckingAuth(false);
     };
     
     initializeLodgeFromURL();
@@ -112,22 +101,6 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     }
   }, [isAuthenticated]);
   
-  // Auto-load demo data for demo mode if empty
-  useEffect(() => {
-    const loadDemoDataIfNeeded = async () => {
-      if (glriNumber === '999' && isAuthenticated && members.length === 0) {
-        try {
-          await dataService.loadDemoData();
-          await loadData();
-        } catch (err) {
-          console.error('Error loading demo data:', err);
-        }
-      }
-    };
-    
-    loadDemoDataIfNeeded();
-  }, [isAuthenticated, members.length, glriNumber]);
-
   useEffect(() => {
     let title = `G.A.D.U. (${dataService.APP_VERSION})`;
     if (appSettings.lodgeName) {
@@ -185,18 +158,22 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   const handleLoginSuccess = (lodge: PublicLodgeConfig) => {
     lodgeRegistry.saveCurrentLodge(lodge);
     dataService.initializeLodge(lodge);
-    setCurrentLodge(lodge);
+    setShowLogin(false);
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
     lodgeRegistry.clearCurrentLodge();
-    demoMode.exitDemoMode();
     setCurrentLodge(null);
     setIsAuthenticated(false);
     setMembers([]);
     setAppSettings({ lodgeName: '', lodgeNumber: '', province: '', dbVersion: 5 });
   };
+
+  // Show login interface if lodge found but not authenticated
+  if (showLogin && currentLodge && !isAuthenticated) {
+    return <LoginInterface glriNumber={glriNumber} onLoginSuccess={handleLoginSuccess} />;
+  }
 
   // Loading state
   if (checkingAuth) {
@@ -328,14 +305,14 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
             </div>
             <p className="text-xs text-slate-500 mt-2 uppercase tracking-wide">Gestione Associazioni Decisamente User-friendly</p>
             {currentLodge && (
-              <p className="text-xs text-masonic-gold mt-2 font-medium">
-                {currentLodge.lodgeName} n. {currentLodge.glriNumber}
-              </p>
-            )}
-            {demoMode.isDemoMode() && (
-              <span className="inline-block mt-2 px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded">
-                🎭 DEMO
-              </span>
+              <div className="mt-3 pt-3 border-t border-slate-800">
+                <p className="text-sm text-white font-medium">
+                  {currentLodge.glriNumber === '9999' ? 'Utente Admin' : 'Nome Utente'}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {currentLodge.glriNumber === '9999' ? 'admin@gadu.app' : 'email@loggia.it'}
+                </p>
+              </div>
             )}
           </div>
           <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-slate-400 hover:text-white">

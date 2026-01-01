@@ -27,6 +27,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
   const [showClearDbConfirm, setShowClearDbConfirm] = useState<boolean>(false);
   const [showLoadDemoConfirm, setShowLoadDemoConfirm] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  
+  // Verifica se la loggia corrente è la demo (9999)
+  const isDemoLodge = dataService.getCurrentLodgeConfig()?.glriNumber === '9999';
 
   // Always sync local settings to the latest from parent
   useEffect(() => {
@@ -505,28 +508,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
               {renderPreferences()}
             </div>
 
-            <div className="mb-8 bg-red-50 border border-red-200 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-red-800 border-b border-red-200 pb-2 mb-4">Gestione Database</h3>
-              <p className="text-sm text-slate-600 mb-4">
-                Attenzione: queste operazioni sono irreversibili. Assicurati di avere un backup prima di procedere.
-              </p>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => setShowLoadDemoConfirm(true)}
-                  disabled={isProcessing}
-                  className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
-                >
-                  <Database size={18} /> Carica Dati di Esempio
-                </button>
-                <button
-                  onClick={() => setShowClearDbConfirm(true)}
-                  disabled={isProcessing}
-                  className="bg-red-600 hover:bg-red-700 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
-                >
-                  <Trash2 size={18} /> Cancella Database
-                </button>
+            {isDemoLodge && (
+              <div className="mb-8 bg-red-50 border border-red-200 rounded-lg p-6">
+                <h3 className="text-lg font-bold text-red-800 border-b border-red-200 pb-2 mb-4">Gestione Database (Solo Demo)</h3>
+                <p className="text-sm text-slate-600 mb-4">
+                  Attenzione: queste operazioni sono irreversibili. Assicurati di avere un backup prima di procedere.
+                </p>
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setShowLoadDemoConfirm(true)}
+                    disabled={isProcessing}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
+                  >
+                    <Database size={18} /> Carica Dati di Esempio
+                  </button>
+                  <button
+                    onClick={() => setShowClearDbConfirm(true)}
+                    disabled={isProcessing}
+                    className="bg-red-600 hover:bg-red-700 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
+                  >
+                    <Trash2 size={18} /> Cancella Database
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex justify-end items-center gap-4 border-t border-slate-100 pt-6">
               {message && <span className="text-green-600 font-medium text-sm animate-pulse">{message}</span>}

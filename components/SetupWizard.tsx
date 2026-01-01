@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Building2, Database, Key, CheckCircle, ArrowRight, ArrowLeft, Sparkles, AlertCircle } from 'lucide-react';
 import { ITALIAN_PROVINCES } from '../constants';
 import { lodgeRegistry } from '../services/lodgeRegistry';
-import { demoMode } from '../services/demoModeService';
 
 interface SetupFormData {
   glriNumber: string;
@@ -49,9 +48,9 @@ export function SetupWizard() {
       setLoading(true);
       setError(null);
       
-      // Blocca il numero 999 riservato alla demo
-      if (formData.glriNumber === '999') {
-        setError('Il numero 999 è riservato alla modalità demo');
+      // Blocca il numero 9999 riservato alla demo
+      if (formData.glriNumber === '9999') {
+        setError('Il numero 9999 è riservato alla modalità demo');
         setLoading(false);
         return;
       }
@@ -395,7 +394,6 @@ export function SetupWizard() {
           <button
             onClick={() => {
               lodgeRegistry.clearCurrentLodge();
-              demoMode.exitDemoMode();
               navigate('/');
             }}
             className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
