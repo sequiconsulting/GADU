@@ -24,6 +24,7 @@ export function SetupWizard() {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
   
   const [formData, setFormData] = useState<SetupFormData>({
     glriNumber: urlGlriNumber || '',
@@ -48,8 +49,13 @@ export function SetupWizard() {
       return;
     }
 
-    // Step 1: verifica che il numero loggia non sia già registrato
+    // Step 1: verificare disclaimer e numero loggia
     if (currentStep === 1) {
+      if (!disclaimerAccepted) {
+        setError('Devi accettare il disclaimer GDPR per continuare');
+        return;
+      }
+      
       setLoading(true);
       setError(null);
       
@@ -222,18 +228,53 @@ export function SetupWizard() {
         {/* Step Content */}
         <div className="min-h-[300px] mb-8">
           {currentStep === 1 && (
-            <div className="space-y-4 animate-fadeIn">
-              <h2 className="text-xl font-bold text-slate-800">Numero Loggia GLRI</h2>
-              <p className="text-slate-600 text-sm">Inserisci il numero ufficiale della tua loggia presso la Gran Loggia Regolare d'Italia</p>
-              <input
-                type="text"
-                value={formData.glriNumber}
-                onChange={(e) => updateField('glriNumber', e.target.value)}
-                placeholder="es: 105"
-                maxLength={4}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none text-lg"
-                autoFocus
-              />
+            <div className="space-y-6 animate-fadeIn">
+              {/* GDPR Disclaimer */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-blue-900 mb-4">Informativa GDPR e Responsabilità Legali</h3>
+                <div className="text-sm text-blue-800 space-y-3 mb-4 max-h-[200px] overflow-y-auto">
+                  <p><strong>Data Controller:</strong> La loggia massonica è il solo e unico titolare dei dati personali gestiti attraverso GADU. GADU non è un data controller ai sensi del GDPR.</p>
+                  
+                  <p><strong>Proprietà dei Dati:</strong> Tutti i dati inseriti in GADU (dati personali dei soci, informazioni relative ai gradi, ruoli, cronistoria) rimangono di proprietà esclusiva della loggia. GADU è esclusivamente uno strumento di visualizzazione, modifica e gestione dati.</p>
+                  
+                  <p><strong>Funzione di GADU:</strong> GADU è un software di gestione e archiviazione per uso interno delle logge. Non raccoglie, non conserva permanentemente, e non trasferisce dati a terzi. Tutti i dati rimangono sotto il completo controllo e la responsabilità della loggia.</p>
+                  
+                  <p><strong>Responsabilità Legale:</strong> La loggia rimane completamente responsabile della conformità al GDPR e alle normative sulla privacy. GADU non assume alcuna responsabilità legale per l'uso, la conservazione, o il trattamento dei dati. È compito della loggia garantire il consenso degli interessati e l'implementazione di misure di sicurezza appropriate.</p>
+                  
+                  <p><strong>Accettazione:</strong> Procedendo, la loggia dichiara di aver compreso il presente disclaimer e di assumersi piena responsabilità del trattamento dei dati personali attraverso GADU.</p>
+                </div>
+                
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={disclaimerAccepted}
+                    onChange={(e) => {
+                      setDisclaimerAccepted(e.target.checked);
+                      setError(null);
+                    }}
+                    className="w-5 h-5 mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                  />
+                  <span className="text-sm text-slate-700">
+                    <strong>Ho compreso e accetto</strong> che la loggia è il solo responsabile del trattamento dei dati attraverso GADU e che GADU non assume alcuna responsabilità legale.
+                  </span>
+                </label>
+              </div>
+
+              {/* Numero Loggia Input */}
+              <div className="space-y-4">
+                <h2 className="text-xl font-bold text-slate-800">Numero Loggia GLRI</h2>
+                <p className="text-slate-600 text-sm">Inserisci il numero ufficiale della tua loggia presso la Gran Loggia Regolare d'Italia</p>
+                <input
+                  type="text"
+                  value={formData.glriNumber}
+                  onChange={(e) => updateField('glriNumber', e.target.value)}
+                  placeholder="es: 105"
+                  maxLength={4}
+                  disabled={!disclaimerAccepted}
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none text-lg disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  autoFocus
+                />
+              </div>
             </div>
           )}
 
@@ -372,7 +413,7 @@ export function SetupWizard() {
             {currentStep < 6 ? (
               <button
                 onClick={handleNext}
-                disabled={loading}
+                disabled={loading || (currentStep === 1 && !disclaimerAccepted)}
                 className="px-6 py-3 bg-masonic-gold hover:bg-yellow-600 disabled:bg-slate-400 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
               >
                 {loading ? 'Verifica...' : 'Avanti'}
