@@ -119,9 +119,15 @@ export async function saveRegistry(registry: Registry): Promise<void> {
         encrypted: !!getEncryptionKey()
       }
     });
-  } catch (error) {
+    console.log('[BLOBS] Registry saved successfully');
+  } catch (error: any) {
     // Blobs not configured - just log warning (9999 is in-memory only)
-    console.warn('Netlify Blobs not available, registry not persisted:', error);
+    console.error('[BLOBS] Failed to save registry:', {
+      message: error?.message,
+      code: error?.code,
+      name: error?.name,
+      fullError: error
+    });
   }
 }
 
