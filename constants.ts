@@ -322,8 +322,8 @@ export const isMemberActiveInYear = (branchData: MasonicBranchData | undefined, 
   if (!branchData) return false;
 
   if (!branchData.statusEvents || branchData.statusEvents.length === 0) {
-    // If no status events, consider active if they have any degree
-    return branchData.degrees && branchData.degrees.length > 0;
+    // Se non ci sono eventi di stato, il membro non è attivo
+    return false;
   }
 
   const targetDate = `${year}-12-31`;

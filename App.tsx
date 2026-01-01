@@ -817,7 +817,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
 
           {currentView === 'MEMBER_DETAIL' && selectedMemberId && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento dettagli...</div>}>
-              <MemberDetail memberId={selectedMemberId} onBack={() => setCurrentView(returnView)} onSave={handleSaveMember} defaultYear={selectedYear} appSettings={appSettings}/>
+              <MemberDetail memberId={selectedMemberId} onBack={() => setCurrentView(returnView)} onSave={handleSaveMember} defaultYear={selectedYear} appSettings={appSettings} currentUserEmail={currentUser?.email}/>
             </React.Suspense>
           )}
           {currentView === 'ROLE_ASSIGNMENT' && (

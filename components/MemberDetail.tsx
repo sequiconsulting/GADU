@@ -4,7 +4,7 @@ import { Member, BranchType, StatusType, AppSettings, CapitazioneTipo, TitoloCra
 import { BRANCHES, isMemberActiveInYear, calculateMasonicYearString, STATUS_REASONS, getDegreesByRitual, CAPITAZIONI_CRAFT, CAPITAZIONE_DEFAULT, INITIATION_TERMS } from '../constants';
 import { HistoryEditor } from './HistoryEditor';
 import { RoleEditor } from './RoleEditor';
-import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, X, Trash2 } from 'lucide-react';
+import { Save, ArrowLeft, Mail, Phone, MapPin, Hash, Landmark, Crown, Users, AlertTriangle, CheckCircle2, AlertCircle, Star, X, Trash2, History, Pencil } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 const PROFILE = 'PROFILE';
@@ -15,9 +15,10 @@ interface MemberDetailProps {
   onSave: () => void;
   defaultYear: number;
   appSettings: AppSettings;
+  currentUserEmail?: string;
 }
 
-export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, onSave, defaultYear, appSettings }) => {
+export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, onSave, defaultYear, appSettings, currentUserEmail }) => {
   const [member, setMember] = useState<Member | null>(null);
   const [originalMember, setOriginalMember] = useState<Member | null>(null);
   const [activeTab, setActiveTab] = useState<BranchType | 'PROFILE'>(PROFILE);
@@ -37,6 +38,9 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   
   // State for delete confirmation
   const [deleteConfirmation, setDeleteConfirmation] = useState<{branch: BranchType, eventIndex: number} | null>(null);
+  
+  // State for editing status event date
+  const [editingStatusEvent, setEditingStatusEvent] = useState<{branch: BranchType, eventIndex: number, newDate: string} | null>(null);
 
   // Helper to get ritual for a branch in a year
   const getRitualForYear = (year: number, branch: BranchType): string => {
@@ -142,12 +146,13 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
     // 5. Check that active members have at least one degree in that branch
     (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
       const branchData = mem[branchKey];
-      const isActive = isMemberActiveInYear(branchData, defaultYear);
       const hasDegrees = branchData.degrees && branchData.degrees.length > 0;
+      const hasActiveEvent = branchData.statusEvents && branchData.statusEvents.some(e => e.status === 'ACTIVE');
       
-      if (isActive && !hasDegrees) {
+      // Se ci sono eventi ACTIVE, deve esserci almeno un grado
+      if (hasActiveEvent && !hasDegrees) {
         const branchLabel = { craft: 'Craft', mark: 'Mark', chapter: 'Chapter', ram: 'RAM' }[branchKey];
-        setError(`Non è possibile salvare un membro attivo nel ramo ${branchLabel} senza almeno un grado massonico. Aggiungi un grado prima di salvare.`);
+        setError(`Non è possibile salvare un membro con eventi di attivazione nel ramo ${branchLabel} senza almeno un grado massonico. Aggiungi un grado prima di salvare.`);
         throw new Error('no-degrees-while-active');
       }
     });
@@ -259,6 +264,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
       if (changes.length > 0) {
         const timestamp = new Date().toISOString();
         const description = changes.join('; ');
+        const descriptionWithEmail = currentUserEmail ? `[${currentUserEmail}] ${description}` : description;
         
         if (!member.changelog) {
           member.changelog = [];
@@ -266,7 +272,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
         
         member.changelog.push({
           timestamp,
-          description
+          description: descriptionWithEmail
         });
       }
       
@@ -301,7 +307,14 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
       
       // Se prima non c'erano gradi, ora ce ne sono, e non c'è un evento ACTIVE, aggiungilo
       if (hadNoDegrees && willHaveDegrees && hasNoActiveEvent) {
-        const firstDegreeDate = data.degrees[0]?.date || new Date().toISOString().split('T')[0];
+        // Ordina i gradi per data e prendi il primo
+        const sortedDegrees = [...data.degrees].sort((a, b) => {
+          if (!a.date) return 1;
+          if (!b.date) return -1;
+          return a.date.localeCompare(b.date);
+        });
+        const firstDegreeDate = sortedDegrees[0]?.date || new Date().toISOString().split('T')[0];
+        
         const autoEvent = {
           date: firstDegreeDate,
           status: 'ACTIVE' as const,
@@ -401,6 +414,30 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
     const updatedEvents = currentData.statusEvents.filter((_, idx) => idx !== eventIndex);
     updateBranchData(branch, { statusEvents: updatedEvents });
     setDeleteConfirmation(null);
+  };
+
+  const handleEditStatusEventDate = (branch: BranchType, eventIndex: number) => {
+    if (!member) return;
+    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+    const currentData = member[branchKey];
+    const event = currentData.statusEvents[eventIndex];
+    
+    setEditingStatusEvent({ branch, eventIndex, newDate: event.date });
+  };
+
+  const handleSaveStatusEventDate = () => {
+    if (!member || !editingStatusEvent) return;
+    const branchKey = editingStatusEvent.branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+    const currentData = member[branchKey];
+    
+    const updatedEvents = currentData.statusEvents.map((evt, idx) => 
+      idx === editingStatusEvent.eventIndex 
+        ? { ...evt, date: editingStatusEvent.newDate }
+        : evt
+    );
+    
+    updateBranchData(editingStatusEvent.branch, { statusEvents: updatedEvents });
+    setEditingStatusEvent(null);
   };
 
   const activateCraft = () => {
@@ -589,181 +626,188 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                 return activeTab === branch.type && (
                     <div key={branch.type} className="animate-fadeIn">
                         {/* Status Header */}
-                        <div className="flex flex-col md:flex-row md:items-start justify-between mb-6 pb-4 border-b gap-4">
-                             <div className="flex items-start gap-3 flex-1">
+                        <div className="flex flex-col mb-6 pb-4 border-b gap-3">
+                             <div className="flex items-start gap-3">
                                 <div className={`w-3 h-3 rounded-full ${branch.color} shrink-0 mt-1`}></div>
-                                <div className="w-full">
+                                <div className="flex-1">
                                     <div className="flex items-baseline gap-2 flex-wrap">
                                         <h2 className="text-xl font-serif font-bold text-slate-800 leading-none">Scheda {branch.label}</h2>
                                         <span className="text-xs text-slate-500 font-sans">Anno {defaultYear}</span>
                                     </div>
-                                    <div className="flex items-center gap-2 flex-wrap mt-2">
-                                        <label className="flex items-center gap-1.5 p-1.5 bg-yellow-50 border border-yellow-200 rounded cursor-pointer hover:bg-yellow-100/50">
-                                            <input type="checkbox" checked={branchData.isFounder || false} onChange={(e) => updateBranchData(branch.type, { isFounder: e.target.checked })} className="w-3 h-3 shrink-0" />
-                                            <Crown size={13} className="text-yellow-600"/>
-                                            <span className="text-xs text-slate-700 font-medium">Fondatore</span>
-                                        </label>
-                                        <label className="flex items-center gap-1.5 p-1.5 bg-amber-50 border border-amber-200 rounded cursor-pointer hover:bg-amber-100/50">
-                                            <input type="checkbox" checked={branchData.isHonorary || false} onChange={(e) => updateBranchData(branch.type, { isHonorary: e.target.checked })} className="w-3 h-3 shrink-0" />
-                                            <Star size={13} className="text-amber-500 fill-amber-500"/>
-                                            <span className="text-xs text-slate-700 font-medium">Onorario</span>
-                                        </label>
-                                        <label className="flex items-center gap-1.5 p-1.5 bg-stone-50 border border-stone-300 rounded cursor-pointer hover:bg-stone-100/50">
-                                          <input type="checkbox" checked={branchData.isMotherLodgeMember ?? true} onChange={(e) => handleProvenanceChange(branch.type, e.target.checked ? 'mother' : 'other')} className="w-3 h-3 shrink-0" />
-                                          <Landmark size={13} className="text-stone-700"/>
-                                          <span className="text-xs text-slate-700 font-medium">Loggia Madre</span>
-                                        </label>
-                                        <label className="flex items-center gap-1.5 p-1.5 bg-blue-50 border border-blue-200 rounded cursor-pointer hover:bg-blue-100/50">
-                                            <input type="checkbox" checked={branchData.isDualAppartenance || false} onChange={(e) => handleProvenanceChange(branch.type, e.target.checked ? 'dual' : 'mother')} className="w-3 h-3 shrink-0" />
-                                            <Users size={13} className="text-blue-600"/>
-                                            <span className="text-xs text-slate-700 font-medium">Doppia App.</span>
-                                        </label>
-                                        <div className={`flex items-center gap-1.5 p-1.5 ${branchData.isMotherLodgeMember === false ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-                                          <label className="text-xs font-medium text-slate-700 whitespace-nowrap">Loggia:</label>
-                                          <input type="text" placeholder="Nome" value={branchData.otherLodgeName || ''} onChange={e => updateBranchData(branch.type, { otherLodgeName: e.target.value })} className="border border-slate-300 rounded px-2 py-1 w-32 text-xs" disabled={branchData.isMotherLodgeMember === true} />
-                                        </div>
-                                    </div>
                                 </div>
                              </div>
 
-                              {/* Capitazione Dropdown */}
-                              <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 w-auto">
-                                <label className="text-xs font-medium text-slate-700 block mb-1">Capitazione</label>
-                                <select
-                                  value={(() => {
-                                    const capitazione = branchData.capitazioni?.find(c => c.year === defaultYear);
-                                    return capitazione?.tipo || CAPITAZIONE_DEFAULT;
-                                  })()}
-                                  onChange={(e) => {
-                                    const newCapitazioni = [...(branchData.capitazioni || [])];
-                                    const existingIndex = newCapitazioni.findIndex(c => c.year === defaultYear);
-                                    if (existingIndex >= 0) {
-                                      newCapitazioni[existingIndex] = { year: defaultYear, tipo: e.target.value as CapitazioneTipo };
-                                    } else {
-                                      newCapitazioni.push({ year: defaultYear, tipo: e.target.value as CapitazioneTipo });
-                                    }
-                                    updateBranchData(branch.type, { capitazioni: newCapitazioni });
-                                  }}
-                                  className="w-40 px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 focus:ring-2 focus:ring-masonic-gold focus:border-transparent"
-                                >
-                                  {CAPITAZIONI_CRAFT.map(cap => (
-                                    <option key={cap.tipo} value={cap.tipo}>{cap.tipo}</option>
-                                  ))}
-                                </select>
+                             {/* Checkbox e Loggia su una riga */}
+                             <div className="flex items-center gap-2 flex-wrap">
+                                <label className="flex items-center gap-1.5 p-1.5 bg-yellow-50 border border-yellow-200 rounded cursor-pointer hover:bg-yellow-100/50">
+                                    <input type="checkbox" checked={branchData.isFounder || false} onChange={(e) => updateBranchData(branch.type, { isFounder: e.target.checked })} className="w-3 h-3 shrink-0" />
+                                    <Crown size={13} className="text-yellow-600"/>
+                                    <span className="text-xs text-slate-700 font-medium">Fondatore</span>
+                                </label>
+                                <label className="flex items-center gap-1.5 p-1.5 bg-amber-50 border border-amber-200 rounded cursor-pointer hover:bg-amber-100/50">
+                                    <input type="checkbox" checked={branchData.isHonorary || false} onChange={(e) => updateBranchData(branch.type, { isHonorary: e.target.checked })} className="w-3 h-3 shrink-0" />
+                                    <Star size={13} className="text-amber-500 fill-amber-500"/>
+                                    <span className="text-xs text-slate-700 font-medium">Onorario</span>
+                                </label>
+                                <label className="flex items-center gap-1.5 p-1.5 bg-stone-50 border border-stone-300 rounded cursor-pointer hover:bg-stone-100/50">
+                                  <input type="checkbox" checked={branchData.isMotherLodgeMember ?? true} onChange={(e) => handleProvenanceChange(branch.type, e.target.checked ? 'mother' : 'other')} className="w-3 h-3 shrink-0" />
+                                  <Landmark size={13} className="text-stone-700"/>
+                                  <span className="text-xs text-slate-700 font-medium">Loggia Madre</span>
+                                </label>
+                                <label className="flex items-center gap-1.5 p-1.5 bg-blue-50 border border-blue-200 rounded cursor-pointer hover:bg-blue-100/50">
+                                    <input type="checkbox" checked={branchData.isDualAppartenance || false} onChange={(e) => handleProvenanceChange(branch.type, e.target.checked ? 'dual' : 'mother')} className="w-3 h-3 shrink-0" />
+                                    <Users size={13} className="text-blue-600"/>
+                                    <span className="text-xs text-slate-700 font-medium">Doppia App.</span>
+                                </label>
+                                <div className={`flex items-center gap-1.5 p-1.5 bg-slate-50 border border-slate-200 rounded ${branchData.isMotherLodgeMember === false ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
+                                  <label className="text-xs font-medium text-slate-700 whitespace-nowrap">Loggia:</label>
+                                  <input type="text" placeholder="Nome" value={branchData.otherLodgeName || ''} onChange={e => updateBranchData(branch.type, { otherLodgeName: e.target.value })} className="border border-slate-300 rounded px-2 py-1 w-32 text-xs" disabled={branchData.isMotherLodgeMember === true} />
+                                </div>
                              </div>
 
-                              {/* Titolo Dropdown */}
-                              <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 w-auto">
-                                <label className="text-xs font-medium text-slate-700 block mb-1">Titolo</label>
-                                {(() => {
-                                  // Determina se il membro ha il grado che abilita il titolo speciale
-                                  let hasSpecialDegree = false;
-                                  let defaultTitolo: TitoloCraftMarchio | TitoloArcoRam = 'Fr.';
-                                  let specialTitolo: TitoloCraftMarchio | TitoloArcoRam = 'Ven. Fr.';
-                                  
-                                  if (branch.type === 'CRAFT') {
-                                    // Craft: MI (Maestro Installato) -> Ven. Fr. / Ven.mo Fr.
-                                    hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === 'Maestro Installato') || false;
-                                    defaultTitolo = 'Fr.';
-                                    specialTitolo = 'Ven. Fr.';
-                                  } else if (branch.type === 'MARK') {
-                                    // Mark: MIM (Maestro Installato del Marchio) -> MVM Fr.
-                                    hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === 'Maestro Installato del Marchio') || false;
-                                    defaultTitolo = 'Fr.';
-                                    specialTitolo = 'MVM Fr.';
-                                  } else if (branch.type === 'CHAPTER') {
-                                    // Chapter: Principale dell'Arco Reale -> Ecc. Comp. / Ecc.mo Comp.
-                                    hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === "Principale dell'Arco Reale") || false;
-                                    defaultTitolo = 'Comp.';
-                                    specialTitolo = 'Ecc. Comp.';
-                                  } else if (branch.type === 'RAM') {
-                                    // RAM: Comandante del RAM -> Ecc. Comp. / Ecc.mo Comp.
-                                    hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === 'Comandante del RAM') || false;
-                                    defaultTitolo = 'Comp.';
-                                    specialTitolo = 'Ecc. Comp.';
-                                  }
-                                  
-                                  const currentTitolo = branchData.titoli?.find(t => t.year === defaultYear);
-                                  const titoloValue = currentTitolo?.titolo || (hasSpecialDegree ? specialTitolo : defaultTitolo);
-                                  
-                                  if (!hasSpecialDegree) {
-                                    return (
-                                      <div className="w-40 px-2 py-1 border border-slate-300 rounded text-xs text-slate-600 bg-slate-100">
-                                        {titoloValue}
-                                      </div>
-                                    );
-                                  }
-                                  
-                                  return (
+                             {/* Titolo, Capitazione e Stato */}
+                             <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-2">
+                                  {/* Titolo Dropdown */}
+                                  <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 w-auto">
+                                    <label className="text-xs font-medium text-slate-700 block mb-1">Titolo</label>
+                                    {(() => {
+                                      // Determina se il membro ha il grado che abilita il titolo speciale
+                                      let hasSpecialDegree = false;
+                                      let defaultTitolo: TitoloCraftMarchio | TitoloArcoRam = 'Fr.';
+                                      let specialTitolo: TitoloCraftMarchio | TitoloArcoRam = 'Ven. Fr.';
+                                      
+                                      if (branch.type === 'CRAFT') {
+                                        // Craft: MI (Maestro Installato) -> Ven. Fr. / Ven.mo Fr.
+                                        hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === 'Maestro Installato') || false;
+                                        defaultTitolo = 'Fr.';
+                                        specialTitolo = 'Ven. Fr.';
+                                      } else if (branch.type === 'MARK') {
+                                        // Mark: MIM (Maestro Installato del Marchio) -> MVM Fr.
+                                        hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === 'Maestro Installato del Marchio') || false;
+                                        defaultTitolo = 'Fr.';
+                                        specialTitolo = 'MVM Fr.';
+                                      } else if (branch.type === 'CHAPTER') {
+                                        // Chapter: Principale dell'Arco Reale -> Ecc. Comp. / Ecc.mo Comp.
+                                        hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === "Principale dell'Arco Reale") || false;
+                                        defaultTitolo = 'Comp.';
+                                        specialTitolo = 'Ecc. Comp.';
+                                      } else if (branch.type === 'RAM') {
+                                        // RAM: Comandante del RAM -> Ecc. Comp. / Ecc.mo Comp.
+                                        hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === 'Comandante del RAM') || false;
+                                        defaultTitolo = 'Comp.';
+                                        specialTitolo = 'Ecc. Comp.';
+                                      }
+                                      
+                                      const currentTitolo = branchData.titoli?.find(t => t.year === defaultYear);
+                                      const titoloValue = currentTitolo?.titolo || (hasSpecialDegree ? specialTitolo : defaultTitolo);
+                                      
+                                      if (!hasSpecialDegree) {
+                                        return (
+                                          <div className="w-40 px-2 py-1 border border-slate-300 rounded text-xs text-slate-600 bg-slate-100">
+                                            {titoloValue}
+                                          </div>
+                                        );
+                                      }
+                                      
+                                      return (
+                                        <select
+                                          value={titoloValue}
+                                          onChange={(e) => {
+                                            const newTitoli = [...(branchData.titoli || [])];
+                                            const existingIndex = newTitoli.findIndex(t => t.year === defaultYear);
+                                            const newValue = e.target.value as TitoloCraftMarchio | TitoloArcoRam;
+                                            if (existingIndex >= 0) {
+                                              newTitoli[existingIndex] = { year: defaultYear, titolo: newValue };
+                                            } else {
+                                              newTitoli.push({ year: defaultYear, titolo: newValue });
+                                            }
+                                            updateBranchData(branch.type, { titoli: newTitoli });
+                                          }}
+                                          className="w-40 px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 focus:ring-2 focus:ring-masonic-gold focus:border-transparent"
+                                        >
+                                          {branch.type === 'CRAFT' ? (
+                                            <>
+                                              <option value="Ven. Fr.">Ven. Fr.</option>
+                                              <option value="Ven.mo Fr.">Ven.mo Fr.</option>
+                                            </>
+                                          ) : branch.type === 'MARK' ? (
+                                            <>
+                                              <option value="MVM Fr.">MVM Fr.</option>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <option value="Ecc. Comp.">Ecc. Comp.</option>
+                                              <option value="Ecc.mo Comp.">Ecc.mo Comp.</option>
+                                            </>
+                                          )}
+                                        </select>
+                                      );
+                                    })()}
+                                  </div>
+
+                                  {/* Capitazione Dropdown */}
+                                  <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 w-auto">
+                                    <label className="text-xs font-medium text-slate-700 block mb-1">Capitazione</label>
                                     <select
-                                      value={titoloValue}
+                                      value={(() => {
+                                        const capitazione = branchData.capitazioni?.find(c => c.year === defaultYear);
+                                        return capitazione?.tipo || CAPITAZIONE_DEFAULT;
+                                      })()}
                                       onChange={(e) => {
-                                        const newTitoli = [...(branchData.titoli || [])];
-                                        const existingIndex = newTitoli.findIndex(t => t.year === defaultYear);
-                                        const newValue = e.target.value as TitoloCraftMarchio | TitoloArcoRam;
+                                        const newCapitazioni = [...(branchData.capitazioni || [])];
+                                        const existingIndex = newCapitazioni.findIndex(c => c.year === defaultYear);
                                         if (existingIndex >= 0) {
-                                          newTitoli[existingIndex] = { year: defaultYear, titolo: newValue };
+                                          newCapitazioni[existingIndex] = { year: defaultYear, tipo: e.target.value as CapitazioneTipo };
                                         } else {
-                                          newTitoli.push({ year: defaultYear, titolo: newValue });
+                                          newCapitazioni.push({ year: defaultYear, tipo: e.target.value as CapitazioneTipo });
                                         }
-                                        updateBranchData(branch.type, { titoli: newTitoli });
+                                        updateBranchData(branch.type, { capitazioni: newCapitazioni });
                                       }}
                                       className="w-40 px-2 py-1 border border-slate-300 rounded text-xs text-slate-800 focus:ring-2 focus:ring-masonic-gold focus:border-transparent"
                                     >
-                                      {branch.type === 'CRAFT' ? (
-                                        <>
-                                          <option value="Ven. Fr.">Ven. Fr.</option>
-                                          <option value="Ven.mo Fr.">Ven.mo Fr.</option>
-                                        </>
-                                      ) : branch.type === 'MARK' ? (
-                                        <>
-                                          <option value="MVM Fr.">MVM Fr.</option>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <option value="Ecc. Comp.">Ecc. Comp.</option>
-                                          <option value="Ecc.mo Comp.">Ecc.mo Comp.</option>
-                                        </>
-                                      )}
+                                      {CAPITAZIONI_CRAFT.map(cap => (
+                                        <option key={cap.tipo} value={cap.tipo}>{cap.tipo}</option>
+                                      ))}
                                     </select>
-                                  );
-                                })()}
-                             </div>
-
-                             <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200 w-full md:w-auto justify-between md:justify-start flex-col md:flex-row shrink-0">
-                                <div>
-                                  <div className={`text-sm font-bold flex items-center gap-1 ${isActiveCurrentYear ? 'text-green-700' : 'text-red-600'}`}>
-                                      {isActiveCurrentYear ? <CheckCircle2 size={16}/> : <AlertCircle size={16}/>}
-                                      {isActiveCurrentYear ? 'Attivo' : 'Non Attivo'}
                                   </div>
-                                  {branchData.statusEvents && branchData.statusEvents.length > 0 && (() => {
-                                    const lastEvent = [...branchData.statusEvents].reverse()[0];
-                                    const [year, month, day] = lastEvent.date.split('-');
-                                    const formattedDate = `${day}/${month}/${year}`;
-                                    return (
-                                      <div className="text-xs text-slate-500 mt-1">
-                                        {lastEvent.reason && <span className="font-medium">{lastEvent.reason}</span>}
-                                        {lastEvent.reason && <span> - </span>}
-                                        <span>{formattedDate}</span>
-                                      </div>
-                                    );
-                                  })()}
                                 </div>
-                                <button
-                                    onClick={() => {
-                                        setChangingStatusFor(branch.type);
-                                        setPendingStatusChange({branch: branch.type, isActivation: !isActiveCurrentYear});
-                                        // Set the date to today's day/month but in the selected year
-                                        const todayString = new Date().toISOString().split('T')[0];
-                                        const [_, month, day] = todayString.split('-');
-                                        setStatusDate(`${defaultYear}-${month}-${day}`);
-                                        setStatusReason('');
-                                        setStatusLodge('');
-                                    }}
-                                    className="text-xs border border-slate-300 px-2 py-1 rounded hover:bg-white transition-colors"
-                                >
-                                    Cambia
-                                </button>
+
+                                {/* Stato di attivazione */}
+                                <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-slate-200 w-auto justify-between md:justify-start flex-col md:flex-row shrink-0">
+                                  <div>
+                                    <div className={`text-sm font-bold flex items-center gap-1 ${isActiveCurrentYear ? 'text-green-700' : 'text-red-600'}`}>
+                                        {isActiveCurrentYear ? <CheckCircle2 size={16}/> : <AlertCircle size={16}/>}
+                                        {isActiveCurrentYear ? 'Attivo' : 'Non Attivo'}
+                                    </div>
+                                    {branchData.statusEvents && branchData.statusEvents.length > 0 && (() => {
+                                      const lastEvent = [...branchData.statusEvents].reverse()[0];
+                                      const [year, month, day] = lastEvent.date.split('-');
+                                      const formattedDate = `${day}/${month}/${year}`;
+                                      return (
+                                        <div className="text-xs text-slate-500 mt-1">
+                                          {lastEvent.reason && <span className="font-medium">{lastEvent.reason}</span>}
+                                          {lastEvent.reason && <span> - </span>}
+                                          <span>{formattedDate}</span>
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                  <button
+                                      onClick={() => {
+                                          setChangingStatusFor(branch.type);
+                                          setPendingStatusChange({branch: branch.type, isActivation: !isActiveCurrentYear});
+                                          const todayString = new Date().toISOString().split('T')[0];
+                                          const [_, month, day] = todayString.split('-');
+                                          setStatusDate(`${defaultYear}-${month}-${day}`);
+                                          setStatusReason('');
+                                          setStatusLodge('');
+                                      }}
+                                      className="text-xs border border-slate-300 px-2 py-1 rounded hover:bg-white transition-colors"
+                                  >
+                                      Cambia
+                                  </button>
+                                </div>
                              </div>
                         </div>
 
@@ -834,7 +878,19 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                         return (
                                           <React.Fragment key={originalIdx}>
                                             <tr className="border-t border-slate-200 hover:bg-slate-50">
-                                              <td className="px-1.5 py-1.5 text-slate-600 whitespace-nowrap align-top text-[11px]">{formattedDate}</td>
+                                              <td className="px-1.5 py-1.5 text-slate-600 whitespace-nowrap align-top text-[11px]">
+                                                {editingStatusEvent?.branch === branch.type && editingStatusEvent?.eventIndex === originalIdx ? (
+                                                  <input
+                                                    type="date"
+                                                    value={editingStatusEvent.newDate}
+                                                    onChange={(e) => setEditingStatusEvent({ ...editingStatusEvent, newDate: e.target.value })}
+                                                    className="px-1 py-0.5 border border-slate-300 rounded text-[11px] w-28"
+                                                    autoFocus
+                                                  />
+                                                ) : (
+                                                  formattedDate
+                                                )}
+                                              </td>
                                               <td className="px-1.5 py-1.5 align-top">
                                                 <span className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium ${event.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                                   {event.status === 'ACTIVE' ? <CheckCircle2 size={9} /> : <AlertCircle size={9} />}
@@ -845,7 +901,24 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                                 {event.reason || '—'}
                                               </td>
                                               <td className="px-1 py-1.5 text-center align-top">
-                                                {isConfirming ? (
+                                                {editingStatusEvent?.branch === branch.type && editingStatusEvent?.eventIndex === originalIdx ? (
+                                                  <div className="flex gap-0.5 justify-center">
+                                                    <button
+                                                      onClick={handleSaveStatusEventDate}
+                                                      className="bg-green-500 hover:bg-green-600 text-white px-1.5 py-0.5 rounded text-[9px] font-medium"
+                                                      title="Salva"
+                                                    >
+                                                      ✓
+                                                    </button>
+                                                    <button
+                                                      onClick={() => setEditingStatusEvent(null)}
+                                                      className="bg-slate-300 hover:bg-slate-400 text-slate-700 px-1.5 py-0.5 rounded text-[9px] font-medium"
+                                                      title="Annulla"
+                                                    >
+                                                      ✕
+                                                    </button>
+                                                  </div>
+                                                ) : isConfirming ? (
                                                   <div className="flex flex-col gap-0.5">
                                                     <div className="text-[9px] text-slate-600 font-semibold">Sicuro?</div>
                                                     <div className="flex gap-0.5 justify-center">
@@ -864,13 +937,22 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                                     </div>
                                                   </div>
                                                 ) : (
-                                                  <button
-                                                    onClick={() => handleDeleteStatusEvent(branch.type, originalIdx)}
-                                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 p-0.5 rounded transition-colors"
-                                                    title="Elimina evento"
-                                                  >
-                                                    <Trash2 size={13} />
-                                                  </button>
+                                                  <div className="flex gap-0.5 justify-center">
+                                                    <button
+                                                      onClick={() => handleEditStatusEventDate(branch.type, originalIdx)}
+                                                      className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-0.5 rounded transition-colors"
+                                                      title="Modifica data"
+                                                    >
+                                                      <Pencil size={11} />
+                                                    </button>
+                                                    <button
+                                                      onClick={() => handleDeleteStatusEvent(branch.type, originalIdx)}
+                                                      className="text-red-500 hover:text-red-700 hover:bg-red-50 p-0.5 rounded transition-colors"
+                                                      title="Elimina evento"
+                                                    >
+                                                      <Trash2 size={13} />
+                                                    </button>
+                                                  </div>
                                                 )}
                                               </td>
                                             </tr>
