@@ -1,27 +1,17 @@
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { type SupabaseClient } from '@supabase/supabase-js';
 import { Member, AppSettings, BranchType, Convocazione } from '../types';
 import { PublicLodgeConfig } from '../types/lodge';
 import { faker } from '@faker-js/faker/locale/it';
 import { INITIATION_TERMS } from '../constants';
+import { getCachedSupabaseClient } from '../utils/supabaseClientCache';
 
 type MemberRow = { id: string; data: Member };
 type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_version: number };
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
-// Cache globale per client Supabase (evita istanze multiple in dev)
-const supabaseClientCache = new Map<string, SupabaseClient>();
-
-function getCachedSupabaseClient(url: string, key: string): SupabaseClient {
-  const cacheKey = `${url}:${key}`;
-  if (!supabaseClientCache.has(cacheKey)) {
-    supabaseClientCache.set(cacheKey, createClient(url, key, { auth: { persistSession: true } }));
-  }
-  return supabaseClientCache.get(cacheKey)!;
-}
-
 class DataService {
-  public APP_VERSION = '0.144';
+  public APP_VERSION = '0.145';
   public DB_VERSION = 12;
   public SUPABASE_SCHEMA_VERSION = 1;
 

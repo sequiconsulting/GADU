@@ -1,5 +1,6 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { UserPrivilege } from '../types';
+import { getCachedSupabaseClient } from './supabaseClientCache';
 
 export interface AuthSession {
   email: string;
@@ -14,25 +15,13 @@ export interface AuthSession {
 
 const STORAGE_KEY = 'gadu_auth_session';
 
-// Cache singleton per evitare multiple istanze GoTrueClient
-const clientCache = new Map<string, SupabaseClient>();
-
 export function createAuthClient(supabaseUrl: string, supabaseAnonKey: string): SupabaseClient {
-  const cacheKey = `${supabaseUrl}:${supabaseAnonKey}`;
-  
-  if (clientCache.has(cacheKey)) {
-    return clientCache.get(cacheKey)!;
-  }
-  
-  const client = createClient(supabaseUrl, supabaseAnonKey, {
+  return getCachedSupabaseClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
     },
   });
-  
-  clientCache.set(cacheKey, client);
-  return client;
 }
 
 async function fetchUserPrivilegesFromMetadata(userId: string, email: string, userMetadata?: any): Promise<{ name?: string; privileges: UserPrivilege[] } | null> {
