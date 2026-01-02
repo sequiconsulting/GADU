@@ -116,7 +116,7 @@ const DB_MIGRATIONS: Record<number, string> = (() => {
 })();
 
 class DataService {
-  public APP_VERSION = '0.169';
+  public APP_VERSION = '0.170';
   public DB_VERSION = 13;
   public SUPABASE_SCHEMA_VERSION = 2;
 
@@ -184,23 +184,21 @@ class DataService {
       throw new Error('Supabase service key non configurata: impossibile applicare le migrazioni in automatico.');
     }
 
-    // Connessione diretta postgres
-    const { Client } = await import('pg');
-    const url = new URL(this.currentLodgeConfig.supabaseUrl);
-    const client = new Client({
-      host: url.hostname.replace('.supabase.co', '.supabase.co'),
-      port: 5432,
-      user: 'postgres',
-      password: serviceKey,
-      database: 'postgres',
-      ssl: { rejectUnauthorized: false },
+    const url = new URL('/rest/v1/rpc/query', this.currentLodgeConfig.supabaseUrl).toString();
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify({ query: sql }),
     });
 
-    await client.connect();
-    try {
-      await client.query(sql);
-    } finally {
-      await client.end();
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`SQL execution failed (${response.status}): ${text}`);
     }
   }
 
