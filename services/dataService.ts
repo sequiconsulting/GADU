@@ -10,113 +10,8 @@ type MemberRow = { id: string; data: Member };
 type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_version: number };
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
-const BASELINE_SCHEMA_SQL = `
-  create extension if not exists "uuid-ossp";
-
-  create table if not exists public.app_settings (
-    id text primary key,
-    data jsonb not null default '{}'::jsonb,
-    db_version integer not null default 1,
-    schema_version integer not null default 1,
-    created_at timestamptz default now(),
-    updated_at timestamptz default now()
-  );
-
-  create table if not exists public.members (
-    id uuid primary key default gen_random_uuid(),
-    data jsonb not null,
-    created_at timestamptz default now(),
-    updated_at timestamptz default now()
-  );
-
-  create index if not exists members_lastname_idx on public.members ((data ->> 'lastName'));
-
-  create table if not exists public.convocazioni (
-    id uuid primary key default gen_random_uuid(),
-    branch_type text not null,
-    year_start integer not null,
-    data jsonb not null,
-    created_at timestamptz default now(),
-    updated_at timestamptz default now()
-  );
-
-  create index if not exists convocazioni_branch_idx on public.convocazioni (branch_type);
-  create index if not exists convocazioni_year_idx on public.convocazioni (year_start);
-
-  alter table public.app_settings enable row level security;
-  alter table public.members enable row level security;
-  alter table public.convocazioni enable row level security;
-
-  drop policy if exists "anon_deny_app_settings" on public.app_settings;
-  drop policy if exists "anon_deny_members" on public.members;
-  drop policy if exists "anon_deny_convocazioni" on public.convocazioni;
-
-  drop policy if exists "authenticated_all_app_settings" on public.app_settings;
-  drop policy if exists "authenticated_all_members" on public.members;
-  drop policy if exists "authenticated_all_convocazioni" on public.convocazioni;
-
-  create policy "anon_deny_app_settings" 
-    on public.app_settings 
-    for all 
-    using (auth.role() != 'anon') 
-    with check (auth.role() != 'anon');
-
-  create policy "anon_deny_members" 
-    on public.members 
-    for all 
-    using (auth.role() != 'anon') 
-    with check (auth.role() != 'anon');
-
-  create policy "anon_deny_convocazioni" 
-    on public.convocazioni 
-    for all 
-    using (auth.role() != 'anon') 
-    with check (auth.role() != 'anon');
-
-  create policy "authenticated_all_app_settings" 
-    on public.app_settings 
-    for all 
-    using (auth.role() = 'authenticated') 
-    with check (auth.role() = 'authenticated');
-
-  create policy "authenticated_all_members" 
-    on public.members 
-    for all 
-    using (auth.role() = 'authenticated') 
-    with check (auth.role() = 'authenticated');
-
-  create policy "authenticated_all_convocazioni" 
-    on public.convocazioni 
-    for all 
-    using (auth.role() = 'authenticated') 
-    with check (auth.role() = 'authenticated');
-
-  create or replace function public.exec_sql(sql text)
-  returns void
-  language plpgsql
-  security definer
-  set search_path = public
-  as $$
-  begin
-    execute sql;
-  end;
-  $$;
-
-  insert into public.app_settings (id, data)
-  values ('app', '{}'::jsonb)
-  on conflict (id) do nothing;
-`;
-
-const DB_MIGRATIONS: Record<number, string> = (() => {
-  const steps: Record<number, string> = {};
-  for (let v = 0; v < 13; v++) {
-    steps[v] = BASELINE_SCHEMA_SQL;
-  }
-  return steps;
-})();
-
 class DataService {
-  public APP_VERSION = '0.170';
+  public APP_VERSION = '0.171';
   public DB_VERSION = 13;
   public SUPABASE_SCHEMA_VERSION = 2;
 
@@ -170,53 +65,26 @@ class DataService {
     throw error;
   }
 
-  private getServiceRoleKey(): string | null {
-    const envKey = this.readEnv('VITE_SUPABASE_SERVICE_ROLE_KEY') || this.readEnv('SUPABASE_SERVICE_ROLE_KEY');
-    return this.currentLodgeConfig?.supabaseServiceKey || envKey || null;
-  }
-
-  private async runSqlWithServiceRole(sql: string): Promise<void> {
-    if (!this.currentLodgeConfig?.supabaseUrl) {
-      throw new Error('Supabase URL non configurato.');
-    }
-    const serviceKey = this.getServiceRoleKey();
-    if (!serviceKey) {
-      throw new Error('Supabase service key non configurata: impossibile applicare le migrazioni in automatico.');
+  private async updateSchemaViaFunction(): Promise<void> {
+    if (!this.currentLodgeConfig?.glriNumber) {
+      throw new Error('Lodge config not initialized');
     }
 
-    const url = new URL('/rest/v1/rpc/query', this.currentLodgeConfig.supabaseUrl).toString();
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-        Prefer: 'return=representation',
-      },
-      body: JSON.stringify({ query: sql }),
-    });
+    try {
+      const response = await fetch(
+        `/.netlify/functions/update-schema?number=${this.currentLodgeConfig.glriNumber}`
+      );
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`SQL execution failed (${response.status}): ${text}`);
-    }
-  }
-
-  private async applyMigrations(currentVersion: number): Promise<void> {
-    let version = currentVersion;
-    while (version < this.DB_VERSION) {
-      const sql = DB_MIGRATIONS[version];
-      if (!sql) {
-        throw new Error(`Nessuna migrazione definita per v${version} -> v${version + 1}`);
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Schema update failed: ${error.error || response.statusText}`);
       }
-      await this.runSqlWithServiceRole(sql);
-      version += 1;
-      const client = this.ensureSupabaseClient();
-      await client.from('app_settings').update({
-        db_version: version,
-        schema_version: this.SUPABASE_SCHEMA_VERSION,
-        updated_at: new Date().toISOString(),
-      }).eq('id', 'app');
+
+      const result = await response.json();
+      console.log('[DataService] Schema update result:', result);
+    } catch (error: any) {
+      console.error('[DataService] Schema update error:', error);
+      throw error;
     }
   }
 
@@ -244,7 +112,7 @@ class DataService {
 
     const currentVersion = settingsRow?.db_version ?? 0;
     if (currentVersion < this.DB_VERSION) {
-      await this.applyMigrations(currentVersion);
+      await this.updateSchemaViaFunction();
     }
 
     // Rileggi dopo migrazioni per non sovrascrivere dati utente
