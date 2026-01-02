@@ -51,6 +51,34 @@ Every code change must bump APP_VERSION in services/dataService.ts.
 - DB_VERSION – Data model version for Member/AppSettings; bump only when shapes change. Stored in app_settings.db_version and auto-synced on startup.
 - SUPABASE_SCHEMA_VERSION – Table/layout version; bump when the SQL schema changes. Keep supabase-schema.sql in sync.
 
+## Database Migrations (Automatic & Incremental)
+
+**CRITICAL: All schema changes MUST be applied automatically by code using incremental migrations.**
+
+When modifying the database schema:
+
+1. **Always bump DB_VERSION** in services/dataService.ts when making schema changes
+2. **Maintain two SQL artifacts in dataService.ts:**
+   - `BASELINE_SCHEMA_SQL` – Complete clean-slate schema for latest version (tables, indexes, RLS policies)
+   - `DB_MIGRATIONS` map – Incremental SQL for each version step (e.g., v12→v13, v13→v14)
+3. **Each migration step must be idempotent** – Use `IF NOT EXISTS`, `DROP POLICY IF EXISTS`, `ALTER TABLE IF EXISTS`, etc.
+4. **Migration execution is automatic** – On app startup, if current db_version < DB_VERSION, dataService runs all missing migrations in sequence via direct postgres connection (service key required)
+5. **Service key is mandatory** – Migrations use pg library to connect directly to postgres (port 5432); fail with clear error if service key unavailable
+6. **Update both artifacts** when changing schema:
+   - Update BASELINE_SCHEMA_SQL to reflect the new clean state
+   - Add new entry to DB_MIGRATIONS for the version increment (e.g., `DB_MIGRATIONS[13] = "ALTER TABLE..."`)
+7. **Version tracking** – After each migration step, app_settings.db_version is updated, allowing safe resume after interruption
+8. **Keep supabase-schema.sql in sync** – This file should match BASELINE_SCHEMA_SQL for manual reference/emergency bootstrap
+
+Example workflow for adding a column:
+- Bump DB_VERSION from 13 to 14
+- Update BASELINE_SCHEMA_SQL to include new column in CREATE TABLE
+- Add `DB_MIGRATIONS[13] = "ALTER TABLE members ADD COLUMN IF NOT EXISTS new_field text;"`
+- Update supabase-schema.sql to match BASELINE_SCHEMA_SQL
+- Bump APP_VERSION
+
+**Never require manual SQL execution** – The system must handle all upgrades automatically from any version to any other version.
+
 ## Key Files for Common Tasks
 
 | Task | File(s) |
@@ -91,8 +119,9 @@ Every code change must bump APP_VERSION in services/dataService.ts.
 ## Supabase & Seeding
 
 - Tables: app_settings (singleton), members (JSONB), convocazioni (JSONB with branch_type/year_start).
-- On startup, dataService ensures app_settings exists, syncs versions, and seeds demo members + convocazioni if tables are empty.
-- Missing tables raise a schema error instructing to run supabase-schema.sql.
+- On startup, dataService automatically applies missing DB migrations if service key is available, then syncs versions.
+- Demo data seeds only when members/convocazioni tables are empty (manual trigger via AdminPanel).
+- Service key (postgres password) required for automatic migrations; anon key used for normal operations.
 
 ## Authentication (Prepared, Disabled)
 
@@ -101,8 +130,8 @@ Supabase auth scaffolding exists but is disabled. Files: utils/authService.ts, u
 ## Testing & Debugging
 
 - Use npm run build for type-safe validation.
-- If Supabase errors mention missing relations, run supabase-schema.sql.
-- Version mismatches are auto-healed by dataService on startup.
+- Migrations run automatically on startup; ensure service key is configured for schema changes.
+- Version tracking in app_settings.db_version; check console for migration progress.
 - Demo data only seeds when members/convocazioni are empty.
 
 ## Operating Guidelines & Best Practices
@@ -111,6 +140,7 @@ Supabase auth scaffolding exists but is disabled. Files: utils/authService.ts, u
 - **Documentation: Do NOT create README, .md files, or documentation unless explicitly requested by the user.**
 - Editing: Prefer apply_patch for single-file edits; avoid for auto-generated content or bulk formatting. Keep ASCII unless necessary. Add concise comments only for non-obvious logic.
 - Versioning: Bump APP_VERSION in services/dataService.ts for any UI/logic change. Bump DB_VERSION only for data shape changes; SUPABASE_SCHEMA_VERSION only when SQL schema changes.
+- **Database migrations: Always maintain BASELINE_SCHEMA_SQL (clean latest version) and DB_MIGRATIONS map (incremental steps). Every schema change must have an idempotent migration entry.**
 - Git etiquette: Never commit or push unless the user explicitly asks. Do not revert user changes you did not make.
 - Supabase clients: Reuse the global cache in utils/supabaseClientCache.ts to prevent multiple GoTrueClient warnings. Do not instantiate duplicate clients.
 - Auth (email flow): Use emailAuthService with cached client; privileges live in user_metadata; handle mustChangePassword.
@@ -120,7 +150,7 @@ Supabase auth scaffolding exists but is disabled. Files: utils/authService.ts, u
 - Rituals/Roles: Use getRolesForRitual and AppSettings.yearlyRituals; ritual change clears roles for that branch/year with confirmation.
 - Initiation terms: When first degree is added for a branch, add ACTIVE status event with branch-specific INITIATION_TERMS.
 - Year handling: selectedYear drives views/reports; add past/future years without clamping (no Math.max/min on yearOptions).
-- Schema errors: Map missing-table errors to the explicit instruction to run supabase-schema.sql.
-- Env: Require VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (NEXT_PUBLIC_* fallbacks). Service key only where expected.
+- Schema changes: All DB schema modifications must be applied automatically via incremental migrations; never require manual SQL execution.
+- Env: Require VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (NEXT_PUBLIC_* fallbacks). Service key required for migrations.
 - **Git workflow: NEVER run `git commit` or `git push` unless the user explicitly asks. Always wait for user confirmation before committing changes.**
 - **Code modification workflow: ALWAYS present the action plan and ask for user confirmation BEFORE making any code changes. Describe what files will be modified and how, then wait for explicit approval.**
