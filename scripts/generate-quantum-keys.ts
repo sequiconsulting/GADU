@@ -59,7 +59,7 @@ function generateMasterKey(): string {
   }
   
   const masterKeyPath = join(localKeysDir, 'master-key.txt');
-  writeFileSync(masterKeyPath, masterKey, 'utf-8');
+  writeFileSync(masterKeyPath, masterKey.trim(), 'utf-8');
   console.log(`[MASTER] ✓ Master key saved to ${masterKeyPath}`);
   
   return masterKey;

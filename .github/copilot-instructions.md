@@ -107,6 +107,8 @@ Supabase auth scaffolding exists but is disabled. Files: utils/authService.ts, u
 
 ## Operating Guidelines & Best Practices
 
+- **COMMUNICATION LANGUAGE: Always respond in Italian.**
+- **Documentation: Do NOT create README, .md files, or documentation unless explicitly requested by the user.**
 - Editing: Prefer apply_patch for single-file edits; avoid for auto-generated content or bulk formatting. Keep ASCII unless necessary. Add concise comments only for non-obvious logic.
 - Versioning: Bump APP_VERSION in services/dataService.ts for any UI/logic change. Bump DB_VERSION only for data shape changes; SUPABASE_SCHEMA_VERSION only when SQL schema changes.
 - Git etiquette: Never commit or push unless the user explicitly asks. Do not revert user changes you did not make.

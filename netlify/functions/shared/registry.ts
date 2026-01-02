@@ -105,18 +105,6 @@ async function getQuantumKeys(): Promise<QuantumKeys | null> {
   };
 }
 
-function getEncryptionKey(): Buffer | null {
-  const key = process.env.REGISTRY_ENCRYPTION_KEY;
-  if (!key) return null;
-  
-  const buffer = Buffer.from(key, 'hex');
-  if (buffer.length !== 32) {
-    console.error(`[CRYPTO] Invalid key length: ${buffer.length} bytes, expected 32`);
-    return null;
-  }
-  return buffer;
-}
-
 /**
  * Quantum-resistant hybrid encryption: Kyber + RSA + AES
  * 
@@ -136,13 +124,7 @@ async function encryptData(text: string): Promise<string> {
   
   const quantumKeys = await getQuantumKeys();
   if (!quantumKeys) {
-    // No quantum keys - fallback to legacy AES if available
-    const legacyKey = getEncryptionKey();
-    if (!legacyKey) {
-      console.warn('[CRYPTO] No encryption keys available - storing plaintext');
-      return text;
-    }
-    return encryptDataLegacy(text, legacyKey);
+    throw new Error('Quantum keys not available for encryption');
   }
   
   try {
@@ -166,40 +148,22 @@ async function encryptData(text: string): Promise<string> {
       protectedKey[i] = aesKey[i] ^ sharedSecret[i];
     }
     
-    // Concatenate: kyberCiphertext + protectedKey
-    const kyberPayload = Buffer.concat([kyberCiphertext, protectedKey]);
-    
-    // Step 4: Encrypt Kyber payload with RSA-4096
-    const rsaEncrypted = publicEncrypt(
+    // Step 4: Encrypt ONLY the protected key with RSA-4096 (32 bytes fits easily)
+    // Kyber ciphertext (1088 bytes) stays plaintext
+    const rsaEncryptedKey = publicEncrypt(
       {
         key: quantumKeys.rsa.publicKey,
         padding: 1 // PKCS1_OAEP_PADDING
       },
-      kyberPayload
+      protectedKey
     );
     
-    // Format: version:rsa_encrypted:iv:authTag:aes_data
-    return `v2:${rsaEncrypted.toString('hex')}:${iv.toString('hex')}:${authTag.toString('hex')}:${encryptedData}`;
+    // Format: version:kyber_ciphertext_hex:rsa_encrypted_key:iv:authTag:aes_data
+    return `v2:${kyberCiphertext.toString('hex')}:${rsaEncryptedKey.toString('hex')}:${iv.toString('hex')}:${authTag.toString('hex')}:${encryptedData}`;
   } catch (error: any) {
     console.error('[CRYPTO] Quantum encryption failed:', error.message);
     throw new Error(`Quantum encryption failed: ${error.message}`);
   }
-}
-
-/**
- * Legacy AES-only encryption (backward compatibility)
- */
-function encryptDataLegacy(text: string, key: Buffer): string {
-  const iv = randomBytes(IV_LENGTH);
-  const cipher = createCipheriv(ALGORITHM, key, iv);
-  
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  
-  const authTag = cipher.getAuthTag();
-  
-  // Format: iv:authTag:encryptedData
-  return `v1:${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
 }
 
 /**
@@ -211,52 +175,49 @@ async function decryptData(encryptedText: string): Promise<string> {
     return encryptedText;
   }
   
-  // Check format version
+  console.log(`[DECRYPT] Input: ${encryptedText.substring(0, 50)}... (${encryptedText.length} chars)`);
+  
+  // ONLY support v2 format: v2:kyber_ciphertext:rsa_encrypted_key:iv:authTag:aes_data (6 parts)
+  if (!encryptedText.startsWith('v2:')) {
+    throw new Error(`Unsupported encryption format. Expected v2:... but got: ${encryptedText.substring(0, 30)}`);
+  }
+  
   const parts = encryptedText.split(':');
-  
-  // v2 format: v2:rsa_encrypted:iv:authTag:aes_data
-  if (parts[0] === 'v2' && parts.length === 5) {
-    return await decryptDataQuantum(encryptedText);
+  if (parts.length !== 6) {
+    throw new Error(`Invalid v2 format. Expected 6 parts but got ${parts.length}`);
   }
   
-  // v1 format: v1:iv:authTag:data (legacy AES)
-  if (parts[0] === 'v1' && parts.length === 4) {
-    return decryptDataLegacy(encryptedText);
-  }
-  
-  // Old format without version (3 parts): iv:authTag:data
-  if (parts.length === 3) {
-    return decryptDataLegacy(encryptedText);
-  }
-  
-  // Plain text (no encryption)
-  return encryptedText;
+  return await decryptDataQuantum(encryptedText);
 }
 
 async function decryptDataQuantum(encryptedText: string): Promise<string> {
+  console.log('[DECRYPT-QUANTUM] Starting quantum decryption...');
+  
   const quantumKeys = await getQuantumKeys();
   if (!quantumKeys) {
+    console.error('[DECRYPT-QUANTUM] Quantum keys not available');
     throw new Error('Quantum keys not available for decryption');
   }
   
   try {
     const parts = encryptedText.split(':');
-    const [version, rsaEncryptedHex, ivHex, authTagHex, encryptedData] = parts;
+    const [version, kyberCiphertextHex, rsaEncryptedKeyHex, ivHex, authTagHex, encryptedData] = parts;
     
-    // Step 1: Decrypt RSA layer
-    const rsaEncrypted = Buffer.from(rsaEncryptedHex, 'hex');
-    const kyberPayload = privateDecrypt(
+    console.log(`[DECRYPT-QUANTUM] Kyber: ${kyberCiphertextHex.substring(0, 50)}...`);
+    console.log(`[DECRYPT-QUANTUM] RSA key: ${rsaEncryptedKeyHex.substring(0, 50)}...`);
+    
+    // Step 1: Decrypt RSA layer to get protected key
+    const rsaEncryptedKey = Buffer.from(rsaEncryptedKeyHex, 'hex');
+    const protectedKey = privateDecrypt(
       {
         key: quantumKeys.rsa.privateKey,
         padding: 1 // PKCS1_OAEP_PADDING
       },
-      rsaEncrypted
+      rsaEncryptedKey
     );
     
-    // Step 2: Extract Kyber ciphertext and protected key
-    // ML-KEM-768 ciphertext is 1088 bytes
-    const kyberCiphertext = kyberPayload.slice(0, 1088);
-    const protectedKey = kyberPayload.slice(1088);
+    // Step 2: Get Kyber ciphertext (plaintext, not encrypted)
+    const kyberCiphertext = Buffer.from(kyberCiphertextHex, 'hex');
     
     // Step 3: Decapsulate with ML-KEM to get shared secret
     const kyberPrivateKey = Buffer.from(quantumKeys.kyber.privateKey, 'hex');
@@ -278,39 +239,13 @@ async function decryptDataQuantum(encryptedText: string): Promise<string> {
     let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
     
+    console.log(`[DECRYPT-QUANTUM] ✓ Decryption successful, result length: ${decrypted.length}`);
     return decrypted;
   } catch (error: any) {
-    console.error('[CRYPTO] Quantum decryption failed:', error.message);
-    throw new Error(`Quantum decryption failed: ${error.message}`);
+    console.error('[CRYPTO] Quantum decryption failed:', error?.message);
+    console.error('[CRYPTO] Error details:', error);
+    throw new Error(`Quantum decryption failed: ${error?.message}`);
   }
-}
-
-function decryptDataLegacy(encryptedText: string): string {
-  const key = getEncryptionKey();
-  if (!key) {
-    // No encryption key - assume plain text
-    return encryptedText;
-  }
-  
-  const parts = encryptedText.split(':');
-  let ivHex: string, authTagHex: string, encrypted: string;
-  
-  if (parts[0] === 'v1') {
-    [, ivHex, authTagHex, encrypted] = parts;
-  } else {
-    [ivHex, authTagHex, encrypted] = parts;
-  }
-  
-  const iv = Buffer.from(ivHex, 'hex');
-  const authTag = Buffer.from(authTagHex, 'hex');
-  
-  const decipher = createDecipheriv(ALGORITHM, key, iv);
-  decipher.setAuthTag(authTag);
-  
-  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  
-  return decrypted;
 }
 
 function ensureLocalRegistryDir() {
@@ -346,9 +281,20 @@ export async function loadRegistry(): Promise<Registry> {
     console.log('[REGISTRY] Data retrieved from Blobs, decrypting...');
     // Convert ArrayBuffer to string if needed
     const encryptedString = typeof data === 'string' ? data : new TextDecoder().decode(data);
+    console.log(`[REGISTRY] Encrypted data length: ${encryptedString.length} chars, starts with: ${encryptedString.substring(0, 50)}...`);
+    
     const jsonString = await decryptData(encryptedString);
-    const registry = JSON.parse(jsonString);
-    console.log(`[REGISTRY] Loaded registry with ${Object.keys(registry).length} lodges (quantum-encrypted: ${encryptedString.startsWith('v2:')})`);
+    console.log(`[REGISTRY] Decrypted data length: ${jsonString.length} chars, is valid JSON: ${jsonString.startsWith('{') || jsonString.startsWith('[')}`);
+    
+    let registry: Registry;
+    try {
+      registry = JSON.parse(jsonString);
+      console.log(`[REGISTRY] ✓ Loaded registry with ${Object.keys(registry).length} lodges`);
+    } catch (parseError: any) {
+      console.error('[REGISTRY] JSON parse error:', parseError?.message);
+      console.error('[REGISTRY] Data preview:', jsonString.substring(0, 100));
+      return {};
+    }
     return registry;
   } catch (error: any) {
     // Blobs not configured - return empty registry (9999 will be auto-seeded)
@@ -371,15 +317,14 @@ export async function saveRegistry(registry: Registry): Promise<void> {
     const store = getStore('gadu-registry');
     const jsonString = JSON.stringify(registry);
     const encryptedData = await encryptData(jsonString);
-    const isQuantum = encryptedData.startsWith('v2:');
     await store.set('lodges', encryptedData, {
       metadata: { 
         lastUpdate: new Date().toISOString(),
-        encrypted: isQuantum ? 'quantum-hybrid' : !!getEncryptionKey() ? 'legacy-aes' : 'none',
+        encrypted: 'quantum-hybrid',
         lodgeCount: Object.keys(registry).length
       }
     });
-    console.log(`[BLOBS] Registry saved successfully (${isQuantum ? 'quantum-hybrid' : 'legacy'} encryption)`);
+    console.log(`[BLOBS] Registry saved successfully (quantum-hybrid encryption)`);
   } catch (error: any) {
     // Blobs not configured - just log warning (9999 is in-memory only)
     console.error('[BLOBS] Failed to save registry:', {
