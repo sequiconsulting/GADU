@@ -20,13 +20,14 @@ export default async (request: Request) => {
       supabaseUrl,
       supabaseAnonKey,
       supabaseServiceKey,
+      databasePassword,
       adminEmail,
       adminPassword,
       adminName
     } = await request.json() as any;
     
     // Validate
-    if (!glriNumber || !lodgeName || !supabaseUrl || !supabaseServiceKey) {
+    if (!glriNumber || !lodgeName || !supabaseUrl || !supabaseServiceKey || !databasePassword) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -59,7 +60,8 @@ export default async (request: Request) => {
       taxCode,
       supabaseUrl,
       supabaseAnonKey,
-      supabaseServiceKey, // Encrypted in production
+      supabaseServiceKey, // Encrypted in production (JWT for API calls)
+      databasePassword,   // Encrypted in production (Postgres password)
       createdAt: new Date(),
       lastAccess: new Date(),
       isActive: true,

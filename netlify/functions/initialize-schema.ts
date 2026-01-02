@@ -1,23 +1,26 @@
-import { Client } from 'pg';
+import postgres from 'postgres';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { logAuditEvent } from './shared/registry';
 
-function extractPostgresUrl(supabaseUrl: string, serviceKey: string): string {
+function extractPostgresUrl(supabaseUrl: string, databasePassword: string): string {
   const match = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
   if (!match) throw new Error('Invalid Supabase URL');
   const projectId = match[1];
-  // Use Supabase Connection Pooler (IPv4, serverless-friendly, port 6543)
-  return `postgresql://postgres.${projectId}:${serviceKey}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres`;
+  // Use Supabase Shared Pooler - Session Mode (IPv4, port 5432) for DDL migrations
+  // Session mode supports prepared statements and complex DDL operations
+  // Format: postgres://postgres.PROJECT:[PASSWORD]@aws-1-REGION.pooler.supabase.com:5432/postgres
+  return `postgresql://postgres.${projectId}:${databasePassword}@aws-1-eu-west-3.pooler.supabase.com:5432/postgres`;
 }
 
-async function connectWithRetry(dbUrl: string, maxRetries: number = 3): Promise<Client> {
+async function connectWithRetry(dbUrl: string, maxRetries: number = 3) {
   let lastError: any;
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const client = new Client({ connectionString: dbUrl });
-      await client.connect();
-      return client;
+      const sql = postgres(dbUrl, { max: 1 });
+      // Test connection
+      await sql`SELECT 1`;
+      return sql;
     } catch (error: any) {
       lastError = error;
       console.warn(`[INITIALIZE-SCHEMA] Connection attempt ${i + 1}/${maxRetries} failed:`, error.message);
@@ -34,12 +37,12 @@ export default async (request: Request) => {
     return new Response('Method Not Allowed', { status: 405 });
   }
   
-  let client: Client | null = null;
+  let sql: any = null;
 
   try {
-    const { supabaseUrl, supabaseServiceKey } = await request.json() as any;
+    const { supabaseUrl, databasePassword } = await request.json() as any;
     
-    if (!supabaseUrl || !supabaseServiceKey) {
+    if (!supabaseUrl || !databasePassword) {
       return new Response(
         JSON.stringify({ error: 'Missing credentials' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -54,19 +57,19 @@ export default async (request: Request) => {
     const schemaSQL = readFileSync(schemaPath, 'utf8');
     console.log('[INITIALIZE-SCHEMA] Schema file loaded, size:', schemaSQL.length, 'bytes');
 
-    // Connect to postgres via service key
-    const dbUrl = extractPostgresUrl(supabaseUrl, supabaseServiceKey);
-    console.log('[INITIALIZE-SCHEMA] Connecting to:', dbUrl.replace(supabaseServiceKey, '***'));
+    // Connect to postgres via database password
+    const dbUrl = extractPostgresUrl(supabaseUrl, databasePassword);
+    console.log('[INITIALIZE-SCHEMA] Connecting to:', dbUrl.replace(databasePassword, '***'));
     
-    client = await connectWithRetry(dbUrl);
+    sql = await connectWithRetry(dbUrl);
     console.log('[INITIALIZE-SCHEMA] Connected to postgres');
 
-    // Execute entire schema SQL
-    await client.query(schemaSQL);
+    // Execute entire schema SQL using unsafe for DDL
+    await sql.unsafe(schemaSQL);
     console.log('[INITIALIZE-SCHEMA] Schema SQL executed successfully');
 
-    await client.end();
-    client = null;
+    await sql.end();
+    sql = null;
 
     // Log audit event after successful connection close
     try {
@@ -85,11 +88,11 @@ export default async (request: Request) => {
 
   } catch (error: any) {
     console.error('[INITIALIZE-SCHEMA] Error:', error.message, error.stack);
-    if (client) {
+    if (sql) {
       try {
-        await client.end();
+        await sql.end();
       } catch (e) {
-        console.warn('[INITIALIZE-SCHEMA] Error closing client:', e);
+        console.warn('[INITIALIZE-SCHEMA] Error closing connection:', e);
       }
     }
     return new Response(

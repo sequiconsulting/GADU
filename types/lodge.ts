@@ -8,7 +8,8 @@ export interface PublicLodgeConfig {
 }
 
 export interface LodgeConfig extends PublicLodgeConfig {
-  supabaseServiceKey: string;  // Backend only - for Admin API user creation
+  supabaseServiceKey: string;  // Backend only - for Admin API user creation (JWT token)
+  databasePassword: string;     // Postgres database password for direct connections
   createdAt: Date;
   lastAccess: Date;
   isActive: boolean;
