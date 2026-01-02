@@ -10,11 +10,31 @@ function extractPostgresUrl(supabaseUrl: string, serviceKey: string): string {
   return `postgresql://postgres:${serviceKey}@db.${projectId}.supabase.co:5432/postgres`;
 }
 
+async function connectWithRetry(dbUrl: string, maxRetries: number = 3): Promise<Client> {
+  let lastError: any;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const client = new Client({ connectionString: dbUrl });
+      await client.connect();
+      return client;
+    } catch (error: any) {
+      lastError = error;
+      console.warn(`[INITIALIZE-SCHEMA] Connection attempt ${i + 1}/${maxRetries} failed:`, error.message);
+      if (i < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+      }
+    }
+  }
+  throw lastError;
+}
+
 export default async (request: Request) => {
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
   }
   
+  let client: Client | null = null;
+
   try {
     const { supabaseUrl, supabaseServiceKey } = await request.json() as any;
     
@@ -27,47 +47,55 @@ export default async (request: Request) => {
 
     console.log('[INITIALIZE-SCHEMA] Starting schema initialization...');
 
-    // Read schema SQL
-    const schemaPath = join(__dirname, '../../supabase-schema.sql');
+    // Read schema SQL from project root
+    const schemaPath = join(process.cwd(), 'supabase-schema.sql');
+    console.log('[INITIALIZE-SCHEMA] Reading schema from:', schemaPath);
     const schemaSQL = readFileSync(schemaPath, 'utf8');
+    console.log('[INITIALIZE-SCHEMA] Schema file loaded, size:', schemaSQL.length, 'bytes');
 
     // Connect to postgres via service key
     const dbUrl = extractPostgresUrl(supabaseUrl, supabaseServiceKey);
-    const client = new Client({ connectionString: dbUrl });
+    console.log('[INITIALIZE-SCHEMA] Connecting to:', dbUrl.replace(supabaseServiceKey, '***'));
     
+    client = await connectWithRetry(dbUrl);
+    console.log('[INITIALIZE-SCHEMA] Connected to postgres');
+
+    // Execute entire schema SQL
+    await client.query(schemaSQL);
+    console.log('[INITIALIZE-SCHEMA] Schema SQL executed successfully');
+
+    await client.end();
+    client = null;
+
+    // Log audit event after successful connection close
     try {
-      await client.connect();
-      console.log('[INITIALIZE-SCHEMA] Connected to postgres');
-
-      // Execute entire schema SQL
-      await client.query(schemaSQL);
-      console.log('[INITIALIZE-SCHEMA] Schema SQL executed successfully');
-
-      await client.end();
-
-      // Log audit event after successful connection close
       await logAuditEvent('schema_initialized', { supabaseUrl });
+    } catch (auditError) {
+      console.warn('[INITIALIZE-SCHEMA] Audit log failed (non-critical):', auditError);
+    }
 
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: 'Schema initialized successfully'
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
-    } catch (error: any) {
-      console.error('[INITIALIZE-SCHEMA] Error executing schema:', error);
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'Schema initialized successfully'
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error: any) {
+    console.error('[INITIALIZE-SCHEMA] Error:', error.message, error.stack);
+    if (client) {
       try {
         await client.end();
       } catch (e) {
-        // Ignore error during cleanup
+        console.warn('[INITIALIZE-SCHEMA] Error closing client:', e);
       }
-      throw error;
     }
-  } catch (error: any) {
-    console.error('[INITIALIZE-SCHEMA] Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.toString()
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
