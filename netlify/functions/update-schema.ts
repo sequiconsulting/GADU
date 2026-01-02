@@ -1,10 +1,15 @@
 import { loadRegistry } from './shared/registry';
-import { Client } from 'pg';
 
 const DB_VERSION = 13;
 
 const BASELINE_SCHEMA_SQL = `
   create extension if not exists "uuid-ossp";
+  
+  create or replace function public.execute_sql(sql text) returns void as $$
+  begin
+    execute sql;
+  end;
+  $$ language plpgsql;
 
   create table if not exists public.app_settings (
     id text primary key,
@@ -97,13 +102,21 @@ const DB_MIGRATIONS: Record<number, string> = (() => {
   return steps;
 })();
 
-async function executeSql(dbUrl: string, sql: string): Promise<void> {
-  const client = new Client({ connectionString: dbUrl });
-  try {
-    await client.connect();
-    await client.query(sql);
-  } finally {
-    await client.end();
+async function executeSql(supabaseUrl: string, serviceKey: string, sql: string): Promise<void> {
+  const url = new URL('/rest/v1/rpc/execute_sql', supabaseUrl).toString();
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+    body: JSON.stringify({ sql }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`SQL execution failed (${response.status}): ${text}`);
   }
 }
 
@@ -138,29 +151,26 @@ export default async (request: Request) => {
 
     console.log(`[UPDATE-SCHEMA] Starting schema update for lodge ${glriNumber}`);
 
-    const dbUrl = extractPostgresUrl(lodge.supabaseUrl, lodge.supabaseServiceKey);
-
-    // Check current db_version
-    const client = new Client({ connectionString: dbUrl });
-    await client.connect();
+    // Check current db_version via REST API
+    const checkUrl = new URL('/rest/v1/app_settings?id=eq.app&select=db_version', lodge.supabaseUrl).toString();
+    const checkResponse = await fetch(checkUrl, {
+      headers: {
+        apikey: lodge.supabaseServiceKey,
+        Authorization: `Bearer ${lodge.supabaseServiceKey}`,
+      },
+    });
 
     let currentVersion = 0;
-    try {
-      const result = await client.query(
-        'SELECT db_version FROM public.app_settings WHERE id = $1',
-        ['app']
-      );
-      if (result.rows && result.rows.length > 0) {
-        currentVersion = result.rows[0].db_version || 0;
+    if (checkResponse.ok) {
+      const data = await checkResponse.json() as any[];
+      if (data && data.length > 0) {
+        currentVersion = data[0].db_version || 0;
       }
-    } catch (e) {
-      console.log('[UPDATE-SCHEMA] app_settings table does not exist yet, starting from v0');
     }
 
     console.log(`[UPDATE-SCHEMA] Current version: ${currentVersion}, Target: ${DB_VERSION}`);
 
     if (currentVersion >= DB_VERSION) {
-      await client.end();
       return new Response(JSON.stringify({ 
         message: 'Schema already up to date',
         currentVersion,
@@ -176,25 +186,35 @@ export default async (request: Request) => {
     while (version < DB_VERSION) {
       const sql = DB_MIGRATIONS[version];
       if (!sql) {
-        await client.end();
         throw new Error(`No migration defined for v${version} -> v${version + 1}`);
       }
 
       console.log(`[UPDATE-SCHEMA] Applying migration v${version} -> v${version + 1}`);
-      await client.query(sql);
+      await executeSql(lodge.supabaseUrl, lodge.supabaseServiceKey, sql);
       
       version += 1;
 
-      // Update db_version
-      await client.query(
-        'UPDATE public.app_settings SET db_version = $1, updated_at = now() WHERE id = $2',
-        [version, 'app']
-      );
+      // Update db_version via REST API
+      const updateUrl = new URL('/rest/v1/app_settings?id=eq.app', lodge.supabaseUrl).toString();
+      const updateResponse = await fetch(updateUrl, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: lodge.supabaseServiceKey,
+          Authorization: `Bearer ${lodge.supabaseServiceKey}`,
+        },
+        body: JSON.stringify({
+          db_version: version,
+          updated_at: new Date().toISOString(),
+        }),
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error(`Failed to update db_version: ${await updateResponse.text()}`);
+      }
 
       console.log(`[UPDATE-SCHEMA] Migration v${version} completed`);
     }
-
-    await client.end();
 
     return new Response(JSON.stringify({ 
       message: 'Schema updated successfully',
