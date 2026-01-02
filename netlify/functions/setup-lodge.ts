@@ -1,5 +1,5 @@
-import { loadRegistry, saveRegistry, logAuditEvent } from './_shared/registry';
-import { setupSupabaseLodge } from './_shared/supabaseSetup';
+import { loadRegistry, saveRegistry, logAuditEvent } from './shared/registry';
+import { setupSupabaseLodge } from './shared/supabaseSetup';
 import { LodgeConfig } from '../../types/lodge';
 
 export default async (request: Request) => {

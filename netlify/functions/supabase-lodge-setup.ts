@@ -1,5 +1,5 @@
-import { loadRegistry, logAuditEvent } from './_shared/registry';
-import { setupSupabaseLodge } from './_shared/supabaseSetup';
+import { loadRegistry, logAuditEvent } from './shared/registry';
+import { setupSupabaseLodge } from './shared/supabaseSetup';
 
 /**
  * Supabase Lodge Setup - Automated configuration

@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { logAuditEvent } from './_shared/registry';
+import { logAuditEvent } from './shared/registry';
 
 export default async (request: Request) => {
   if (request.method !== 'POST') {

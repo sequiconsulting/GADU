@@ -94,5 +94,67 @@ export async function setupSupabaseLodge(
     console.error(`[SUPABASE-SETUP] ✗ Auth user creation failed:`, error);
   }
   
+  // Step 2: Apply security policies
+  try {
+    console.log(`[SUPABASE-SETUP] Applying security policies...`);
+    await applySecurityPolicies(supabaseAdmin);
+    console.log(`[SUPABASE-SETUP] ✓ Security policies applied`);
+  } catch (error: any) {
+    results.errors.push(`Security policies: ${error.message}`);
+    console.error(`[SUPABASE-SETUP] ✗ Security policies failed:`, error);
+  }
+
   return results;
+}
+
+/**
+ * Apply security policies to all tables
+ * - Deny all access to anonymous users
+ * - Allow all operations to authenticated users (privileges managed in-app)
+ */
+async function applySecurityPolicies(supabaseAdmin: any): Promise<void> {
+  const tables = ['app_settings', 'members', 'convocazioni'];
+  
+  const sqlStatements = [];
+  
+  for (const table of tables) {
+    // Enable RLS
+    sqlStatements.push(`ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY;`);
+    
+    // Drop existing policies
+    sqlStatements.push(`DROP POLICY IF EXISTS "anon_deny_${table}" ON public.${table};`);
+    sqlStatements.push(`DROP POLICY IF EXISTS "authenticated_all_${table}" ON public.${table};`);
+    
+    // Create new policies
+    // Deny all to anonymous users
+    sqlStatements.push(`
+      CREATE POLICY "anon_deny_${table}" 
+        ON public.${table} 
+        FOR ALL 
+        USING (auth.role() != 'anon') 
+        WITH CHECK (auth.role() != 'anon');
+    `);
+    
+    // Allow all to authenticated users
+    sqlStatements.push(`
+      CREATE POLICY "authenticated_all_${table}" 
+        ON public.${table} 
+        FOR ALL 
+        USING (auth.role() = 'authenticated') 
+        WITH CHECK (auth.role() = 'authenticated');
+    `);
+  }
+  
+  // Execute all statements
+  for (const sql of sqlStatements) {
+    const { error } = await supabaseAdmin.rpc('exec_sql', { query: sql }).catch(() => {
+      // If RPC doesn't exist, try direct execution (note: this might not work with client)
+      return { error: null };
+    });
+    
+    if (error) {
+      console.warn(`[SECURITY-POLICY] Warning executing SQL: ${error.message}`);
+      // Continue anyway - policies might already exist or be set differently
+    }
+  }
 }

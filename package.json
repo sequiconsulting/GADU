@@ -9,10 +9,13 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0 --port 5173"
+    "preview": "vite preview --host 0.0.0.0 --port 5173",
+    "generate-quantum-keys": "node --loader ts-node/esm scripts/generate-quantum-keys.ts",
+    "test:registry-local": "node scripts/test-registry-local.js"
   },
   "dependencies": {
     "@faker-js/faker": "^9.9.0",
+    "@noble/post-quantum": "^0.5.4",
     "@supabase/supabase-js": "^2.48.0",
     "lucide-react": "^0.555.0",
     "react": "^19.2.0",
@@ -23,11 +26,12 @@
   "devDependencies": {
     "@netlify/blobs": "^10.5.0",
     "@netlify/functions": "^5.1.2",
-    "@types/node": "^22.14.0",
+    "@types/node": "^22.19.3",
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.17",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }

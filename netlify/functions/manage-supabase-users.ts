@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { loadRegistry, logAuditEvent } from './_shared/registry';
+import { loadRegistry, logAuditEvent } from './shared/registry';
 
 export default async (request: Request) => {
   // GET - List users

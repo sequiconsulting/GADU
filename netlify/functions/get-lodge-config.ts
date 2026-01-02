@@ -1,4 +1,4 @@
-import { loadRegistry } from './_shared/registry';
+import { loadRegistry } from './shared/registry';
 import { PublicLodgeConfig } from '../../types/lodge';
 
 export default async (request: Request) => {

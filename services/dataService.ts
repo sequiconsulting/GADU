@@ -11,9 +11,9 @@ type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_v
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
-  public APP_VERSION = '0.165';
+  public APP_VERSION = '0.167';
   public DB_VERSION = 12;
-  public SUPABASE_SCHEMA_VERSION = 1;
+  public SUPABASE_SCHEMA_VERSION = 2;
 
   private supabase: SupabaseClient | null = null;
   private initPromise: Promise<void> | null = null;
@@ -65,6 +65,43 @@ class DataService {
     throw error;
   }
 
+  /**
+   * Apply security policies to all tables
+   * - Deny all access to anonymous users
+   * - Allow all operations to authenticated users (privileges managed in-app)
+   */
+  private async applySecurityPolicies(): Promise<void> {
+    const client = this.ensureSupabaseClient();
+    const tables = ['app_settings', 'members', 'convocazioni'];
+    
+    console.log('[SECURITY] Applying security policies...');
+    
+    for (const table of tables) {
+      // Note: RLS policies can only be managed with service key
+      // This will only work if the client is using service key (demo mode)
+      // In production with anon key, policies must be set via Supabase dashboard or migration
+      try {
+        const { error } = await client.rpc('exec_sql', {
+          query: `
+            ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY;
+            DROP POLICY IF EXISTS "anon_deny_${table}" ON public.${table};
+            DROP POLICY IF EXISTS "authenticated_all_${table}" ON public.${table};
+            CREATE POLICY "anon_deny_${table}" ON public.${table} FOR ALL USING (auth.role() != 'anon') WITH CHECK (auth.role() != 'anon');
+            CREATE POLICY "authenticated_all_${table}" ON public.${table} FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+          `
+        });
+        
+        if (error) {
+          console.warn(`[SECURITY] Could not apply policies for ${table}: ${error.message}`);
+        }
+      } catch (err) {
+        console.warn(`[SECURITY] Could not apply policies for ${table}:`, err);
+      }
+    }
+    
+    console.log('[SECURITY] Security policies application completed');
+  }
+
   private async ensureSchemaAndSeed(): Promise<void> {
     const client = this.ensureSupabaseClient();
 
@@ -98,6 +135,10 @@ class DataService {
       if (settingsRow.schema_version !== this.SUPABASE_SCHEMA_VERSION) updates.schema_version = this.SUPABASE_SCHEMA_VERSION;
       if (Object.keys(updates).length > 0) {
         await client.from('app_settings').update(updates).eq('id', 'app');
+        // Applica security policies quando versione schema cambia
+        if (updates.schema_version !== undefined) {
+          await this.applySecurityPolicies();
+        }
       }
     }
 
