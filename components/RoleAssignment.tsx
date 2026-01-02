@@ -96,9 +96,8 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
 
   const getMemberForRole = (year: number, branch: BranchType, roleName: string): Member | undefined => {
     return members.find(member => {
-      const branchData = member[branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>];
-      // @ts-ignore
-      return branchData.roles.some(r => r.yearStart === year && r.roleName === roleName && r.branch === branch);
+      const branchData = member[branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>] as any;
+      return branchData?.roles?.some((r: any) => r.yearStart === year && r.roleName === roleName && r.branch === branch);
     });
   };
 
@@ -140,8 +139,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
   const eligibleMembers = members
     .filter(m => {
         const branchLower = activeBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
-        const branchData = m[branchLower];
-        // @ts-ignore
+        const branchData = m[branchLower] as any;
         const isActive = isMemberActiveInYear(branchData, selectedYear);
         const hasDegree = branchData.degrees && branchData.degrees.length > 0;
         return isActive && hasDegree;

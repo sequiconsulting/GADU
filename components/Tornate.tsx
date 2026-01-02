@@ -50,8 +50,6 @@ export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpda
   };
 
   const handlePrint = (convocazione: Convocazione, options: { mostraPiedilista: boolean; nomiCriptati: boolean }) => {
-    // TODO: Generate PDF with specified options
-    // For now, open print dialog
     const data = JSON.stringify({ convocazione, options }, null, 2);
     const printWindow = window.open('', '', 'width=800,height=600');
     if (printWindow) {

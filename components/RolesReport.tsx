@@ -30,11 +30,9 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
     const rolesForRitual = getRolesForRitual(branch, ritual);
     
     members.forEach(member => {
-      const branchData = member[branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>];
+      const branchData = member[branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>] as any;
       
-      // Filter for roles matching the selected year and branch
-      // @ts-ignore
-      const activeRoles = branchData.roles.filter(r => r.yearStart === selectedYear && r.branch === branch);
+      const activeRoles = branchData?.roles?.filter((r: any) => r.yearStart === selectedYear && r.branch === branch) || [];
       
       activeRoles.forEach((role: any) => {
         // Find index in roles for ritual to determine sorting hierarchy

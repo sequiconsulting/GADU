@@ -48,7 +48,6 @@ function getQuantumKeys(): QuantumKeys | null {
   
   if (!kyberPubKey || !kyberPrivKey || !rsaPubKeyB64 || !rsaPrivKeyB64) {
     console.log('[QUANTUM] Missing quantum keys in env - encryption disabled');
-    console.log(`[QUANTUM] Available: kyberPub=${!!kyberPubKey}, kyberPriv=${!!kyberPrivKey}, rsaPubB64=${!!rsaPubKeyB64}, rsaPrivB64=${!!rsaPrivKeyB64}`);
     return null;
   }
   
@@ -56,7 +55,6 @@ function getQuantumKeys(): QuantumKeys | null {
   const rsaPubKey = Buffer.from(rsaPubKeyB64, 'base64').toString('utf-8');
   const rsaPrivKey = Buffer.from(rsaPrivKeyB64, 'base64').toString('utf-8');
   
-  console.log('[QUANTUM] ✓ All quantum keys loaded from env (RSA decoded from base64)');
   return {
     kyber: {
       publicKey: kyberPubKey,
@@ -71,14 +69,11 @@ function getQuantumKeys(): QuantumKeys | null {
 
 function getEncryptionKey(): Buffer | null {
   const key = process.env.REGISTRY_ENCRYPTION_KEY;
-  if (!key) {
-    console.log('[CRYPTO] No REGISTRY_ENCRYPTION_KEY env var found');
-    return null;
-  }
+  if (!key) return null;
+  
   const buffer = Buffer.from(key, 'hex');
-  console.log(`[CRYPTO] Key loaded: ${buffer.length} bytes`);
   if (buffer.length !== 32) {
-    console.error(`[CRYPTO] Invalid key length! Got ${buffer.length} bytes, need exactly 32`);
+    console.error(`[CRYPTO] Invalid key length: ${buffer.length} bytes, expected 32`);
     return null;
   }
   return buffer;

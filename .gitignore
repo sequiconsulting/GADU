@@ -29,3 +29,11 @@ dist-ssr
 # Netlify
 .netlify
 netlify/functions/dist
+
+# Scripts generati
+scripts/*.js
+!scripts/setup-*.js
+
+# Backup files
+*.backup
+*~

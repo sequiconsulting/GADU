@@ -20,8 +20,8 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
 
   const getMembersForBranch = (branch: BranchType) => {
     return sortedMembers.filter(m => {
-        // @ts-ignore
-        return isMemberActiveInYear(m[branch.toLowerCase()], selectedYear);
+        const branchKey = branch.toLowerCase() as keyof Member;
+        return isMemberActiveInYear(m[branchKey] as any, selectedYear);
     });
   };
 
@@ -32,8 +32,8 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
       BRANCHES.forEach(branch => {
         const branchMembers = getMembersForBranch(branch.type);
         branchMembers.forEach(m => {
-          // @ts-ignore
-          const branchData = m[branch.type.toLowerCase()];
+          const branchKey = branch.type.toLowerCase() as keyof Member;
+          const branchData = m[branchKey] as any;
           const roleObj = getActiveRoleObj(m, branch.type);
           const highestDegree = branchData?.degrees?.[branchData.degrees.length - 1];
           let provenance = '';
@@ -64,8 +64,8 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
       const isCraft = viewMode === 'CRAFT';
       
       branchMembers.forEach(m => {
-        // @ts-ignore
-        const branchData = m[viewMode.toLowerCase()];
+        const branchKey = viewMode.toLowerCase() as keyof Member;
+        const branchData = m[branchKey] as any;
         const roleObj = getActiveRoleObj(m, viewMode);
         const highestDegree = branchData?.degrees?.[branchData.degrees.length - 1];
         let provenance = '';
@@ -100,8 +100,10 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
   }
 
   const getActiveRoleObj = (member: Member, branch: BranchType) => {
-    // @ts-ignore
-    const roles = member[branch.toLowerCase()].roles;
+    const branchKey = branch.toLowerCase() as keyof Member;
+    const branchData = member[branchKey];
+    if (!branchData || typeof branchData !== 'object' || !('roles' in branchData)) return undefined;
+    const roles = (branchData as any).roles;
     return roles.find((r: any) => r.yearStart === selectedYear && r.branch === branch);
   };
 
@@ -156,8 +158,8 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
                         {branchMembers.map(m => {
                             const roleObj = getActiveRoleObj(m, branch.type);
                             const isDuplicate = roleObj && roleFrequency[roleObj.roleName] > 1;
-                            // @ts-ignore
-                            const branchData = m[branch.type.toLowerCase()];
+                            const branchKey = branch.type.toLowerCase() as keyof Member;
+                            const branchData = m[branchKey] as any;
                             let provenance = '';
                             if(!isCraft) {
                                 if (branchData.isMotherLodgeMember) provenance = 'Membro Ordinario';
