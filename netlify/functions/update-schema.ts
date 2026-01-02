@@ -14,7 +14,8 @@ function extractPostgresUrl(supabaseUrl: string, serviceKey: string): string {
   const match = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
   if (!match) throw new Error('Invalid Supabase URL');
   const projectId = match[1];
-  return `postgresql://postgres:${serviceKey}@db.${projectId}.supabase.co:5432/postgres`;
+  // Use Supabase Connection Pooler (IPv4, serverless-friendly, port 6543)
+  return `postgresql://postgres.${projectId}:${serviceKey}@aws-0-eu-central-1.pooler.supabase.com:6543/postgres`;
 }
 
 async function connectWithRetry(dbUrl: string, maxRetries: number = 3): Promise<Client> {
