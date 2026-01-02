@@ -24,7 +24,8 @@ export default async (req: Request) => {
   }
 
   try {
-    const { encryptedData, lodgeNumber = '9999' } = await req.json();
+    const body = await req.json() as any;
+    const { encryptedData, lodgeNumber = '9999' } = body;
 
     if (!encryptedData) {
       return new Response('Missing encryptedData in request body', { status: 400 });
