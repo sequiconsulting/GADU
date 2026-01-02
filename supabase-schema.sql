@@ -3,6 +3,13 @@
 
 create extension if not exists "uuid-ossp";
 
+-- RPC function for arbitrary SQL execution (used by schema migrations)
+create or replace function public.query(sql text) returns void as $$
+begin
+  execute sql;
+end;
+$$ language plpgsql security definer;
+
 create table if not exists public.app_settings (
   id text primary key,
   data jsonb not null default '{}'::jsonb,
