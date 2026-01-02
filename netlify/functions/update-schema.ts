@@ -4,12 +4,6 @@ const DB_VERSION = 13;
 
 const BASELINE_SCHEMA_SQL = `
   create extension if not exists "uuid-ossp";
-  
-  create or replace function public.execute_sql(sql text) returns void as $$
-  begin
-    execute sql;
-  end;
-  $$ language plpgsql;
 
   create table if not exists public.app_settings (
     id text primary key,
@@ -96,38 +90,11 @@ const BASELINE_SCHEMA_SQL = `
 
 const DB_MIGRATIONS: Record<number, string> = (() => {
   const steps: Record<number, string> = {};
-  for (let v = 0; v < 13; v++) {
+  for (let v = 0; v < DB_VERSION; v++) {
     steps[v] = BASELINE_SCHEMA_SQL;
   }
   return steps;
 })();
-
-async function executeSql(supabaseUrl: string, serviceKey: string, sql: string): Promise<void> {
-  const url = new URL('/rest/v1/rpc/execute_sql', supabaseUrl).toString();
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      apikey: serviceKey,
-      Authorization: `Bearer ${serviceKey}`,
-    },
-    body: JSON.stringify({ sql }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`SQL execution failed (${response.status}): ${text}`);
-  }
-}
-
-function extractPostgresUrl(supabaseUrl: string, serviceKey: string): string {
-  // Extract project ID from Supabase URL: https://PROJECT.supabase.co
-  const match = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
-  if (!match) throw new Error('Invalid Supabase URL');
-  
-  const projectId = match[1];
-  return `postgresql://postgres:${serviceKey}@db.${projectId}.supabase.co:5432/postgres`;
-}
 
 export default async (request: Request) => {
   try {
@@ -152,20 +119,26 @@ export default async (request: Request) => {
     console.log(`[UPDATE-SCHEMA] Starting schema update for lodge ${glriNumber}`);
 
     // Check current db_version via REST API
-    const checkUrl = new URL('/rest/v1/app_settings?id=eq.app&select=db_version', lodge.supabaseUrl).toString();
-    const checkResponse = await fetch(checkUrl, {
-      headers: {
-        apikey: lodge.supabaseServiceKey,
-        Authorization: `Bearer ${lodge.supabaseServiceKey}`,
-      },
-    });
-
     let currentVersion = 0;
-    if (checkResponse.ok) {
-      const data = await checkResponse.json() as any[];
-      if (data && data.length > 0) {
-        currentVersion = data[0].db_version || 0;
+    try {
+      const checkUrl = new URL('/rest/v1/app_settings?id=eq.app&select=db_version', lodge.supabaseUrl).toString();
+      const checkResponse = await fetch(checkUrl, {
+        headers: {
+          apikey: lodge.supabaseServiceKey,
+          Authorization: `Bearer ${lodge.supabaseServiceKey}`,
+        },
+      });
+
+      if (checkResponse.ok) {
+        const data = await checkResponse.json() as any[];
+        if (data && data.length > 0) {
+          currentVersion = data[0].db_version || 0;
+        }
+      } else {
+        currentVersion = 0;
       }
+    } catch (e) {
+      currentVersion = 0;
     }
 
     console.log(`[UPDATE-SCHEMA] Current version: ${currentVersion}, Target: ${DB_VERSION}`);
@@ -190,12 +163,26 @@ export default async (request: Request) => {
       }
 
       console.log(`[UPDATE-SCHEMA] Applying migration v${version} -> v${version + 1}`);
-      await executeSql(lodge.supabaseUrl, lodge.supabaseServiceKey, sql);
       
+      const sqlUrl = new URL('/rest/v1/rpc/query', lodge.supabaseUrl).toString();
+      const sqlResponse = await fetch(sqlUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: lodge.supabaseServiceKey,
+          Authorization: `Bearer ${lodge.supabaseServiceKey}`,
+        },
+        body: JSON.stringify({ query: sql }),
+      });
+
+      if (!sqlResponse.ok) {
+        const errorText = await sqlResponse.text();
+        throw new Error(`SQL execution failed (${sqlResponse.status}): ${errorText}`);
+      }
+
       version += 1;
 
-      // Update db_version via REST API
-      const updateUrl = new URL('/rest/v1/app_settings?id=eq.app', lodge.supabaseUrl).toString();
+      const updateUrl = new URL(`/rest/v1/app_settings?id=eq.app`, lodge.supabaseUrl).toString();
       const updateResponse = await fetch(updateUrl, {
         method: 'PATCH',
         headers: {
@@ -210,7 +197,8 @@ export default async (request: Request) => {
       });
 
       if (!updateResponse.ok) {
-        throw new Error(`Failed to update db_version: ${await updateResponse.text()}`);
+        const errorText = await updateResponse.text();
+        throw new Error(`Failed to update db_version: ${errorText}`);
       }
 
       console.log(`[UPDATE-SCHEMA] Migration v${version} completed`);
