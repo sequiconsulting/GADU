@@ -11,6 +11,7 @@ import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 const isLocalDev = process.env.NETLIFY_DEV === 'true';
 const localRegistryPath = join(process.cwd(), '.netlify', 'registry.json');
 const localQuantumKeysPath = join(process.cwd(), '.netlify', 'quantum-keys.json');
+const localMasterKeyPath = join(process.cwd(), '.netlify', 'master-key.txt');
 
 // Encryption settings
 const ALGORITHM = 'aes-256-gcm';
@@ -29,7 +30,7 @@ interface QuantumKeys {
   };
 }
 
-function getQuantumKeys(): QuantumKeys | null {
+async function getQuantumKeys(): Promise<QuantumKeys | null> {
   // In local dev, load from file
   if (isLocalDev) {
     if (existsSync(localQuantumKeysPath)) {
@@ -40,14 +41,51 @@ function getQuantumKeys(): QuantumKeys | null {
     return null;
   }
   
-  // In production, load ALL keys from env vars
+  // In production: public keys from env, private keys from Blobs (encrypted)
   const kyberPubKey = process.env.KYBER_PUBLIC_KEY;
-  const kyberPrivKey = process.env.KYBER_PRIVATE_KEY;
   const rsaPubKeyB64 = process.env.RSA_PUBLIC_KEY_B64;
-  const rsaPrivKeyB64 = process.env.RSA_PRIVATE_KEY_B64;
+  const masterKey = process.env.QUANTUM_MASTER_KEY;
   
-  if (!kyberPubKey || !kyberPrivKey || !rsaPubKeyB64 || !rsaPrivKeyB64) {
-    console.log('[QUANTUM] Missing quantum keys in env - encryption disabled');
+  if (!kyberPubKey || !rsaPubKeyB64 || !masterKey) {
+    console.log('[QUANTUM] Missing keys in env - encryption disabled');
+    return null;
+  }
+  
+  // Load encrypted private keys from Netlify Blobs
+  let kyberPrivKey: string;
+  let rsaPrivKeyB64: string;
+  
+  try {
+    const keysStore = getStore('quantum-keys');
+    const encryptedKeysJson = await keysStore.get('private-keys', { type: 'text' });
+    
+    if (!encryptedKeysJson) {
+      console.log('[QUANTUM] Private keys not found in Blobs - encryption disabled');
+      return null;
+    }
+    
+    // Decrypt private keys
+    const encryptedData = JSON.parse(encryptedKeysJson);
+    const iv = Buffer.from(encryptedData.iv, 'hex');
+    const authTag = Buffer.from(encryptedData.authTag, 'hex');
+    const encrypted = encryptedData.data;
+    
+    const decipher = createDecipheriv('aes-256-gcm', Buffer.from(masterKey, 'hex'), iv);
+    decipher.setAuthTag(authTag);
+    
+    let decrypted = decipher.update(encrypted, 'hex', 'utf-8');
+    decrypted += decipher.final('utf-8');
+    
+    const privateKeys = JSON.parse(decrypted);
+    kyberPrivKey = privateKeys.kyberPrivate;
+    rsaPrivKeyB64 = privateKeys.rsaPrivateB64;
+    
+    if (!kyberPrivKey || !rsaPrivKeyB64) {
+      console.log('[QUANTUM] Invalid private keys format in Blobs');
+      return null;
+    }
+  } catch (error) {
+    console.error('[QUANTUM] Error loading/decrypting private keys from Blobs:', error);
     return null;
   }
   
@@ -89,14 +127,14 @@ function getEncryptionKey(): Buffer | null {
  * 4. Encrypt Kyber ciphertext with RSA-4096 (classical)
  * 5. Return: rsa_encrypted_kyber_ciphertext:iv:authTag:aes_encrypted_data
  */
-function encryptData(text: string): string {
+async function encryptData(text: string): Promise<string> {
   // In local dev with NETLIFY_DEV, skip encryption
   if (isLocalDev) {
     console.log('[CRYPTO] Local dev mode - skipping encryption');
     return text;
   }
   
-  const quantumKeys = getQuantumKeys();
+  const quantumKeys = await getQuantumKeys();
   if (!quantumKeys) {
     // No quantum keys - fallback to legacy AES if available
     const legacyKey = getEncryptionKey();
@@ -167,7 +205,7 @@ function encryptDataLegacy(text: string, key: Buffer): string {
 /**
  * Quantum-resistant hybrid decryption: RSA + Kyber + AES
  */
-function decryptData(encryptedText: string): string {
+async function decryptData(encryptedText: string): Promise<string> {
   // In local dev, data is plaintext
   if (isLocalDev) {
     return encryptedText;
@@ -178,7 +216,7 @@ function decryptData(encryptedText: string): string {
   
   // v2 format: v2:rsa_encrypted:iv:authTag:aes_data
   if (parts[0] === 'v2' && parts.length === 5) {
-    return decryptDataQuantum(encryptedText);
+    return await decryptDataQuantum(encryptedText);
   }
   
   // v1 format: v1:iv:authTag:data (legacy AES)
@@ -195,8 +233,8 @@ function decryptData(encryptedText: string): string {
   return encryptedText;
 }
 
-function decryptDataQuantum(encryptedText: string): string {
-  const quantumKeys = getQuantumKeys();
+async function decryptDataQuantum(encryptedText: string): Promise<string> {
+  const quantumKeys = await getQuantumKeys();
   if (!quantumKeys) {
     throw new Error('Quantum keys not available for decryption');
   }
@@ -308,7 +346,7 @@ export async function loadRegistry(): Promise<Registry> {
     console.log('[REGISTRY] Data retrieved from Blobs, decrypting...');
     // Convert ArrayBuffer to string if needed
     const encryptedString = typeof data === 'string' ? data : new TextDecoder().decode(data);
-    const jsonString = decryptData(encryptedString);
+    const jsonString = await decryptData(encryptedString);
     const registry = JSON.parse(jsonString);
     console.log(`[REGISTRY] Loaded registry with ${Object.keys(registry).length} lodges (quantum-encrypted: ${encryptedString.startsWith('v2:')})`);
     return registry;
@@ -332,7 +370,7 @@ export async function saveRegistry(registry: Registry): Promise<void> {
   try {
     const store = getStore('gadu-registry');
     const jsonString = JSON.stringify(registry);
-    const encryptedData = encryptData(jsonString);
+    const encryptedData = await encryptData(jsonString);
     const isQuantum = encryptedData.startsWith('v2:');
     await store.set('lodges', encryptedData, {
       metadata: { 

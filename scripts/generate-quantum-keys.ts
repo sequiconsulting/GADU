@@ -1,31 +1,31 @@
-#!/usr/bin/env node
-/**
- * Generate Quantum-Resistant (ML-KEM-768) + RSA keys for registry encryption
- * 
- * This script:
- * 1. Generates ML-KEM-768 keypair (post-quantum, NIST FIPS 203)
- * 2. Generates RSA-4096 keypair (classical)
- * 3. Saves public keys to source code (constants)
- * 4. Registers private keys to Netlify env vars via CLI
- * 
- * Usage:
- *   node --loader ts-node/esm scripts/generate-quantum-keys.ts [--site-id NETLIFY_SITE_ID]
- */
-
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
-import { generateKeyPairSync } from 'crypto';
-import { writeFileSync, existsSync, mkdirSync } from 'fs';
+import { generateKeyPairSync, randomBytes, createCipheriv } from 'crypto';
+import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
 
 const SITE_ID_FLAG = '--site-id';
 
-function generateKeys() {
+interface KeyPair {
+  kyber: {
+    publicKey: string;
+    privateKey: string;
+  };
+  rsa: {
+    publicKey: string;
+    privateKey: string;
+  };
+}
+
+function generateKeys(): KeyPair {
   console.log('[KEYGEN] Generating ML-KEM-768 keypair (NIST FIPS 203)...');
-  const kyberKeys = ml_kem768.keygen();
+  const kyberKeypair = ml_kem768.keygen();
+  
+  const kyberPubKey = Buffer.from(kyberKeypair.publicKey).toString('hex');
+  const kyberPrivKey = Buffer.from(kyberKeypair.secretKey).toString('hex');
   
   console.log('[KEYGEN] Generating RSA-4096 keypair...');
-  const { publicKey, privateKey } = generateKeyPairSync('rsa', {
+  const rsaKeypair = generateKeyPairSync('rsa', {
     modulusLength: 4096,
     publicKeyEncoding: {
       type: 'spki',
@@ -39,76 +39,116 @@ function generateKeys() {
   
   return {
     kyber: {
-      publicKey: Buffer.from(kyberKeys.publicKey).toString('hex'),
-      privateKey: Buffer.from(kyberKeys.secretKey).toString('hex')
+      publicKey: kyberPubKey,
+      privateKey: kyberPrivKey
     },
     rsa: {
-      publicKey: publicKey,
-      privateKey: privateKey
+      publicKey: rsaKeypair.publicKey,
+      privateKey: rsaKeypair.privateKey
     }
   };
 }
 
-function savePublicKeysToSource(kyberPubKey: string, rsaPubKey: string) {
-  const constantsPath = join(process.cwd(), 'netlify', 'functions', '_shared', 'quantumKeys.ts');
+function generateMasterKey(): string {
+  console.log('[MASTER] Generating AES-256 master key...');
+  const masterKey = randomBytes(32).toString('hex'); // 64 hex chars
   
-  const content = `// Auto-generated quantum-resistant encryption keys (PUBLIC KEYS ONLY)
-// Generated: ${new Date().toISOString()}
-// DO NOT EDIT MANUALLY - Use scripts/generate-quantum-keys.ts
-
-export const KYBER_PUBLIC_KEY = '${kyberPubKey}';
-
-export const RSA_PUBLIC_KEY = \`${rsaPubKey.trim()}\`;
-`;
+  const localKeysDir = join(process.cwd(), '.netlify');
+  if (!existsSync(localKeysDir)) {
+    mkdirSync(localKeysDir, { recursive: true });
+  }
   
-  writeFileSync(constantsPath, content, 'utf-8');
-  console.log(`[KEYGEN] ✓ Public keys saved to ${constantsPath}`);
+  const masterKeyPath = join(localKeysDir, 'master-key.txt');
+  writeFileSync(masterKeyPath, masterKey, 'utf-8');
+  console.log(`[MASTER] ✓ Master key saved to ${masterKeyPath}`);
+  
+  return masterKey;
 }
 
-function registerPrivateKeysToNetlify(kyberPubKey: string, kyberPrivKey: string, rsaPubKey: string, rsaPrivKey: string, siteId?: string) {
-  console.log('[NETLIFY] Registering ALL keys as environment variables...');
+function loadOrGenerateMasterKey(): string {
+  const masterKeyPath = join(process.cwd(), '.netlify', 'master-key.txt');
   
-  // Encode RSA keys as base64 to avoid newline issues
-  const rsaPubB64 = Buffer.from(rsaPubKey).toString('base64');
+  if (existsSync(masterKeyPath)) {
+    console.log('[MASTER] Loading existing master key...');
+    return readFileSync(masterKeyPath, 'utf-8').trim();
+  }
+  
+  return generateMasterKey();
+}
+
+function encryptPrivateKeys(kyberPrivKey: string, rsaPrivKey: string, masterKey: string): string {
   const rsaPrivB64 = Buffer.from(rsaPrivKey).toString('base64');
+  const plaintext = JSON.stringify({
+    kyberPrivate: kyberPrivKey,
+    rsaPrivateB64: rsaPrivB64,
+    createdAt: new Date().toISOString()
+  });
   
+  const iv = randomBytes(16);
+  const cipher = createCipheriv('aes-256-gcm', Buffer.from(masterKey, 'hex'), iv);
+  
+  let encrypted = cipher.update(plaintext, 'utf-8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag();
+  
+  return JSON.stringify({
+    iv: iv.toString('hex'),
+    authTag: authTag.toString('hex'),
+    data: encrypted
+  });
+}
+
+function registerKeysToNetlify(kyberPubKey: string, kyberPrivKey: string, rsaPubKey: string, rsaPrivKey: string, masterKey: string, siteId?: string) {
+  console.log('[NETLIFY] Registering public keys to environment variables...');
+  
+  const rsaPubB64 = Buffer.from(rsaPubKey).toString('base64');
   const siteFlag = siteId ? `--site-id ${siteId}` : '';
   
   try {
-    // Set Kyber public key
     execSync(
       `netlify env:set KYBER_PUBLIC_KEY "${kyberPubKey}" ${siteFlag}`,
       { stdio: 'inherit' }
     );
     console.log('[NETLIFY] ✓ KYBER_PUBLIC_KEY registered');
     
-    // Set Kyber private key
-    execSync(
-      `netlify env:set KYBER_PRIVATE_KEY "${kyberPrivKey}" --force ${siteFlag}`,
-      { stdio: 'inherit' }
-    );
-    console.log('[NETLIFY] ✓ KYBER_PRIVATE_KEY registered');
-    
-    // Set RSA public key (base64)
     execSync(
       `netlify env:set RSA_PUBLIC_KEY_B64 "${rsaPubB64}" ${siteFlag}`,
       { stdio: 'inherit' }
     );
     console.log('[NETLIFY] ✓ RSA_PUBLIC_KEY_B64 registered');
     
-    // Set RSA private key (base64)
+    // Register master key
     execSync(
-      `netlify env:set RSA_PRIVATE_KEY_B64 "${rsaPrivB64}" --force ${siteFlag}`,
+      `netlify env:set QUANTUM_MASTER_KEY "${masterKey}" ${siteFlag}`,
       { stdio: 'inherit' }
     );
-    console.log('[NETLIFY] ✓ RSA_PRIVATE_KEY_B64 registered');
+    console.log('[NETLIFY] ✓ QUANTUM_MASTER_KEY registered');
     
-    console.log('[NETLIFY] ✓ All quantum keys registered successfully (RSA as base64)');
-    console.log('[NETLIFY] Note: Keys are set for production. Deploy to activate.');
+    console.log('[NETLIFY] ✓ Public keys registered successfully');
+    
   } catch (error: any) {
-    console.error('[NETLIFY] ✗ Failed to register keys:', error.message);
-    console.error('[NETLIFY] Make sure you are authenticated with: netlify login');
-    console.error('[NETLIFY] And linked to a site with: netlify link');
+    console.error('[NETLIFY] Failed to register keys:', error.message);
+    process.exit(1);
+  }
+  
+  console.log('\n[BLOBS] Uploading encrypted private keys to Netlify Blobs...');
+  
+  const encryptedPrivateKeys = encryptPrivateKeys(kyberPrivKey, rsaPrivKey, masterKey);
+  
+  const tempFile = join(process.cwd(), '.netlify', 'private-keys-temp.json');
+  writeFileSync(tempFile, encryptedPrivateKeys, 'utf-8');
+  
+  try {
+    execSync(
+      `netlify blobs:set quantum-keys private-keys ${tempFile} ${siteFlag}`,
+      { stdio: 'inherit' }
+    );
+    console.log('[BLOBS] ✓ Encrypted private keys uploaded to quantum-keys store');
+    execSync(`rm -f ${tempFile}`);
+    
+  } catch (error: any) {
+    console.error('[BLOBS] Failed to upload private keys:', error.message);
+    console.error('[BLOBS] Make sure Netlify Blobs addon is enabled');
     process.exit(1);
   }
 }
@@ -117,7 +157,6 @@ function main() {
   const args = process.argv.slice(2);
   let siteId: string | undefined;
   
-  // Parse --site-id argument
   const siteIdIndex = args.indexOf(SITE_ID_FLAG);
   if (siteIdIndex !== -1 && args[siteIdIndex + 1]) {
     siteId = args[siteIdIndex + 1];
@@ -126,13 +165,16 @@ function main() {
   
   console.log('=== Quantum-Resistant Key Generation ===\n');
   
-  // Generate keys
+  const masterKey = loadOrGenerateMasterKey();
+  
   const keys = generateKeys();
   
-  // Save public keys to source
-  savePublicKeysToSource(keys.kyber.publicKey, keys.rsa.publicKey);
+  console.log('[KEYGEN] Key sizes:');
+  console.log(`  - Kyber public:  ${keys.kyber.publicKey.length} hex chars (${Math.round(keys.kyber.publicKey.length/2)} bytes)`);
+  console.log(`  - Kyber private: ${keys.kyber.privateKey.length} hex chars (${Math.round(keys.kyber.privateKey.length/2)} bytes)`);
+  console.log(`  - RSA public:    ${keys.rsa.publicKey.length} chars`);
+  console.log(`  - RSA private:   ${keys.rsa.privateKey.length} chars\n`);
   
-  // Save local copy for development
   const localKeysDir = join(process.cwd(), '.netlify');
   if (!existsSync(localKeysDir)) {
     mkdirSync(localKeysDir, { recursive: true });
@@ -156,13 +198,13 @@ function main() {
   );
   console.log(`[KEYGEN] ✓ Local copy saved to ${localKeysPath}`);
   
-  // Register to Netlify (production)
   console.log('');
-  registerPrivateKeysToNetlify(keys.kyber.publicKey, keys.kyber.privateKey, keys.rsa.publicKey, keys.rsa.privateKey, siteId);
+  registerKeysToNetlify(keys.kyber.publicKey, keys.kyber.privateKey, keys.rsa.publicKey, keys.rsa.privateKey, masterKey, siteId);
   
   console.log('\n=== Key Generation Complete ===');
-  console.log('Public keys: netlify/functions/_shared/quantumKeys.ts (AND Netlify env)');
-  console.log('Private keys: Netlify environment variables (production)');
+  console.log('Public keys: Netlify env vars (KYBER_PUBLIC_KEY, RSA_PUBLIC_KEY_B64)');
+  console.log('Master key: Netlify env var QUANTUM_MASTER_KEY + .netlify/master-key.txt (local)');
+  console.log('Private keys: Netlify Blobs quantum-keys store (AES-256-GCM encrypted)');
   console.log('Local dev keys: .netlify/quantum-keys.json (git-ignored)');
   console.log('\nYou can now deploy your site to activate the encryption.');
 }

@@ -30,6 +30,11 @@ dist-ssr
 .netlify
 netlify/functions/dist
 
+# Quantum encryption keys (NEVER commit!)
+.netlify/quantum-keys.json
+.netlify/master-key.txt
+.netlify/private-keys-temp.json
+
 # Scripts generati
 scripts/*.js
 !scripts/setup-*.js

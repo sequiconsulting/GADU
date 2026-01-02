@@ -120,3 +120,5 @@ Supabase auth scaffolding exists but is disabled. Files: utils/authService.ts, u
 - Year handling: selectedYear drives views/reports; add past/future years without clamping (no Math.max/min on yearOptions).
 - Schema errors: Map missing-table errors to the explicit instruction to run supabase-schema.sql.
 - Env: Require VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (NEXT_PUBLIC_* fallbacks). Service key only where expected.
+- **Git workflow: NEVER run `git commit` or `git push` unless the user explicitly asks. Always wait for user confirmation before committing changes.**
+- **Code modification workflow: ALWAYS present the action plan and ask for user confirmation BEFORE making any code changes. Describe what files will be modified and how, then wait for explicit approval.**
