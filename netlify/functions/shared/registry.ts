@@ -159,7 +159,10 @@ async function encryptData(text: string): Promise<string> {
     );
     
     // Format: version:kyber_ciphertext_hex:rsa_encrypted_key:iv:authTag:aes_data
-    return `v2:${kyberCiphertext.toString('hex')}:${rsaEncryptedKey.toString('hex')}:${iv.toString('hex')}:${authTag.toString('hex')}:${encryptedData}`;
+    // Kyber ciphertext is Uint8Array; convert to Buffer before hex encoding
+    const kyberCiphertextHex = Buffer.from(kyberCiphertext).toString('hex');
+
+    return `v2:${kyberCiphertextHex}:${rsaEncryptedKey.toString('hex')}:${iv.toString('hex')}:${authTag.toString('hex')}:${encryptedData}`;
   } catch (error: any) {
     console.error('[CRYPTO] Quantum encryption failed:', error.message);
     throw new Error(`Quantum encryption failed: ${error.message}`);

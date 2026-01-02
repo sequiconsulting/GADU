@@ -117,19 +117,32 @@ GADU supporta **multi-tenant**: ogni loggia ha il proprio database Supabase isol
 
 1. Push repo su GitHub/GitLab
 2. Connetti a Netlify
-3. **Genera chiave di cifratura** (32 byte = 64 caratteri hex):
-   ```bash
-   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   ```
-4. Imposta variabili d'ambiente su Netlify:
-   - Vai su **Site configuration → Environment variables**
-   - Aggiungi: `REGISTRY_ENCRYPTION_KEY` = (la chiave generata al punto 3)
-   - ⚠️ **IMPORTANTE**: Salva questa chiave in modo sicuro! Senza di essa non potrai decifrare il registry
-5. Abilita **Netlify Blobs** nelle impostazioni del sito:
-   - Vai su **Integrations → Netlify Blobs → Enable**
+3. **Genera chiavi quantistiche e master key**:
+  ```bash
+  npx tsx scripts/generate-quantum-keys.ts
+  ```
+  - Carica in automatico su Netlify le env: `KYBER_PUBLIC_KEY`, `RSA_PUBLIC_KEY_B64`, `QUANTUM_MASTER_KEY`
+  - Crea/aggiorna il blob `quantum-keys/private-keys` (chiavi private cifrate con master key)
+4. Abilita **Netlify Blobs** (Site settings → Integrations → Netlify Blobs → Enable)
+5. **Cifra e carica il registry demo (loggia 9999)**:
+  ```bash
+  npx tsx scripts/migrate-registry-to-prod.ts
+  netlify blobs:set gadu-registry lodges --input .netlify/registry-encrypted.txt
+  ```
+  (in alternativa: `npx tsx scripts/upload-registry-blob.ts .netlify/registry-encrypted.txt` con `REGISTRY_UPLOAD_TOKEN` + `SITE_URL`)
 6. Deploy!
 
-**Nota sulla cifratura**: Il registry in produzione viene cifrato con AES-256-GCM prima di essere salvato su Netlify Blobs. In sviluppo locale, i dati rimangono in chiaro nel file `.netlify/registry.json` (gitignored).
+**Nota sulla cifratura**: In produzione il registry usa cifratura ibrida post-quantum (ML-KEM-768 + RSA-4096 + AES-256-GCM) in formato `v2:kyber_ciphertext:rsa_encrypted_key:iv:authTag:aes_data`. In sviluppo locale (`NETLIFY_DEV`) il registry resta in chiaro nel file `.netlify/registry.json` (gitignored).
+
+### 🔒 Cifratura registry (produzione)
+- **Chiavi pubbliche**: `KYBER_PUBLIC_KEY`, `RSA_PUBLIC_KEY_B64` (env Netlify)
+- **Chiavi private**: blob `quantum-keys/private-keys` cifrato con `QUANTUM_MASTER_KEY` (AES-256-GCM)
+- **Registry cifrato**: blob `gadu-registry/lodges` in formato v2 (quantum-hybrid)
+- **Script utili**:
+  - `scripts/generate-quantum-keys.ts` → genera chiavi, aggiorna env, carica blob chiavi private
+  - `scripts/migrate-registry-to-prod.ts` → cifra il registry locale (solo loggia 9999 di default)
+  - `scripts/upload-registry-blob.ts` → upload del registry cifrato via HTTP function
+- **Locale**: cifratura disabilitata, usa `.netlify/registry.json` in chiaro; le chiavi sono in `.netlify/quantum-keys.json` (gitignored)
 
 ### Funzioni Backend
 

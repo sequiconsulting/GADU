@@ -140,7 +140,7 @@ function registerKeysToNetlify(kyberPubKey: string, kyberPrivKey: string, rsaPub
   
   try {
     execSync(
-      `netlify blobs:set quantum-keys private-keys ${tempFile} ${siteFlag}`,
+      `netlify blobs:set quantum-keys private-keys --input ${tempFile} ${siteFlag}`,
       { stdio: 'inherit' }
     );
     console.log('[BLOBS] ✓ Encrypted private keys uploaded to quantum-keys store');

@@ -10,9 +10,114 @@ type MemberRow = { id: string; data: Member };
 type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_version: number };
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
+const BASELINE_SCHEMA_SQL = `
+  create extension if not exists "uuid-ossp";
+
+  create table if not exists public.app_settings (
+    id text primary key,
+    data jsonb not null default '{}'::jsonb,
+    db_version integer not null default 1,
+    schema_version integer not null default 1,
+    created_at timestamptz default now(),
+    updated_at timestamptz default now()
+  );
+
+  create table if not exists public.members (
+    id uuid primary key default gen_random_uuid(),
+    data jsonb not null,
+    created_at timestamptz default now(),
+    updated_at timestamptz default now()
+  );
+
+  create index if not exists members_lastname_idx on public.members ((data ->> 'lastName'));
+
+  create table if not exists public.convocazioni (
+    id uuid primary key default gen_random_uuid(),
+    branch_type text not null,
+    year_start integer not null,
+    data jsonb not null,
+    created_at timestamptz default now(),
+    updated_at timestamptz default now()
+  );
+
+  create index if not exists convocazioni_branch_idx on public.convocazioni (branch_type);
+  create index if not exists convocazioni_year_idx on public.convocazioni (year_start);
+
+  alter table public.app_settings enable row level security;
+  alter table public.members enable row level security;
+  alter table public.convocazioni enable row level security;
+
+  drop policy if exists "anon_deny_app_settings" on public.app_settings;
+  drop policy if exists "anon_deny_members" on public.members;
+  drop policy if exists "anon_deny_convocazioni" on public.convocazioni;
+
+  drop policy if exists "authenticated_all_app_settings" on public.app_settings;
+  drop policy if exists "authenticated_all_members" on public.members;
+  drop policy if exists "authenticated_all_convocazioni" on public.convocazioni;
+
+  create policy "anon_deny_app_settings" 
+    on public.app_settings 
+    for all 
+    using (auth.role() != 'anon') 
+    with check (auth.role() != 'anon');
+
+  create policy "anon_deny_members" 
+    on public.members 
+    for all 
+    using (auth.role() != 'anon') 
+    with check (auth.role() != 'anon');
+
+  create policy "anon_deny_convocazioni" 
+    on public.convocazioni 
+    for all 
+    using (auth.role() != 'anon') 
+    with check (auth.role() != 'anon');
+
+  create policy "authenticated_all_app_settings" 
+    on public.app_settings 
+    for all 
+    using (auth.role() = 'authenticated') 
+    with check (auth.role() = 'authenticated');
+
+  create policy "authenticated_all_members" 
+    on public.members 
+    for all 
+    using (auth.role() = 'authenticated') 
+    with check (auth.role() = 'authenticated');
+
+  create policy "authenticated_all_convocazioni" 
+    on public.convocazioni 
+    for all 
+    using (auth.role() = 'authenticated') 
+    with check (auth.role() = 'authenticated');
+
+  create or replace function public.exec_sql(sql text)
+  returns void
+  language plpgsql
+  security definer
+  set search_path = public
+  as $$
+  begin
+    execute sql;
+  end;
+  $$;
+
+  insert into public.app_settings (id, data)
+  values ('app', '{}'::jsonb)
+  on conflict (id) do nothing;
+`;
+
+const DB_MIGRATIONS: Record<number, string> = (() => {
+  const steps: Record<number, string> = {};
+  for (let v = 0; v < 13; v++) {
+    steps[v] = BASELINE_SCHEMA_SQL;
+  }
+  return steps;
+})();
+
 class DataService {
-  public APP_VERSION = '0.167';
-  public DB_VERSION = 12;
+  public APP_VERSION = '0.169';
+  public DB_VERSION = 13;
   public SUPABASE_SCHEMA_VERSION = 2;
 
   private supabase: SupabaseClient | null = null;
@@ -65,41 +170,65 @@ class DataService {
     throw error;
   }
 
+  private getServiceRoleKey(): string | null {
+    const envKey = this.readEnv('VITE_SUPABASE_SERVICE_ROLE_KEY') || this.readEnv('SUPABASE_SERVICE_ROLE_KEY');
+    return this.currentLodgeConfig?.supabaseServiceKey || envKey || null;
+  }
+
+  private async runSqlWithServiceRole(sql: string): Promise<void> {
+    if (!this.currentLodgeConfig?.supabaseUrl) {
+      throw new Error('Supabase URL non configurato.');
+    }
+    const serviceKey = this.getServiceRoleKey();
+    if (!serviceKey) {
+      throw new Error('Supabase service key non configurata: impossibile applicare le migrazioni in automatico.');
+    }
+
+    // Connessione diretta postgres
+    const { Client } = await import('pg');
+    const url = new URL(this.currentLodgeConfig.supabaseUrl);
+    const client = new Client({
+      host: url.hostname.replace('.supabase.co', '.supabase.co'),
+      port: 5432,
+      user: 'postgres',
+      password: serviceKey,
+      database: 'postgres',
+      ssl: { rejectUnauthorized: false },
+    });
+
+    await client.connect();
+    try {
+      await client.query(sql);
+    } finally {
+      await client.end();
+    }
+  }
+
+  private async applyMigrations(currentVersion: number): Promise<void> {
+    let version = currentVersion;
+    while (version < this.DB_VERSION) {
+      const sql = DB_MIGRATIONS[version];
+      if (!sql) {
+        throw new Error(`Nessuna migrazione definita per v${version} -> v${version + 1}`);
+      }
+      await this.runSqlWithServiceRole(sql);
+      version += 1;
+      const client = this.ensureSupabaseClient();
+      await client.from('app_settings').update({
+        db_version: version,
+        schema_version: this.SUPABASE_SCHEMA_VERSION,
+        updated_at: new Date().toISOString(),
+      }).eq('id', 'app');
+    }
+  }
+
   /**
-   * Apply security policies to all tables
-   * - Deny all access to anonymous users
-   * - Allow all operations to authenticated users (privileges managed in-app)
+   * Apply security policies to all tables.
+   * NOTE: Il client gira con anon key, quindi non può gestire policy RLS (richiede service key).
+   * Le policy vanno gestite via migrazioni/SQL o da backend con service key.
    */
   private async applySecurityPolicies(): Promise<void> {
-    const client = this.ensureSupabaseClient();
-    const tables = ['app_settings', 'members', 'convocazioni'];
-    
-    console.log('[SECURITY] Applying security policies...');
-    
-    for (const table of tables) {
-      // Note: RLS policies can only be managed with service key
-      // This will only work if the client is using service key (demo mode)
-      // In production with anon key, policies must be set via Supabase dashboard or migration
-      try {
-        const { error } = await client.rpc('exec_sql', {
-          query: `
-            ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY;
-            DROP POLICY IF EXISTS "anon_deny_${table}" ON public.${table};
-            DROP POLICY IF EXISTS "authenticated_all_${table}" ON public.${table};
-            CREATE POLICY "anon_deny_${table}" ON public.${table} FOR ALL USING (auth.role() != 'anon') WITH CHECK (auth.role() != 'anon');
-            CREATE POLICY "authenticated_all_${table}" ON public.${table} FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
-          `
-        });
-        
-        if (error) {
-          console.warn(`[SECURITY] Could not apply policies for ${table}: ${error.message}`);
-        }
-      } catch (err) {
-        console.warn(`[SECURITY] Could not apply policies for ${table}:`, err);
-      }
-    }
-    
-    console.log('[SECURITY] Security policies application completed');
+    console.log('[SECURITY] Skip applySecurityPolicies on client (anon key). Configure RLS via SQL/backend with service key.');
   }
 
   private async ensureSchemaAndSeed(): Promise<void> {
@@ -115,7 +244,19 @@ class DataService {
       this.mapSchemaError(settingsError);
     }
 
-    if (!settingsRow) {
+    const currentVersion = settingsRow?.db_version ?? 0;
+    if (currentVersion < this.DB_VERSION) {
+      await this.applyMigrations(currentVersion);
+    }
+
+    // Rileggi dopo migrazioni per non sovrascrivere dati utente
+    const { data: refreshedSettings } = await client
+      .from('app_settings')
+      .select('id, data, db_version, schema_version')
+      .eq('id', 'app')
+      .maybeSingle();
+
+    if (!refreshedSettings) {
       const defaultSettings: AppSettings = {
         lodgeName: 'Loggia Supabase Demo',
         lodgeNumber: this.currentLodgeConfig?.glriNumber || '9999',
@@ -131,11 +272,10 @@ class DataService {
       });
     } else {
       const updates: Partial<SettingsRow> = {};
-      if (settingsRow.db_version !== this.DB_VERSION) updates.db_version = this.DB_VERSION;
-      if (settingsRow.schema_version !== this.SUPABASE_SCHEMA_VERSION) updates.schema_version = this.SUPABASE_SCHEMA_VERSION;
+      if (refreshedSettings.db_version !== this.DB_VERSION) updates.db_version = this.DB_VERSION;
+      if (refreshedSettings.schema_version !== this.SUPABASE_SCHEMA_VERSION) updates.schema_version = this.SUPABASE_SCHEMA_VERSION;
       if (Object.keys(updates).length > 0) {
         await client.from('app_settings').update(updates).eq('id', 'app');
-        // Applica security policies quando versione schema cambia
         if (updates.schema_version !== undefined) {
           await this.applySecurityPolicies();
         }
