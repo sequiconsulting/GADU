@@ -3,12 +3,15 @@ import { loadRegistry } from './shared/registry';
 import postgres from 'postgres';
 import { join } from 'path';
 
-const DB_VERSION = 13;
+const DB_VERSION = 14;
 
 // Database schema migrations (incremental changes only, not baseline)
 const DB_MIGRATIONS: Record<number, string> = {
-  // Future migrations go here as DB_VERSION increases
-  // Example: 13: 'ALTER TABLE members ADD COLUMN IF NOT EXISTS custom_field text;'
+  // Esempio di migrazione no-op ma idempotente per verificare il flusso v13 -> v14
+  13: `
+    ALTER TABLE public.app_settings
+      ALTER COLUMN updated_at SET DEFAULT now();
+  `
 };
 
 function extractPostgresUrl(supabaseUrl: string, databasePassword: string): string {

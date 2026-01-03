@@ -33,21 +33,22 @@ async function connectWithRetry(dbUrl: string, maxRetries: number = 3) {
   throw lastError;
 }
 
-export const handler: Handler = async (request: Request) => {
-  if (request.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
+export const handler: Handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
   }
   
   let sql: any = null;
 
   try {
-    const { supabaseUrl, databasePassword } = await request.json() as any;
+    const { supabaseUrl, databasePassword } = (event.body ? JSON.parse(event.body) : {}) as any;
     
     if (!supabaseUrl || !databasePassword) {
-      return new Response(
-        JSON.stringify({ error: 'Missing credentials' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Missing credentials' })
+      };
     }
 
     console.log('[INITIALIZE-SCHEMA] Starting schema initialization...');
@@ -79,13 +80,14 @@ export const handler: Handler = async (request: Request) => {
       console.warn('[INITIALIZE-SCHEMA] Audit log failed (non-critical):', auditError);
     }
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        success: true,
         message: 'Schema initialized successfully'
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+      })
+    };
 
   } catch (error: any) {
     console.error('[INITIALIZE-SCHEMA] Error:', error.message, error.stack);
@@ -96,12 +98,13 @@ export const handler: Handler = async (request: Request) => {
         console.warn('[INITIALIZE-SCHEMA] Error closing connection:', e);
       }
     }
-    return new Response(
-      JSON.stringify({ 
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         error: error.message,
         details: error.toString()
-      }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+      })
+    };
   }
 };

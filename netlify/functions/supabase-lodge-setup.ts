@@ -22,19 +22,20 @@ interface SetupRequest {
   adminName?: string;
 }
 
-export const handler: Handler = async (request: Request) => {
-  if (request.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
+export const handler: Handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
   }
   
   try {
-    const { glriNumber, adminEmail, adminPassword, adminName } = await request.json() as SetupRequest;
+    const { glriNumber, adminEmail, adminPassword, adminName } = (event.body ? JSON.parse(event.body) : {}) as SetupRequest;
     
     if (!glriNumber || !adminEmail || !adminPassword) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: glriNumber, adminEmail, adminPassword' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Missing required fields: glriNumber, adminEmail, adminPassword' })
+      };
     }
     
     // Load registry
@@ -42,10 +43,11 @@ export const handler: Handler = async (request: Request) => {
     const lodgeConfig = registry[glriNumber];
     
     if (!lodgeConfig) {
-      return new Response(
-        JSON.stringify({ error: `Lodge ${glriNumber} not found in registry` }),
-        { status: 404, headers: { 'Content-Type': 'application/json' } }
-      );
+      return {
+        statusCode: 404,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: `Lodge ${glriNumber} not found in registry` })
+      };
     }
     
     console.log(`[SUPABASE-SETUP] Starting setup for lodge ${glriNumber}`);
@@ -69,39 +71,43 @@ export const handler: Handler = async (request: Request) => {
     const allSuccess = results.adminUserCreated && results.errors.length === 0;
     
     if (allSuccess) {
-      return new Response(
-        JSON.stringify({
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           success: true,
           message: 'Supabase setup completed successfully',
           results
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
+        })
+      };
     } else if (results.adminUserCreated) {
-      return new Response(
-        JSON.stringify({
+      return {
+        statusCode: 207,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           success: false,
           message: 'Supabase setup completed with warnings',
           results
-        }),
-        { status: 207, headers: { 'Content-Type': 'application/json' } } // Multi-Status
-      );
+        })
+      };
     } else {
-      return new Response(
-        JSON.stringify({
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           success: false,
           message: 'Supabase setup failed',
           results
-        }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
-      );
+        })
+      };
     }
     
   } catch (error: any) {
     console.error('[SUPABASE-SETUP] Unexpected error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: error.message })
+    };
   }
 };

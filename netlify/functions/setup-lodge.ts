@@ -3,12 +3,13 @@ import { loadRegistry, saveRegistry, logAuditEvent } from './shared/registry';
 import { setupSupabaseLodge } from './shared/supabaseSetup';
 import { LodgeConfig } from '../../types/lodge';
 
-export const handler: Handler = async (request: Request) => {
-  if (request.method !== 'POST') {
-    return new Response('Method Not Allowed', { status: 405 });
+export const handler: Handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
   }
-  
+
   try {
+    const body = event.body ? JSON.parse(event.body) : {};
     const {
       glriNumber,
       lodgeName,
@@ -25,31 +26,30 @@ export const handler: Handler = async (request: Request) => {
       adminEmail,
       adminPassword,
       adminName
-    } = await request.json() as any;
-    
-    // Validate
+    } = body as any;
+
     if (!glriNumber || !lodgeName || !supabaseUrl || !supabaseServiceKey || !databasePassword) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Missing required fields' })
+      };
     }
-    
+
     const registry = await loadRegistry();
-    
+
     console.log(`[SETUP-LODGE] Attempting to register lodge ${glriNumber}`);
     console.log(`[SETUP-LODGE] Registry keys: ${Object.keys(registry).join(', ')}`);
-    
-    // Check if already exists
+
     if (registry[glriNumber]) {
       console.log(`[SETUP-LODGE] Lodge ${glriNumber} already exists in registry`);
-      return new Response(
-        JSON.stringify({ error: 'Lodge number already registered' }),
-        { status: 409, headers: { 'Content-Type': 'application/json' } }
-      );
+      return {
+        statusCode: 409,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Lodge number already registered' })
+      };
     }
-    
-    // Create config
+
     const lodgeConfig: LodgeConfig = {
       glriNumber,
       lodgeName,
@@ -61,19 +61,18 @@ export const handler: Handler = async (request: Request) => {
       taxCode,
       supabaseUrl,
       supabaseAnonKey,
-      supabaseServiceKey, // Encrypted in production (JWT for API calls)
-      databasePassword,   // Encrypted in production (Postgres password)
+      supabaseServiceKey,
+      databasePassword,
       createdAt: new Date(),
       lastAccess: new Date(),
       isActive: true,
       adminEmail
     };
-    
+
     registry[glriNumber] = lodgeConfig;
     await saveRegistry(registry);
     await logAuditEvent('lodge_created', { glriNumber, lodgeName });
-    
-    // Automatic Supabase setup if admin email & password provided
+
     let supabaseSetupResults = null;
     if (adminEmail && adminPassword) {
       console.log(`[SETUP-LODGE] Running automatic Supabase setup for ${glriNumber}...`);
@@ -83,20 +82,22 @@ export const handler: Handler = async (request: Request) => {
         adminPassword,
         adminName || 'Admin'
       );
-      console.log(`[SETUP-LODGE] Supabase setup results:`, supabaseSetupResults);
+      console.log('[SETUP-LODGE] Supabase setup results:', supabaseSetupResults);
     }
-    
-    return new Response(
-      JSON.stringify({ 
+
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         success: true,
         supabaseSetup: supabaseSetupResults
-      }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
-    );
+      })
+    };
   } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: error.message })
+    };
   }
 };

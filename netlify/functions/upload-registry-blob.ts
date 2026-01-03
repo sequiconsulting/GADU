@@ -11,32 +11,30 @@
 import { Handler } from '@netlify/functions';
 import { getStore } from '@netlify/blobs';
 
-export const handler: Handler = async (req: Request) => {
-  // Only allow POST from localhost or with auth token
-  if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
+export const handler: Handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method not allowed' };
   }
 
-  const authHeader = req.headers.get('authorization');
+  const authHeader = event.headers['authorization'] || event.headers['Authorization'];
   const expectedToken = process.env.REGISTRY_UPLOAD_TOKEN;
 
   if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
-    return new Response('Unauthorized', { status: 401 });
+    return { statusCode: 401, body: 'Unauthorized' };
   }
 
   try {
-    const body = await req.json() as any;
-    const { encryptedData, lodgeNumber = '9999' } = body;
+    const body = event.body ? JSON.parse(event.body) : {};
+    const { encryptedData, lodgeNumber = '9999' } = body as any;
 
     if (!encryptedData) {
-      return new Response('Missing encryptedData in request body', { status: 400 });
+      return { statusCode: 400, body: 'Missing encryptedData in request body' };
     }
 
     console.log(`[UPLOAD] Uploading encrypted registry for lodge ${lodgeNumber}...`);
 
     const store = getStore('gadu-registry');
     
-    // Upload the encrypted registry blob
     await store.set('lodges', encryptedData, {
       metadata: {
         lastUpdate: new Date().toISOString(),
@@ -49,31 +47,27 @@ export const handler: Handler = async (req: Request) => {
 
     console.log('[UPLOAD] ✓ Registry blob uploaded successfully');
 
-    return new Response(
-      JSON.stringify({
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         success: true,
         message: 'Registry uploaded to Blobs',
         size: encryptedData.length,
         lodges: [lodgeNumber],
         encrypted: 'quantum-hybrid',
         format: 'v2',
-      }),
-      {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+      })
+    };
   } catch (error: any) {
     console.error('[UPLOAD] Error:', error);
-    return new Response(
-      JSON.stringify({
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         error: error.message,
         details: error.toString(),
-      }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
-    );
+      })
+    };
   }
 };

@@ -1,4 +1,4 @@
-import { Context, Handler } from '@netlify/functions';
+import { Handler } from '@netlify/functions';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { createCipheriv, publicEncrypt, randomBytes } from 'crypto';
@@ -57,7 +57,7 @@ function encryptDataQuantum(plaintext: string, quantumKeys: QuantumKeys): string
   return `v2:${Buffer.from(kyberCiphertext).toString('hex')}:${rsaEncrypted.toString('hex')}:${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
 }
 
-const handler: Handler = async (event: any, context: Context) => {
+const handler: Handler = async (event) => {
   try {
     console.log('[SYNC-REGISTRY-BLOB] Triggered at', new Date().toISOString());
 

@@ -2,17 +2,19 @@ import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import { loadRegistry, logAuditEvent } from './shared/registry';
 
-export const handler: Handler = async (request: Request) => {
+const jsonHeaders = { 'Content-Type': 'application/json' } as const;
+
+export const handler: Handler = async (event) => {
   // GET - List users
-  if (request.method === 'GET') {
-    const url = new URL(request.url);
-    const lodgeNumber = url.searchParams.get('lodge');
+  if (event.httpMethod === 'GET') {
+    const lodgeNumber = event.queryStringParameters?.lodge;
     
     if (!lodgeNumber) {
-      return new Response(
-        JSON.stringify({ error: 'Missing lodge parameter' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return {
+        statusCode: 400,
+        headers: jsonHeaders,
+        body: JSON.stringify({ error: 'Missing lodge parameter' })
+      };
     }
     
     try {
@@ -20,10 +22,11 @@ export const handler: Handler = async (request: Request) => {
       const lodge = registry[lodgeNumber];
       
       if (!lodge) {
-        return new Response(
-          JSON.stringify({ error: 'Lodge not found' }),
-          { status: 404, headers: { 'Content-Type': 'application/json' } }
-        );
+        return {
+          statusCode: 404,
+          headers: jsonHeaders,
+          body: JSON.stringify({ error: 'Lodge not found' })
+        };
       }
       
       const supabase = createClient(lodge.supabaseUrl, lodge.supabaseServiceKey);
@@ -31,28 +34,30 @@ export const handler: Handler = async (request: Request) => {
       
       if (error) throw error;
       
-      return new Response(
-        JSON.stringify({ success: true, users }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } }
-      );
+      return {
+        statusCode: 200,
+        headers: jsonHeaders,
+        body: JSON.stringify({ success: true, users })
+      };
     } catch (error: any) {
-      return new Response(
-        JSON.stringify({ error: error.message }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
-      );
+      return {
+        statusCode: 500,
+        headers: jsonHeaders,
+        body: JSON.stringify({ error: error.message })
+      };
     }
   }
   
   // POST - Create/Delete/Update user
-  if (request.method === 'POST') {
+  if (event.httpMethod === 'POST') {
     try {
-      const { action, lodgeNumber, email, password, metadata, name, privileges, userId } = await request.json() as any;
+      const { action, lodgeNumber, email, password, metadata, name, privileges, userId } = (event.body ? JSON.parse(event.body) : {}) as any;
       
       const registry = await loadRegistry();
       const lodge = registry[lodgeNumber];
       
       if (!lodge) {
-        return new Response('Lodge not found', { status: 404 });
+        return { statusCode: 404, body: 'Lodge not found' };
       }
       
       const supabase = createClient(lodge.supabaseUrl, lodge.supabaseServiceKey);
@@ -74,10 +79,11 @@ export const handler: Handler = async (request: Request) => {
         
         await logAuditEvent('user_created', { lodgeNumber, email });
         
-        return new Response(
-          JSON.stringify({ success: true, user: data.user }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
+        return {
+          statusCode: 200,
+          headers: jsonHeaders,
+          body: JSON.stringify({ success: true, user: data.user })
+        };
       }
       
       if (action === 'delete') {
@@ -85,7 +91,7 @@ export const handler: Handler = async (request: Request) => {
         const user = users?.find((u: any) => u.email === email);
         
         if (!user) {
-          return new Response('User not found', { status: 404 });
+          return { statusCode: 404, body: 'User not found' };
         }
         
         const { error } = await supabase.auth.admin.deleteUser(user.id);
@@ -93,15 +99,16 @@ export const handler: Handler = async (request: Request) => {
         
         await logAuditEvent('user_deleted', { lodgeNumber, email });
         
-        return new Response(
-          JSON.stringify({ success: true }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
+        return {
+          statusCode: 200,
+          headers: jsonHeaders,
+          body: JSON.stringify({ success: true })
+        };
       }
       
       if (action === 'updatePassword') {
         if (!userId) {
-          return new Response('Missing userId', { status: 400 });
+          return { statusCode: 400, body: 'Missing userId' };
         }
         
         const { error } = await supabase.auth.admin.updateUserById(userId, {
@@ -115,27 +122,30 @@ export const handler: Handler = async (request: Request) => {
         
         await logAuditEvent('user_password_changed', { lodgeNumber, email });
         
-        return new Response(
-          JSON.stringify({ success: true }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
+        return {
+          statusCode: 200,
+          headers: jsonHeaders,
+          body: JSON.stringify({ success: true })
+        };
       }
       
       if (action === 'updatePrivileges') {
         if (!userId) {
-          return new Response(
-            JSON.stringify({ error: 'Missing userId' }),
-            { status: 400, headers: { 'Content-Type': 'application/json' } }
-          );
+          return {
+            statusCode: 400,
+            headers: jsonHeaders,
+            body: JSON.stringify({ error: 'Missing userId' })
+          };
         }
         
         const { data: { user }, error: getError } = await supabase.auth.admin.getUserById(userId);
         
         if (getError || !user) {
-          return new Response(
-            JSON.stringify({ error: 'User not found' }),
-            { status: 404, headers: { 'Content-Type': 'application/json' } }
-          );
+          return {
+            statusCode: 404,
+            headers: jsonHeaders,
+            body: JSON.stringify({ error: 'User not found' })
+          };
         }
         
         const { error } = await supabase.auth.admin.updateUserById(userId, {
@@ -150,27 +160,30 @@ export const handler: Handler = async (request: Request) => {
         
         await logAuditEvent('user_privileges_updated', { lodgeNumber, email, privileges });
         
-        return new Response(
-          JSON.stringify({ success: true }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
+        return {
+          statusCode: 200,
+          headers: jsonHeaders,
+          body: JSON.stringify({ success: true })
+        };
       }
 
       if (action === 'clearMustChangePassword') {
         if (!userId) {
-          return new Response(
-            JSON.stringify({ error: 'Missing userId' }),
-            { status: 400, headers: { 'Content-Type': 'application/json' } }
-          );
+          return {
+            statusCode: 400,
+            headers: jsonHeaders,
+            body: JSON.stringify({ error: 'Missing userId' })
+          };
         }
         
         const { data: { user }, error: getError } = await supabase.auth.admin.getUserById(userId);
         
         if (getError || !user) {
-          return new Response(
-            JSON.stringify({ error: 'User not found' }),
-            { status: 404, headers: { 'Content-Type': 'application/json' } }
-          );
+          return {
+            statusCode: 404,
+            headers: jsonHeaders,
+            body: JSON.stringify({ error: 'User not found' })
+          };
         }
         
         const { error } = await supabase.auth.admin.updateUserById(userId, {
@@ -184,26 +197,30 @@ export const handler: Handler = async (request: Request) => {
         
         await logAuditEvent('user_password_changed', { lodgeNumber, userId });
         
-        return new Response(
-          JSON.stringify({ success: true }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } }
-        );
+        return {
+          statusCode: 200,
+          headers: jsonHeaders,
+          body: JSON.stringify({ success: true })
+        };
       }
       
-      return new Response(
-        JSON.stringify({ error: 'Invalid action' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
+      return {
+        statusCode: 400,
+        headers: jsonHeaders,
+        body: JSON.stringify({ error: 'Invalid action' })
+      };
     } catch (error: any) {
-      return new Response(
-        JSON.stringify({ error: error.message }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
-      );
+      return {
+        statusCode: 500,
+        headers: jsonHeaders,
+        body: JSON.stringify({ error: error.message })
+      };
     }
   }
   
-  return new Response(
-    JSON.stringify({ error: 'Method Not Allowed' }),
-    { status: 405, headers: { 'Content-Type': 'application/json' } }
-  );
+  return {
+    statusCode: 405,
+    headers: jsonHeaders,
+    body: JSON.stringify({ error: 'Method Not Allowed' })
+  };
 };

@@ -1,4 +1,4 @@
-import { Context, Handler } from '@netlify/functions';
+import { Handler } from '@netlify/functions';
 import { createDecipheriv, privateDecrypt, randomBytes } from 'crypto';
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 
@@ -73,7 +73,7 @@ function decryptDataQuantum(ciphertext: string, quantumKeys: QuantumKeys): strin
   }
 }
 
-const handler: Handler = async (event: any, context: Context) => {
+const handler: Handler = async (event) => {
   try {
     console.log('[GET-REGISTRY] Decrypting registry blob...');
 
