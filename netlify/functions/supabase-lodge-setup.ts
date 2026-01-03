@@ -1,3 +1,4 @@
+import { Handler } from '@netlify/functions';
 import { loadRegistry, logAuditEvent } from './shared/registry';
 import { setupSupabaseLodge } from './shared/supabaseSetup';
 
@@ -21,7 +22,7 @@ interface SetupRequest {
   adminName?: string;
 }
 
-export default async (request: Request) => {
+export const handler: Handler = async (request: Request) => {
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
   }

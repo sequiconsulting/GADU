@@ -1,7 +1,8 @@
+import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import { loadRegistry, logAuditEvent } from './shared/registry';
 
-export default async (request: Request) => {
+export const handler: Handler = async (request: Request) => {
   // GET - List users
   if (request.method === 'GET') {
     const url = new URL(request.url);

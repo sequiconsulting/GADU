@@ -1,3 +1,4 @@
+import { Handler } from '@netlify/functions';
 import { loadRegistry } from './shared/registry';
 import postgres from 'postgres';
 import { join } from 'path';
@@ -39,27 +40,36 @@ async function connectWithRetry(dbUrl: string, maxRetries: number = 3) {
   throw lastError;
 }
 
-export default async (request: Request) => {
+export const handler: Handler = async (event) => {
   let sql: any = null;
 
   try {
-    const url = new URL(request.url);
-    const glriNumber = url.searchParams.get('glriNumber') || url.searchParams.get('number');
-    
+    const glriNumber =
+      event.queryStringParameters?.glriNumber || event.queryStringParameters?.number;
+
     if (!glriNumber) {
-      return new Response('Missing glriNumber parameter', { status: 400 });
+      return {
+        statusCode: 400,
+        body: 'Missing glriNumber parameter'
+      };
     }
     
     console.log(`[UPDATE-SCHEMA] Loading registry for lodge ${glriNumber}`);
     const registry = await loadRegistry();
     const lodge = registry[glriNumber];
-    
+
     if (!lodge) {
-      return new Response('Lodge not found', { status: 404 });
+      return {
+        statusCode: 404,
+        body: 'Lodge not found'
+      };
     }
 
     if (!lodge.databasePassword) {
-      return new Response('Database password not configured', { status: 500 });
+      return {
+        statusCode: 500,
+        body: 'Database password not configured'
+      };
     }
 
     console.log(`[UPDATE-SCHEMA] Starting schema update for lodge ${glriNumber}`);
@@ -79,13 +89,14 @@ export default async (request: Request) => {
     if (result.length === 0) {
       console.warn('[UPDATE-SCHEMA] Schema not initialized - app_settings not found');
       await sql.end();
-      return new Response(JSON.stringify({ 
-        error: 'Schema not initialized',
-        message: 'Run the Setup Wizard to initialize the database schema'
-      }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: 'Schema not initialized',
+          message: 'Run the Setup Wizard to initialize the database schema'
+        })
+      };
     }
 
     const currentVersion = result[0].db_version || 0;
@@ -94,14 +105,15 @@ export default async (request: Request) => {
     if (currentVersion >= DB_VERSION) {
       console.log('[UPDATE-SCHEMA] Schema already up to date');
       await sql.end();
-      return new Response(JSON.stringify({ 
-        message: 'Schema already up to date',
-        currentVersion,
-        targetVersion: DB_VERSION
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: 'Schema already up to date',
+          currentVersion,
+          targetVersion: DB_VERSION
+        })
+      };
     }
 
     // Apply migrations
@@ -139,14 +151,15 @@ export default async (request: Request) => {
     sql = null;
 
     console.log('[UPDATE-SCHEMA] Schema update completed successfully');
-    return new Response(JSON.stringify({ 
-      message: 'Schema updated successfully',
-      fromVersion: currentVersion,
-      toVersion: version
-    }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: 'Schema updated successfully',
+        fromVersion: currentVersion,
+        toVersion: version
+      })
+    };
 
   } catch (error: any) {
     console.error('[UPDATE-SCHEMA] Error:', error.message, error.stack);
@@ -157,12 +170,13 @@ export default async (request: Request) => {
         console.warn('[UPDATE-SCHEMA] Error closing connection:', e);
       }
     }
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      details: error.toString()
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        error: error.message,
+        details: error.toString()
+      })
+    };
   }
 };

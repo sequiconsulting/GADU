@@ -11,13 +11,14 @@ type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_v
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
-  public APP_VERSION = '0.171';
+  public APP_VERSION = '0.172';
   public DB_VERSION = 13;
   public SUPABASE_SCHEMA_VERSION = 2;
 
   private supabase: SupabaseClient | null = null;
   private initPromise: Promise<void> | null = null;
   private currentLodgeConfig: PublicLodgeConfig | null = null;
+  private useServiceKey = false;
 
   constructor() {
     // Non auto-inizializzare - aspettare initializeLodge()
@@ -33,6 +34,7 @@ class DataService {
     
     // Use service key if available (demo mode), otherwise use anon key
     const apiKey = config.supabaseServiceKey || config.supabaseAnonKey;
+    this.useServiceKey = Boolean(config.supabaseServiceKey);
     
     // Usa client cachato per evitare istanze multiple
     this.supabase = getCachedSupabaseClient(config.supabaseUrl, apiKey);
@@ -99,6 +101,16 @@ class DataService {
 
   private async ensureSchemaAndSeed(): Promise<void> {
     const client = this.ensureSupabaseClient();
+
+    // Con anon key serve una sessione autenticata prima di toccare le tabelle protette da RLS
+    if (!this.useServiceKey) {
+      const { data: auth } = await client.auth.getSession();
+      const hasSession = Boolean(auth.session?.access_token);
+      if (!hasSession) {
+        console.log('[Schema] Skip ensureSchemaAndSeed: nessuna sessione attiva (anon key). Attendo login.');
+        return;
+      }
+    }
 
     const { data: settingsRow, error: settingsError } = await client
       .from('app_settings')

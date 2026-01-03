@@ -1,3 +1,4 @@
+import { Handler } from '@netlify/functions';
 import postgres from 'postgres';
 import { readFileSync } from 'fs';
 import { join } from 'path';
@@ -32,7 +33,7 @@ async function connectWithRetry(dbUrl: string, maxRetries: number = 3) {
   throw lastError;
 }
 
-export default async (request: Request) => {
+export const handler: Handler = async (request: Request) => {
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
   }

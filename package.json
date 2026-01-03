@@ -8,9 +8,10 @@
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
-    "build": "vite build",
+    "build": "vite build && node --loader ts-node/esm scripts/create-registry-blob.ts",
     "preview": "vite preview --host 0.0.0.0 --port 5173",
     "generate-quantum-keys": "node --loader ts-node/esm scripts/generate-quantum-keys.ts",
+    "upload-registry-blob": "node --loader ts-node/esm scripts/upload-registry-blob.ts",
     "test:registry-local": "node scripts/test-registry-local.js"
   },
   "dependencies": {

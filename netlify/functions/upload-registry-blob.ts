@@ -8,9 +8,10 @@
  *   curl -X POST https://your-site.netlify.app/.netlify/functions/upload-registry-blob
  */
 
+import { Handler } from '@netlify/functions';
 import { getStore } from '@netlify/blobs';
 
-export default async (req: Request) => {
+export const handler: Handler = async (req: Request) => {
   // Only allow POST from localhost or with auth token
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });

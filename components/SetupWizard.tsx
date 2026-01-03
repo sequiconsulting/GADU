@@ -16,6 +16,7 @@ interface SetupFormData {
   supabaseUrl: string;
   supabaseAnonKey: string;
   supabaseServiceKey: string;
+  databasePassword: string;
   adminEmail: string;
 }
 
@@ -43,6 +44,7 @@ export function SetupWizard() {
     supabaseUrl: '',
     supabaseAnonKey: '',
     supabaseServiceKey: '',
+    databasePassword: '',
     adminEmail: ''
   });
 
@@ -181,7 +183,7 @@ export function SetupWizard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           supabaseUrl: formData.supabaseUrl,
-          supabaseServiceKey: formData.supabaseServiceKey
+          databasePassword: formData.databasePassword
         })
       });
 
@@ -482,6 +484,32 @@ export function SetupWizard() {
               />
               <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 text-sm text-amber-800">
                 ⚠️ Questa chiave è <strong>privata</strong>. Trovala in <strong>Project Settings → API → service_role secret</strong>
+              </div>
+                            <div className="mt-6">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Password Database Postgres</label>
+                <input
+                  type="password"
+                  value={formData.databasePassword}
+                  onChange={(e) => updateField('databasePassword', e.target.value)}
+                  placeholder="Password database postgres"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none font-mono"
+                />
+                <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 mt-2 text-sm text-blue-800">
+                  ℹ️ Diversa dalla Service Key! Trovala in <strong>Project Settings → Database → Database password</strong>
+                </div>
+              </div>
+                            <div className="mt-6">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Password Database Postgres</label>
+                <input
+                  type="password"
+                  value={formData.databasePassword}
+                  onChange={(e) => updateField('databasePassword', e.target.value)}
+                  placeholder="Password database postgres"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none font-mono"
+                />
+                <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 mt-2 text-sm text-blue-800">
+                  ℹ️ Diversa dalla Service Key! Trovala in <strong>Project Settings → Database → Database password</strong>
+                </div>
               </div>
               
               <div className="mt-4">

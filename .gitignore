@@ -18,6 +18,13 @@ dist-ssr
 .idea
 .DS_Store
 *.suo
+
+# Quantum encryption keys (SENSITIVE!)
+.netlify/quantum-keys.json
+.netlify/quantum-keys*.json
+
+# Registry blobs (encrypted, but keep in git for version control)
+# Note: .netlify/registry.json is tracked for local dev
 *.ntvs*
 *.njsproj
 *.sln
