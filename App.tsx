@@ -9,7 +9,7 @@ import { lodgeRegistry } from './services/lodgeRegistry';
 import { LoginInterface } from './components/LoginInterface';
 import { SetupWizard } from './components/SetupWizard';
 import { InvalidLodge } from './components/InvalidLodge';
-import { AuthSession, clearSession, clearSupabaseSession, getStoredSession, loadActiveSession } from './utils/emailAuthService';
+import { AuthSession, changePassword, clearSession, clearSupabaseSession, getStoredSession, loadActiveSession } from './utils/emailAuthService';
 const MemberDetail = React.lazy(() => import('./components/MemberDetail').then(m => ({ default: m.MemberDetail })));
 const RolesReport = React.lazy(() => import('./components/RolesReport').then(m => ({ default: m.RolesReport })));
 const RoleAssignment = React.lazy(() => import('./components/RoleAssignment').then(m => ({ default: m.RoleAssignment })));
@@ -286,22 +286,14 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     }
     
     try {
-      const response = await fetch('/.netlify/functions/manage-supabase-users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'updatePassword',
-          lodgeNumber: currentLodge.glriNumber,
-          email: currentUser.email,
-          password: newPassword
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Errore durante il cambio password');
-      }
+      const updatedSession = await changePassword(
+        newPassword,
+        currentLodge.supabaseUrl,
+        currentLodge.supabaseAnonKey,
+        currentUser.userId || ''
+      );
+
+      setCurrentUser(updatedSession);
       
       setPasswordSuccess(true);
       setNewPassword('');
@@ -309,11 +301,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
       
       // Ricarica la sessione per aggiornare mustChangePassword
       if (isPasswordChangeForced && currentLodge) {
-        const updatedSession = await loadActiveSession(currentLodge.supabaseUrl, currentLodge.supabaseAnonKey);
-        if (updatedSession) {
-          setCurrentUser(updatedSession);
-          setIsPasswordChangeForced(false);
-        }
+        setIsPasswordChangeForced(false);
       }
       
       setTimeout(() => {
@@ -806,7 +794,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
 
           {currentView === 'ADMIN' && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento pannello admin...</div>}>
-              <AdminPanel currentSettings={appSettings} onSave={handleSaveSettings} onDataChange={loadData} currentUserEmail={currentUser?.email} />
+              <AdminPanel currentSettings={appSettings} onSave={handleSaveSettings} onDataChange={loadData} currentUserEmail={currentUser?.email} currentUserToken={currentUser?.accessToken} />
             </React.Suspense>
           )}
 

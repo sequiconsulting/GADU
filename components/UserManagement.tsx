@@ -30,6 +30,7 @@ interface UserManagementProps {
   canManage: boolean;
   canView: boolean;
   currentUserEmail?: string;
+  authToken?: string;
   onChangelogChange?: (changelog: UserChangeLogEntry[]) => Promise<void> | void;
 }
 
@@ -39,6 +40,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   canManage,
   canView,
   currentUserEmail = 'Admin',
+  authToken,
   onChangelogChange,
 }) => {
   const [users, setUsers] = useState<SupabaseUser[]>([]);
@@ -72,7 +74,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/.netlify/functions/manage-supabase-users?lodge=${lodgeNumber}`);
+      const headers: Record<string, string> = {};
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      const response = await fetch(`/.netlify/functions/manage-supabase-users?lodge=${lodgeNumber}`, { headers });
       const result = await response.json();
 
       if (result.success && result.users) {
@@ -127,9 +131,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({
 
     try {
       setLoading(true);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
       const response = await fetch('/.netlify/functions/manage-supabase-users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           action: 'create',
           lodgeNumber,
@@ -171,9 +177,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     // If we're here, user has confirmed deletion
     try {
       setLoading(true);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
       const response = await fetch('/.netlify/functions/manage-supabase-users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           action: 'delete',
           lodgeNumber,
@@ -224,9 +232,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   const handleSavePrivileges = async (user: SupabaseUser) => {
     try {
       setLoading(true);
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
       const response = await fetch('/.netlify/functions/manage-supabase-users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           action: 'updatePrivileges',
           lodgeNumber,

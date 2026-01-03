@@ -115,7 +115,10 @@ export async function changePassword(
 
   // Update password
   const { data, error } = await client.auth.updateUser({
-    password: newPassword
+    password: newPassword,
+    data: {
+      mustChangePassword: false,
+    },
   });
 
   if (error) {
@@ -126,6 +129,9 @@ export async function changePassword(
   if (!data.user?.email) {
     throw new Error('Utente non valido');
   }
+
+  const { data: sessionData } = await client.auth.getSession();
+  const session = sessionData?.session;
 
   // Get updated session with privileges
   let privilegesInfo: { name?: string; privileges: UserPrivilege[] } | null = null;
@@ -148,9 +154,11 @@ export async function changePassword(
     email: data.user.email,
     name: privilegesInfo.name || data.user.email,
     userId: data.user.id,
-    accessToken: '', // Will be refreshed by Supabase
+    accessToken: session?.access_token || '',
+    refreshToken: session?.refresh_token,
+    expiresAt: session?.expires_at ? session.expires_at * 1000 : undefined,
     privileges: privilegesInfo.privileges,
-    mustChangePassword: false, // Password just changed
+    mustChangePassword: false,
   };
 
   saveSession(authSession);

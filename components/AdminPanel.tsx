@@ -11,12 +11,13 @@ interface AdminPanelProps {
   onSave: (settings: AppSettings) => Promise<void> | void;
   onDataChange?: () => void;
   currentUserEmail?: string;
+  currentUserToken?: string;
 }
 
 type Tab = 'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM';
 type MainTab = 'GENERALE' | 'PREFERENZE_RAMI' | 'DEFAULT_QUOTE' | 'GESTIONE_UTENTI' | 'EXTRA';
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave, onDataChange, currentUserEmail }) => {
+export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave, onDataChange, currentUserEmail, currentUserToken }) => {
   const withDefaults = (s: AppSettings): AppSettings => ({
     ...s,
     userChangelog: s.userChangelog || [],
@@ -656,6 +657,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
               canManage={true}
               canView={true}
               currentUserEmail={currentUserEmail || 'Admin'}
+              authToken={currentUserToken}
               onChangelogChange={handleUserChangelogChange}
             />
             {message && (

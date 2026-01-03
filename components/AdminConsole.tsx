@@ -30,6 +30,7 @@ export const AdminConsole: React.FC = () => {
   const [userPassword, setUserPassword] = useState('123456789');
   const [userPrivileges, setUserPrivileges] = useState('AD');
   const [form, setForm] = useState<Partial<LodgeConfig>>({ isActive: true });
+  const [createLodgeMessage, setCreateLodgeMessage] = useState<string | null>(null);
   // Considera autenticato se esiste una password in sessione; la validazione vera è lato funzione (Bearer === ADMIN_INTERFACE_PASSWORD)
   const isAuthenticated = Boolean(auth);
 
@@ -39,7 +40,7 @@ export const AdminConsole: React.FC = () => {
     }
   }, [isAuthenticated]);
 
-  const sortedLodges = useMemo(() => Object.values(registry).sort((a, b) => a.glriNumber.localeCompare(b.glriNumber)), [registry]);
+  const sortedLodges = useMemo(() => (Object.values(registry) as LodgeConfig[]).sort((a, b) => a.glriNumber.localeCompare(b.glriNumber)), [registry]);
 
   async function authorizedFetch(url: string, options: RequestInit = {}) {
     const headers = new Headers(options.headers || {});
@@ -108,7 +109,7 @@ export const AdminConsole: React.FC = () => {
   async function loadUsers(glriNumber: string) {
     setLoading(true);
     try {
-      const res = await fetch(buildApiUrl(`/.netlify/functions/manage-supabase-users?lodge=${glriNumber}`));
+      const res = await authorizedFetch(buildApiUrl(`/.netlify/functions/manage-supabase-users?lodge=${glriNumber}`), { method: 'GET' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Errore caricamento utenti');
       setUsers(data.users || []);
@@ -123,9 +124,8 @@ export const AdminConsole: React.FC = () => {
     if (!selectedLodge) return alert('Seleziona una loggia');
     setLoading(true);
     try {
-      const res = await fetch(buildApiUrl('/.netlify/functions/manage-supabase-users'), {
+      const res = await authorizedFetch(buildApiUrl('/.netlify/functions/manage-supabase-users'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'create',
           lodgeNumber: selectedLodge,
@@ -141,6 +141,51 @@ export const AdminConsole: React.FC = () => {
       setUserEmail('');
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createNewLodge() {
+    setCreateLodgeMessage(null);
+    setLoading(true);
+    try {
+      const secretaryEmail = ((form as any).lodgeEmail || '').trim();
+      const payload = {
+        glriNumber: (form.glriNumber || '').trim(),
+        lodgeName: (form.lodgeName || '').trim(),
+        province: (form.province || '').trim(),
+        supabaseUrl: (form.supabaseUrl || '').trim(),
+        supabaseAnonKey: form.supabaseAnonKey,
+        supabaseServiceKey: form.supabaseServiceKey,
+        databasePassword: form.databasePassword,
+        secretaryEmail,
+        associationName: form.associationName,
+        address: form.address,
+        zipCode: form.zipCode,
+        city: form.city,
+        taxCode: form.taxCode,
+      };
+
+      const res = await authorizedFetch(buildApiUrl('/.netlify/functions/create-lodge'), {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (res.status === 409) {
+        throw new Error(data.error || 'Loggia già esistente');
+      }
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Errore creazione loggia');
+      }
+
+      setCreateLodgeMessage(`Loggia ${data.glriNumber} creata con successo`);
+      await loadRegistry();
+    } catch (err: any) {
+      setCreateLodgeMessage(err.message || 'Errore creazione loggia');
     } finally {
       setLoading(false);
     }
@@ -249,7 +294,13 @@ export const AdminConsole: React.FC = () => {
                 <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-2" placeholder="Database password" value={form.databasePassword || ''} onChange={(e)=>setForm({...form, databasePassword:e.target.value})}/>
                 <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-2" placeholder="Email Segretario" value={(form as any).lodgeEmail || ''} onChange={(e)=>setForm({...form, lodgeEmail:e.target.value} as any)}/>
               </div>
+              {createLodgeMessage && (
+                <div className={`text-sm rounded-lg px-3 py-2 ${createLodgeMessage.toLowerCase().includes('successo') ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                  {createLodgeMessage}
+                </div>
+              )}
               <button disabled={loading} onClick={saveLodge} className="w-full bg-slate-900 text-white rounded-lg py-2 flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-50"><Save size={16}/> Salva loggia</button>
+              <button disabled={loading} onClick={createNewLodge} className="w-full bg-masonic-gold text-white rounded-lg py-2 flex items-center justify-center gap-2 hover:bg-yellow-600 disabled:opacity-50"><Plus size={16}/> Crea nuova loggia</button>
             </div>
           </div>
         )}
@@ -297,14 +348,14 @@ export const AdminConsole: React.FC = () => {
                   <div key={u.email} className="border border-slate-200 rounded-lg px-3 py-2 flex items-center justify-between">
                     <div>
                       <div className="font-semibold">{u.email}</div>
-                      <div className="text-xs text-slate-500">Privilegi: {(u.privileges || []).join(', ')}</div>
+                      <div className="text-xs text-slate-500">Privilegi: {(((u.user_metadata?.privileges || u.privileges) || []) as any[]).join(', ')}</div>
                     </div>
                     <div className="flex gap-2">
                       <button className="text-red-500 hover:text-red-700" onClick={async ()=>{
                         if (!confirm(`Eliminare ${u.email}?`)) return;
                         setLoading(true);
                         try {
-                          const res = await fetch(buildApiUrl('/.netlify/functions/manage-supabase-users'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'delete', lodgeNumber: selectedLodge, email: u.email }) });
+                          const res = await authorizedFetch(buildApiUrl('/.netlify/functions/manage-supabase-users'), { method:'POST', body: JSON.stringify({ action:'delete', lodgeNumber: selectedLodge, email: u.email }) });
                           const data = await res.json();
                           if (!res.ok || !data.success) throw new Error(data.error || 'Errore eliminazione');
                           await loadUsers(selectedLodge);

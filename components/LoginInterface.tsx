@@ -88,29 +88,11 @@ export function LoginInterface({ onLoginSuccess, glriNumber }: Props) {
           const hasAdminPrivilege = privileges.includes('AD');
           
           if (!hasAdminPrivilege) {
-            console.log('[DEMO] Ripristino privilegi admin per utente demo');
-            try {
-              const response = await fetch(`/.netlify/functions/manage-supabase-users`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  action: 'updatePrivileges',
-                  lodgeNumber: glriNumber,
-                  userId: session.userId,
-                  privileges: ['AD', 'CW', 'MW', 'AW', 'RW']
-                })
-              });
-              
-              if (response.ok) {
-                // Ricarica la sessione per ottenere i privilegi aggiornati
-                session = await loadActiveSession(lodgeConfig.supabaseUrl, lodgeConfig.supabaseAnonKey) || session;
-              } else {
-                console.warn('[DEMO] Errore ripristino privilegi, response status:', response.status);
-              }
-            } catch (updateErr) {
-              console.warn('[DEMO] Errore ripristino privilegi:', updateErr);
-              // Continua comunque con il login
-            }
+            console.log('[DEMO] Privilegi mancanti: assegno privilegi demo localmente');
+            session = {
+              ...session,
+              privileges: ['AD', 'CW', 'MW', 'AW', 'RW'],
+            };
           }
         }
         
@@ -151,23 +133,6 @@ export function LoginInterface({ onLoginSuccess, glriNumber }: Props) {
         lodgeConfig.supabaseAnonKey,
         pendingSession.userId!
       );
-
-      // Reset mustChangePassword flag via API
-      if (pendingSession.userId) {
-        try {
-          await fetch(`/.netlify/functions/manage-supabase-users`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'clearMustChangePassword',
-              lodgeNumber: glriNumber,
-              userId: pendingSession.userId
-            })
-          });
-        } catch (updateErr) {
-          console.warn('[PASSWORD_CHANGE] Errore reset flag mustChangePassword:', updateErr);
-        }
-      }
 
       setInfoMessage('Password cambiata con successo');
       setTimeout(() => {
