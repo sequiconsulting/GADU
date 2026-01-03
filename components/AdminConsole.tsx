@@ -8,7 +8,7 @@ interface RegistryResponse {
   error?: string;
 }
 
-type Tab = 'lodges' | 'registry' | 'users';
+type Tab = 'lodges' | 'registry' | 'users' | 'requests';
 
 const ADMIN_PASSWORD_KEY = 'gadu_admin_session';
 const ADMIN_API_BASE = (import.meta as any)?.env?.VITE_ADMIN_API_BASE ? ((import.meta as any).env.VITE_ADMIN_API_BASE as string).replace(/\/$/, '') : '';
@@ -22,6 +22,89 @@ export const AdminConsole: React.FC = () => {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('lodges');
+  // Stato richieste attivazione
+  const [activationRequests, setActivationRequests] = useState<any[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
+  const [requestStatusFilter, setRequestStatusFilter] = useState<string>('pending');
+  const [requestMessage, setRequestMessage] = useState<string | null>(null);
+    // Helpers richieste attivazione
+    async function loadActivationRequests(status: string = 'pending') {
+      setLoading(true);
+      setRequestMessage(null);
+      try {
+        const res = await authorizedFetch(buildApiUrl('/.netlify/functions/admin-activation-requests'), {
+          method: 'POST',
+          body: JSON.stringify({ action: 'list', status })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Errore caricamento richieste');
+        setActivationRequests(data.requests || []);
+        setSelectedRequest(null);
+      } catch (err: any) {
+        setRequestMessage(err.message);
+        setActivationRequests([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function getActivationRequest(id: string) {
+      setLoading(true);
+      setRequestMessage(null);
+      try {
+        const res = await authorizedFetch(buildApiUrl('/.netlify/functions/admin-activation-requests'), {
+          method: 'POST',
+          body: JSON.stringify({ action: 'get', id })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Errore caricamento richiesta');
+        setSelectedRequest(data.request);
+      } catch (err: any) {
+        setRequestMessage(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function updateActivationRequest(id: string, update: any) {
+      setLoading(true);
+      setRequestMessage(null);
+      try {
+        const res = await authorizedFetch(buildApiUrl('/.netlify/functions/admin-activation-requests'), {
+          method: 'POST',
+          body: JSON.stringify({ action: 'update', id, update })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Errore salvataggio richiesta');
+        setSelectedRequest(data.request);
+        setRequestMessage('Richiesta aggiornata');
+        await loadActivationRequests(requestStatusFilter);
+      } catch (err: any) {
+        setRequestMessage(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function setActivationRequestStatus(id: string, status: string) {
+      setLoading(true);
+      setRequestMessage(null);
+      try {
+        const res = await authorizedFetch(buildApiUrl('/.netlify/functions/admin-activation-requests'), {
+          method: 'POST',
+          body: JSON.stringify({ action: 'setStatus', id, status })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Errore aggiornamento stato');
+        setRequestMessage('Stato aggiornato');
+        setSelectedRequest(null);
+        await loadActivationRequests(requestStatusFilter);
+      } catch (err: any) {
+        setRequestMessage(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
   const [loading, setLoading] = useState(false);
   const [registry, setRegistry] = useState<Record<string, LodgeConfig>>({});
   const [selectedLodge, setSelectedLodge] = useState<string>('');
@@ -251,7 +334,63 @@ export const AdminConsole: React.FC = () => {
           <button onClick={() => setActiveTab('lodges')} className={`px-4 py-2 rounded-lg ${activeTab==='lodges'?'bg-slate-900 text-white':'bg-white border border-slate-200 text-slate-700'}`}>Logge</button>
           <button onClick={() => setActiveTab('registry')} className={`px-4 py-2 rounded-lg ${activeTab==='registry'?'bg-slate-900 text-white':'bg-white border border-slate-200 text-slate-700'}`}>Registry</button>
           <button onClick={() => { setActiveTab('users'); if (selectedLodge) void loadUsers(selectedLodge); }} className={`px-4 py-2 rounded-lg ${activeTab==='users'?'bg-slate-900 text-white':'bg-white border border-slate-200 text-slate-700'}`}>Utenti</button>
+          <button onClick={() => { setActiveTab('requests'); void loadActivationRequests(requestStatusFilter); }} className={`px-4 py-2 rounded-lg ${activeTab==='requests'?'bg-slate-900 text-white':'bg-white border border-slate-200 text-slate-700'}`}>Richieste</button>
         </div>
+        {activeTab === 'requests' && (
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2"><Shield size={16}/> <h3 className="font-semibold">Richieste attivazione</h3></div>
+              <div className="flex gap-2">
+                <select value={requestStatusFilter} onChange={e=>{setRequestStatusFilter(e.target.value); void loadActivationRequests(e.target.value);}} className="border border-slate-200 rounded-lg px-2 py-1 text-sm">
+                  <option value="pending">Pendenti</option>
+                  <option value="completed">Completate</option>
+                  <option value="cancelled">Annullate</option>
+                  <option value="all">Tutte</option>
+                </select>
+                <button onClick={()=>loadActivationRequests(requestStatusFilter)} className="px-3 py-1 border border-slate-200 rounded-lg text-xs">Aggiorna</button>
+              </div>
+            </div>
+            {requestMessage && <div className="mb-2 text-sm text-red-600">{requestMessage}</div>}
+            {!selectedRequest ? (
+              <div className="space-y-2 max-h-[500px] overflow-y-auto text-sm">
+                {activationRequests.map(r => (
+                  <div key={r.id} className="border border-slate-200 rounded-lg px-3 py-2 flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold">{r.lodgeName} ({r.glriNumber})</div>
+                      <div className="text-xs text-slate-500">{r.associationName} - {r.city} ({r.province})</div>
+                      <div className="text-xs text-slate-400">Stato: {r.status}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="text-slate-600 hover:text-slate-900" onClick={()=>getActivationRequest(r.id)}>Apri</button>
+                    </div>
+                  </div>
+                ))}
+                {activationRequests.length === 0 && <div className="text-slate-500 text-sm">Nessuna richiesta</div>}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <button className="text-xs text-slate-500 underline" onClick={()=>setSelectedRequest(null)}>← Torna all'elenco</button>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-1" placeholder="GLRI Number" value={selectedRequest.glriNumber || ''} onChange={e=>setSelectedRequest({...selectedRequest, glriNumber:e.target.value})} disabled={selectedRequest.status!=='pending'}/>
+                  <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-1" placeholder="Nome loggia" value={selectedRequest.lodgeName || ''} onChange={e=>setSelectedRequest({...selectedRequest, lodgeName:e.target.value})} disabled={selectedRequest.status!=='pending'}/>
+                  <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-1" placeholder="Provincia" value={selectedRequest.province || ''} onChange={e=>setSelectedRequest({...selectedRequest, province:e.target.value})} disabled={selectedRequest.status!=='pending'}/>
+                  <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-1" placeholder="Associazione" value={selectedRequest.associationName || ''} onChange={e=>setSelectedRequest({...selectedRequest, associationName:e.target.value})} disabled={selectedRequest.status!=='pending'}/>
+                  <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-2" placeholder="Indirizzo" value={selectedRequest.address || ''} onChange={e=>setSelectedRequest({...selectedRequest, address:e.target.value})} disabled={selectedRequest.status!=='pending'}/>
+                  <input className="border border-slate-200 rounded-lg px-3 py-2" placeholder="CAP" value={selectedRequest.zipCode || ''} onChange={e=>setSelectedRequest({...selectedRequest, zipCode:e.target.value})} disabled={selectedRequest.status!=='pending'}/>
+                  <input className="border border-slate-200 rounded-lg px-3 py-2" placeholder="Città" value={selectedRequest.city || ''} onChange={e=>setSelectedRequest({...selectedRequest, city:e.target.value})} disabled={selectedRequest.status!=='pending'}/>
+                  <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-2" placeholder="Codice Fiscale" value={selectedRequest.taxCode || ''} onChange={e=>setSelectedRequest({...selectedRequest, taxCode:e.target.value})} disabled={selectedRequest.status!=='pending'}/>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  {selectedRequest.status==='pending' && <button disabled={loading} onClick={()=>updateActivationRequest(selectedRequest.id, selectedRequest)} className="bg-slate-900 text-white rounded-lg py-2 px-4 flex items-center gap-2 hover:bg-slate-800 disabled:opacity-50">Salva</button>}
+                  {selectedRequest.status==='pending' && <button disabled={loading} onClick={()=>setActivationRequestStatus(selectedRequest.id, 'completed')} className="bg-green-600 text-white rounded-lg py-2 px-4 flex items-center gap-2 hover:bg-green-700 disabled:opacity-50">Segna completata</button>}
+                  {selectedRequest.status==='pending' && <button disabled={loading} onClick={()=>setActivationRequestStatus(selectedRequest.id, 'cancelled')} className="bg-red-600 text-white rounded-lg py-2 px-4 flex items-center gap-2 hover:bg-red-700 disabled:opacity-50">Annulla</button>}
+                  {(selectedRequest.status==='completed'||selectedRequest.status==='cancelled') && <span className="text-xs text-slate-500">Richiesta {selectedRequest.status}</span>}
+                </div>
+                <pre className="text-xs bg-slate-900 text-slate-100 rounded-lg p-4 overflow-auto max-h-[300px]">{JSON.stringify(selectedRequest, null, 2)}</pre>
+              </div>
+            )}
+          </div>
+        )}
 
         {activeTab === 'lodges' && (
           <div className="grid md:grid-cols-2 gap-6">
