@@ -1,6 +1,6 @@
 import { connectLambda, getStore } from '@netlify/blobs';
 import { Registry } from '../../../types/lodge';
-import { createCipheriv, createDecipheriv, randomBytes, publicEncrypt, privateDecrypt } from 'crypto';
+import { createCipheriv, createDecipheriv, randomBytes, publicEncrypt, privateDecrypt, createPrivateKey } from 'crypto';
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 
 let blobsInitialized = false;
@@ -167,6 +167,25 @@ async function decryptData(encryptedText: string): Promise<string> {
   const quantumKeys = await getQuantumKeys();
   if (!quantumKeys) {
     throw new Error('Quantum keys not available for decryption');
+  }
+
+  // Diagnostica non sensibile: lunghezze payload vs chiave RSA
+  // (utile per identificare mismatch chiavi/payload corrotto)
+  const partsForDiag = encryptedText.split(':');
+  const rsaCiphertextHexLen = partsForDiag?.[2]?.length || 0;
+  const rsaCiphertextBytes = Math.floor(rsaCiphertextHexLen / 2);
+  try {
+    const keyObj = createPrivateKey(quantumKeys.rsa.privateKey);
+    const details: any = (keyObj as any).asymmetricKeyDetails;
+    const modulusBits = details?.modulusLength;
+    const modulusBytes = typeof modulusBits === 'number' ? Math.floor(modulusBits / 8) : undefined;
+    if (modulusBytes) {
+      console.log('[CRYPTO][DIAG] RSA modulus bytes:', modulusBytes, 'rsaCiphertextBytes:', rsaCiphertextBytes);
+    } else {
+      console.log('[CRYPTO][DIAG] RSA details non disponibili; rsaCiphertextBytes:', rsaCiphertextBytes);
+    }
+  } catch (e: any) {
+    console.log('[CRYPTO][DIAG] Impossibile leggere dettagli chiave RSA:', e?.message);
   }
   
   try {

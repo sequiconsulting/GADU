@@ -1,6 +1,8 @@
 import { Handler } from '@netlify/functions';
 import { initNetlifyBlobs, loadRegistry, saveRegistry, logAuditEvent } from './shared/registry';
 import { LodgeConfig, Registry } from '../../types/lodge';
+import { createCipheriv, randomBytes } from 'crypto';
+import { getStore } from '@netlify/blobs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,6 +12,11 @@ const corsHeaders = {
 
 interface UpsertPayload extends Partial<LodgeConfig> {
   glriNumber: string;
+}
+
+interface SetPrivateKeysPayload {
+  kyberPrivate: string; // hex
+  rsaPrivateB64: string; // base64(Pem)
 }
 
 function requireAuth(event: any) {
@@ -47,6 +54,46 @@ function validateLodge(input: UpsertPayload): string | null {
   return null;
 }
 
+function getOriginFromEvent(event: any): string | null {
+  const headers = event?.headers || {};
+  const proto = headers['x-forwarded-proto'] || headers['X-Forwarded-Proto'];
+  const host = headers['x-forwarded-host'] || headers['X-Forwarded-Host'] || headers['host'] || headers['Host'];
+  if (proto && host) return `${proto}://${host}`;
+  return process.env.URL || process.env.DEPLOY_PRIME_URL || process.env.DEPLOY_URL || null;
+}
+
+function encryptPrivateKeysForBlob(payload: SetPrivateKeysPayload, masterKeyHex: string) {
+  const key = Buffer.from(masterKeyHex, 'hex');
+  if (key.length !== 32) {
+    throw new Error('[QUANTUM] QUANTUM_MASTER_KEY deve essere 32 bytes (64 hex)');
+  }
+
+  if (!/^[0-9a-fA-F]+$/.test(payload.kyberPrivate) || payload.kyberPrivate.length < 100) {
+    throw new Error('[QUANTUM] kyberPrivate non valido (hex)');
+  }
+  if (!payload.rsaPrivateB64 || payload.rsaPrivateB64.length < 100) {
+    throw new Error('[QUANTUM] rsaPrivateB64 non valido');
+  }
+
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+
+  const plaintext = JSON.stringify({
+    kyberPrivate: payload.kyberPrivate,
+    rsaPrivateB64: payload.rsaPrivateB64,
+  });
+
+  let encrypted = cipher.update(plaintext, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag();
+
+  return {
+    iv: iv.toString('hex'),
+    authTag: authTag.toString('hex'),
+    data: encrypted,
+  };
+}
+
 export const handler: Handler = async (event, context) => {
   try {
     if (event.httpMethod === 'OPTIONS') {
@@ -58,7 +105,7 @@ export const handler: Handler = async (event, context) => {
     requireAuth(event);
 
     initNetlifyBlobs(event);
-    const { action = 'list', lodge } = event.body ? JSON.parse(event.body) : {} as { action?: string; lodge?: UpsertPayload; glriNumber?: string };
+    const { action = 'list', lodge, keys } = event.body ? JSON.parse(event.body) : {} as { action?: string; lodge?: UpsertPayload; glriNumber?: string; keys?: SetPrivateKeysPayload };
 
     if (action === 'list') {
       const registry = await loadRegistry();
@@ -66,7 +113,7 @@ export const handler: Handler = async (event, context) => {
     }
 
     if (action === 'delete') {
-      const glriNumber = lodge?.glriNumber || lodge?.glriNumber;
+      const glriNumber = lodge?.glriNumber;
       if (!glriNumber) {
         return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'glriNumber richiesto' }) };
       }
@@ -79,6 +126,64 @@ export const handler: Handler = async (event, context) => {
         console.error('[ADMIN-REGISTRY] Audit log failed:', e);
       }
       return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, registry }) };
+    }
+
+    if (action === 'setPrivateKeys') {
+      const masterKey = process.env.QUANTUM_MASTER_KEY;
+      if (!masterKey) {
+        return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: 'QUANTUM_MASTER_KEY non configurata' }) };
+      }
+      if (!keys?.kyberPrivate || !keys?.rsaPrivateB64) {
+        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Payload keys mancante' }) };
+      }
+
+      const encryptedKeys = encryptPrivateKeysForBlob(keys, masterKey);
+      const keysStore = getStore('quantum-keys');
+      await keysStore.set('private-keys', JSON.stringify(encryptedKeys), {
+        metadata: { updatedAt: new Date().toISOString() },
+      });
+
+      try {
+        await logAuditEvent('quantum_private_keys_updated_admin', { updatedAt: new Date().toISOString() });
+      } catch (e) {
+        console.error('[ADMIN-REGISTRY] Audit log failed:', e);
+      }
+
+      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true }) };
+    }
+
+    if (action === 'syncRegistryFromWellKnown') {
+      const origin = getOriginFromEvent(event);
+      if (!origin) {
+        return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: 'Impossibile determinare origin del sito' }) };
+      }
+
+      const url = `${origin}/.well-known/gadu-registry.blob`;
+      const res = await fetch(url, { method: 'GET' });
+      if (!res.ok) {
+        return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: `Fetch fallita (${res.status}) da ${url}` }) };
+      }
+
+      const blobText = await res.text();
+      if (!blobText || !blobText.startsWith('v2:')) {
+        return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: 'Blob .well-known non valido o non v2' }) };
+      }
+
+      const registryStore = getStore('gadu-registry');
+      await registryStore.set('lodges', blobText, {
+        metadata: {
+          syncedFrom: '/.well-known/gadu-registry.blob',
+          syncedAt: new Date().toISOString(),
+        },
+      });
+
+      try {
+        await logAuditEvent('registry_synced_from_well_known_admin', { url, at: new Date().toISOString() });
+      } catch (e) {
+        console.error('[ADMIN-REGISTRY] Audit log failed:', e);
+      }
+
+      return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true }) };
     }
 
     if (action === 'upsert') {
