@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { createCipheriv, publicEncrypt, randomBytes } from 'crypto';
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
@@ -42,14 +42,18 @@ async function main() {
   console.log('[BUILD] Creating encrypted registry blob...');
 
   try {
-    // Read registry
     const registryPath = join(process.cwd(), '.netlify', 'registry.json');
+    const keysPath = join(process.cwd(), '.netlify', 'quantum-keys.json');
+
+    if (!existsSync(registryPath) || !existsSync(keysPath)) {
+      console.log('[BUILD] Registry or quantum keys not found locally (.netlify). Skipping blob generation.');
+      process.exit(0);
+    }
+
     const registryData = readFileSync(registryPath, 'utf-8');
     const registry = JSON.parse(registryData);
     console.log('[BUILD] ✓ Registry loaded:', Object.keys(registry).length, 'lodge(s)');
 
-    // Read quantum keys
-    const keysPath = join(process.cwd(), '.netlify', 'quantum-keys.json');
     const keysData = readFileSync(keysPath, 'utf-8');
     const quantumKeys: QuantumKeys = JSON.parse(keysData);
     console.log('[BUILD] ✓ Quantum keys loaded');
