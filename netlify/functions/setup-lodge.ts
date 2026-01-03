@@ -3,7 +3,7 @@ import { loadRegistry, saveRegistry, logAuditEvent } from './shared/registry';
 import { setupSupabaseLodge } from './shared/supabaseSetup';
 import { LodgeConfig } from '../../types/lodge';
 
-export const handler: Handler = async (event) => {
+export const handler: Handler = async (event, context) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
@@ -36,7 +36,7 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const registry = await loadRegistry();
+    const registry = await loadRegistry(context);
 
     console.log(`[SETUP-LODGE] Attempting to register lodge ${glriNumber}`);
     console.log(`[SETUP-LODGE] Registry keys: ${Object.keys(registry).join(', ')}`);
@@ -70,8 +70,8 @@ export const handler: Handler = async (event) => {
     };
 
     registry[glriNumber] = lodgeConfig;
-    await saveRegistry(registry);
-    await logAuditEvent('lodge_created', { glriNumber, lodgeName });
+    await saveRegistry(registry, context);
+    await logAuditEvent('lodge_created', { glriNumber, lodgeName }, context);
 
     let supabaseSetupResults = null;
     if (adminEmail && adminPassword) {

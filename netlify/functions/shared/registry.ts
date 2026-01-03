@@ -4,13 +4,26 @@ import { createCipheriv, createDecipheriv, randomBytes, publicEncrypt, privateDe
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 
 // Helper to configure Blob Store with available environment variables
-function getBlobStore(name: string) {
+function getBlobStore(name: string, context?: any) {
   const siteID = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
   const token = process.env.NETLIFY_AUTH_TOKEN || process.env.NETLIFY_FUNCTIONS_TOKEN;
   
+  // Debug token
+  if (token) {
+    console.log(`[DEBUG] Token present. Length: ${token.length}, Start: ${token.substring(0, 4)}...`);
+  } else {
+    console.log('[DEBUG] No token found in env');
+  }
+
   if (siteID && token) {
     return getStore({ name, siteID, token });
   }
+  
+  // Fallback: try to use context if available (sometimes contains auth info)
+  if (context) {
+    console.log('[DEBUG] Context available:', Object.keys(context));
+  }
+
   return getStore(name);
 }
 
@@ -183,9 +196,9 @@ async function decryptData(encryptedText: string): Promise<string> {
   }
 }
 
-export async function loadRegistry(): Promise<Registry> {
+export async function loadRegistry(context?: any): Promise<Registry> {
   try {
-    const store = getBlobStore('gadu-registry');
+    const store = getBlobStore('gadu-registry', context);
     const data = await store.get('lodges');
     
     if (!data) {
@@ -202,9 +215,9 @@ export async function loadRegistry(): Promise<Registry> {
   }
 }
 
-export async function saveRegistry(registry: Registry): Promise<void> {
+export async function saveRegistry(registry: Registry, context?: any): Promise<void> {
   try {
-    const store = getStore('gadu-registry');
+    const store = getBlobStore('gadu-registry', context);
     const jsonString = JSON.stringify(registry);
     const encryptedData = await encryptData(jsonString);
     await store.set('lodges', encryptedData, {
@@ -219,11 +232,11 @@ export async function saveRegistry(registry: Registry): Promise<void> {
   }
 }Blob
 
-export async function logAuditEvent(event: string, data: any): Promise<void> {
+export async function logAuditEvent(event: string, data: any, context?: any): Promise<void> {
   console.log(`[AUDIT] ${event}:`, data);
   
   try {
-    const auditStore = getBlobStore('gadu-audit');
+    const auditStore = getBlobStore('gadu-audit', context);
     const timestamp = new Date().toISOString();
     await auditStore.set(`${timestamp}-${event}`, JSON.stringify(data));
   } catch (error: any) {

@@ -49,7 +49,7 @@ function validateLodge(input: UpsertPayload): string | null {
   return null;
 }
 
-export const handler: Handler = async (event) => {
+export const handler: Handler = async (event, context) => {
   try {
     if (event.httpMethod === 'OPTIONS') {
       return { statusCode: 200, headers: corsHeaders, body: '' };
@@ -61,7 +61,7 @@ export const handler: Handler = async (event) => {
     const { action = 'list', lodge } = event.body ? JSON.parse(event.body) : {} as { action?: string; lodge?: UpsertPayload; glriNumber?: string };
 
     if (action === 'list') {
-      const registry = await loadRegistry();
+      const registry = await loadRegistry(context);
       return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, registry }) };
     }
 
@@ -70,10 +70,10 @@ export const handler: Handler = async (event) => {
       if (!glriNumber) {
         return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'glriNumber richiesto' }) };
       }
-      const registry = await loadRegistry();
+      const registry = await loadRegistry(context);
       delete registry[glriNumber];
-      await saveRegistry(registry);
-      await logAuditEvent('lodge_deleted_admin', { glriNumber });
+      await saveRegistry(registry, context);
+      await logAuditEvent('lodge_deleted_admin', { glriNumber }, context);
       return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, registry }) };
     }
 
@@ -82,7 +82,7 @@ export const handler: Handler = async (event) => {
       if (validationError) {
         return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: validationError }) };
       }
-      const registry: Registry = await loadRegistry();
+      const registry: Registry = await loadRegistry(context);
       const glri = lodge!.glriNumber;
       const now = new Date();
       const existing = registry[glri];
@@ -94,8 +94,8 @@ export const handler: Handler = async (event) => {
         lastAccess: now,
         isActive: lodge?.isActive ?? existing?.isActive ?? true,
       } as LodgeConfig;
-      await saveRegistry(registry);
-      await logAuditEvent('lodge_upsert_admin', { glriNumber: glri });
+      await saveRegistry(registry, context);
+      await logAuditEvent('lodge_upsert_admin', { glriNumber: glri }, context);
       return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, registry }) };
     }
 
