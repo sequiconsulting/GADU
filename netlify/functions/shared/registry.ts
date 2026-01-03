@@ -3,6 +3,17 @@ import { LodgeConfig, Registry } from '../../../types/lodge';
 import { createCipheriv, createDecipheriv, randomBytes, publicEncrypt, privateDecrypt } from 'crypto';
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 
+// Helper to configure Blob Store with available environment variables
+function getBlobStore(name: string) {
+  const siteID = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
+  const token = process.env.NETLIFY_AUTH_TOKEN || process.env.NETLIFY_FUNCTIONS_TOKEN;
+  
+  if (siteID && token) {
+    return getStore({ name, siteID, token });
+  }
+  return getStore(name);
+}
+
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
@@ -33,7 +44,7 @@ async function getQuantumKeys(): Promise<QuantumKeys | null> {
   let rsaPrivKeyB64: string;
   
   try {
-    const keysStore = getStore('quantum-keys');
+    const keysStore = getBlobStore('quantum-keys');
     const encryptedKeysJson = await keysStore.get('private-keys', { type: 'text' });
     
     if (!encryptedKeysJson) {
@@ -173,22 +184,11 @@ async function decryptData(encryptedText: string): Promise<string> {
 }
 
 export async function loadRegistry(): Promise<Registry> {
-  console.log('[DEBUG] loadRegistry called');
-  console.log('[DEBUG] Env check:', {
-    NETLIFY_SITE_ID: process.env.NETLIFY_SITE_ID ? 'Present' : 'Missing',
-    NETLIFY_BLOBS_CONTEXT: process.env.NETLIFY_BLOBS_CONTEXT ? 'Present' : 'Missing',
-    NETLIFY_AUTH_TOKEN: process.env.NETLIFY_AUTH_TOKEN ? 'Present' : 'Missing',
-    SITE_ID: process.env.SITE_ID ? 'Present' : 'Missing',
-    CONTEXT: process.env.CONTEXT
-  });
-  console.log('[DEBUG] All Env Keys:', Object.keys(process.env).sort().join(', '));
-
   try {
-    const store = getStore('gadu-registry');
+    const store = getBlobStore('gadu-registry');
     const data = await store.get('lodges');
     
     if (!data) {
-      console.log('[DEBUG] No data found in gadu-registry/lodges');
       return {};
     }
     
@@ -198,8 +198,6 @@ export async function loadRegistry(): Promise<Registry> {
     return JSON.parse(jsonString);
   } catch (error: any) {
     console.error('[REGISTRY] Error loading from Blobs:', error?.message || error);
-    // If we are in production (or pretending to be), this error is critical if it's configuration related.
-    // But for now we return empty to not crash 500, although the user might see empty list.
     return {};
   }
 }
@@ -219,13 +217,13 @@ export async function saveRegistry(registry: Registry): Promise<void> {
   } catch (error: any) {
     console.error('[BLOBS] Failed to save registry:', error?.message);
   }
-}
+}Blob
 
 export async function logAuditEvent(event: string, data: any): Promise<void> {
   console.log(`[AUDIT] ${event}:`, data);
   
   try {
-    const auditStore = getStore('gadu-audit');
+    const auditStore = getBlobStore('gadu-audit');
     const timestamp = new Date().toISOString();
     await auditStore.set(`${timestamp}-${event}`, JSON.stringify(data));
   } catch (error: any) {
