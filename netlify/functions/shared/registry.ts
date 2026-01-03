@@ -19,17 +19,6 @@ interface QuantumKeys {
   };
 }
 
-function getStoreWithAuth(name: string) {
-  const siteID = process.env.NETLIFY_SITE_ID;
-  const token = process.env.NETLIFY_BLOBS_TOKEN || process.env.NETLIFY_API_TOKEN;
-
-  if (!siteID || !token) {
-    throw new Error('Netlify Blobs non configurato: manca NETLIFY_SITE_ID o NETLIFY_BLOBS_TOKEN');
-  }
-
-  return getStore({ name, siteID, token });
-}
-
 async function getQuantumKeys(): Promise<QuantumKeys | null> {
   const kyberPubKey = process.env.KYBER_PUBLIC_KEY;
   const rsaPubKeyB64 = process.env.RSA_PUBLIC_KEY_B64;
@@ -44,7 +33,7 @@ async function getQuantumKeys(): Promise<QuantumKeys | null> {
   let rsaPrivKeyB64: string;
   
   try {
-    const keysStore = getStoreWithAuth('quantum-keys');
+    const keysStore = getStore('quantum-keys');
     const encryptedKeysJson = await keysStore.get('private-keys', { type: 'text' });
     
     if (!encryptedKeysJson) {
@@ -185,7 +174,7 @@ async function decryptData(encryptedText: string): Promise<string> {
 
 export async function loadRegistry(): Promise<Registry> {
   try {
-    const store = getStoreWithAuth('gadu-registry');
+    const store = getStore('gadu-registry');
     const data = await store.get('lodges');
     
     if (!data) {
@@ -204,7 +193,7 @@ export async function loadRegistry(): Promise<Registry> {
 
 export async function saveRegistry(registry: Registry): Promise<void> {
   try {
-    const store = getStoreWithAuth('gadu-registry');
+    const store = getStore('gadu-registry');
     const jsonString = JSON.stringify(registry);
     const encryptedData = await encryptData(jsonString);
     await store.set('lodges', encryptedData, {
