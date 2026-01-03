@@ -16,6 +16,8 @@ function requireAuth(event: any) {
   const token = event.headers?.authorization?.replace('Bearer ', '').trim();
   const adminPassword = process.env.ADMIN_INTERFACE_PASSWORD;
 
+  console.log('[DEBUG] Auth check. Password configured:', !!adminPassword);
+
   if (!adminPassword) {
     console.error('[ADMIN-REGISTRY] ADMIN_INTERFACE_PASSWORD non configurata');
     const err: any = new Error('Admin password non configurata');
@@ -101,6 +103,13 @@ export const handler: Handler = async (event) => {
   } catch (error: any) {
     const statusCode = error?.statusCode || (error?.message === 'Unauthorized' ? 401 : 500);
     console.error('[ADMIN-REGISTRY] Error:', error?.message || error);
-    return { statusCode, headers: corsHeaders, body: JSON.stringify({ error: error?.message || 'Errore server' }) };
+    return { 
+      statusCode, 
+      headers: corsHeaders, 
+      body: JSON.stringify({ 
+        error: error?.message || 'Errore server',
+        details: error?.stack // Debug info
+      }) 
+    };
   }
 };
