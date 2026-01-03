@@ -178,8 +178,10 @@ export async function loadRegistry(): Promise<Registry> {
     NETLIFY_SITE_ID: process.env.NETLIFY_SITE_ID ? 'Present' : 'Missing',
     NETLIFY_BLOBS_CONTEXT: process.env.NETLIFY_BLOBS_CONTEXT ? 'Present' : 'Missing',
     NETLIFY_AUTH_TOKEN: process.env.NETLIFY_AUTH_TOKEN ? 'Present' : 'Missing',
+    SITE_ID: process.env.SITE_ID ? 'Present' : 'Missing',
     CONTEXT: process.env.CONTEXT
   });
+  console.log('[DEBUG] All Env Keys:', Object.keys(process.env).sort().join(', '));
 
   try {
     const store = getStore('gadu-registry');
