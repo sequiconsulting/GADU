@@ -47,7 +47,8 @@ export function LoginInterface({ onLoginSuccess, glriNumber }: Props) {
           return;
         }
       } catch (err) {
-        setError('Errore di connessione. Riprova.');
+        const message = (err as any)?.message || 'Errore di connessione. Riprova.';
+        setError(message);
         setLoading(false);
       }
     };

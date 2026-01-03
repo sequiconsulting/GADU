@@ -4,26 +4,13 @@ import { createCipheriv, createDecipheriv, randomBytes, publicEncrypt, privateDe
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 
 // Helper to configure Blob Store with available environment variables
-function getBlobStore(name: string, context?: any) {
+function getBlobStore(name: string) {
   const siteID = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
   const token = process.env.NETLIFY_AUTH_TOKEN || process.env.NETLIFY_FUNCTIONS_TOKEN;
-  
-  // Debug token
-  if (token) {
-    console.log(`[DEBUG] Token present. Length: ${token.length}, Start: ${token.substring(0, 4)}...`);
-  } else {
-    console.log('[DEBUG] No token found in env');
-  }
 
   if (siteID && token) {
     return getStore({ name, siteID, token });
   }
-  
-  // Fallback: try to use context if available (sometimes contains auth info)
-  if (context) {
-    console.log('[DEBUG] Context available:', Object.keys(context));
-  }
-
   return getStore(name);
 }
 
@@ -49,8 +36,7 @@ async function getQuantumKeys(): Promise<QuantumKeys | null> {
   const masterKey = process.env.QUANTUM_MASTER_KEY;
   
   if (!kyberPubKey || !rsaPubKeyB64 || !masterKey) {
-    console.log('[QUANTUM] Missing keys in env - encryption disabled');
-    return null;
+    throw new Error('[QUANTUM] Missing keys in env');
   }
   
   let kyberPrivKey: string;
@@ -61,8 +47,7 @@ async function getQuantumKeys(): Promise<QuantumKeys | null> {
     const encryptedKeysJson = await keysStore.get('private-keys', { type: 'text' });
     
     if (!encryptedKeysJson) {
-      console.log('[QUANTUM] Private keys not found in Blobs - encryption disabled');
-      return null;
+      throw new Error('[QUANTUM] Private keys not found in Blobs');
     }
     
     const encryptedData = JSON.parse(encryptedKeysJson);
@@ -81,12 +66,11 @@ async function getQuantumKeys(): Promise<QuantumKeys | null> {
     rsaPrivKeyB64 = privateKeys.rsaPrivateB64;
     
     if (!kyberPrivKey || !rsaPrivKeyB64) {
-      console.log('[QUANTUM] Invalid private keys format in Blobs');
-      return null;
+      throw new Error('[QUANTUM] Invalid private keys format in Blobs');
     }
   } catch (error) {
     console.error('[QUANTUM] Error loading/decrypting private keys from Blobs:', error);
-    return null;
+    throw error;
   }
   
   const rsaPubKey = Buffer.from(rsaPubKeyB64, 'base64').toString('utf-8');
@@ -196,50 +180,52 @@ async function decryptData(encryptedText: string): Promise<string> {
   }
 }
 
-export async function loadRegistry(context?: any): Promise<Registry> {
+export async function loadRegistry(): Promise<Registry> {
   try {
-    const store = getBlobStore('gadu-registry', context);
+    const store = getBlobStore('gadu-registry');
     const data = await store.get('lodges');
-    
+
     if (!data) {
+      // Registry non ancora inizializzata: caso valido, non un errore
       return {};
     }
-    
+
     const encryptedString = typeof data === 'string' ? data : new TextDecoder().decode(data);
     const jsonString = await decryptData(encryptedString);
-    
     return JSON.parse(jsonString);
   } catch (error: any) {
     console.error('[REGISTRY] Error loading from Blobs:', error?.message || error);
-    return {};
+    throw error;
   }
 }
 
-export async function saveRegistry(registry: Registry, context?: any): Promise<void> {
+export async function saveRegistry(registry: Registry): Promise<void> {
   try {
-    const store = getBlobStore('gadu-registry', context);
+    const store = getBlobStore('gadu-registry');
     const jsonString = JSON.stringify(registry);
     const encryptedData = await encryptData(jsonString);
     await store.set('lodges', encryptedData, {
-      metadata: { 
+      metadata: {
         lastUpdate: new Date().toISOString(),
         encrypted: 'quantum-hybrid',
-        lodgeCount: Object.keys(registry).length
-      }
+        lodgeCount: Object.keys(registry).length,
+      },
     });
   } catch (error: any) {
-    console.error('[BLOBS] Failed to save registry:', error?.message);
+    console.error('[BLOBS] Failed to save registry:', error?.message || error);
+    throw error;
   }
-}Blob
+}
 
-export async function logAuditEvent(event: string, data: any, context?: any): Promise<void> {
+export async function logAuditEvent(event: string, data: any): Promise<void> {
   console.log(`[AUDIT] ${event}:`, data);
   
   try {
-    const auditStore = getBlobStore('gadu-audit', context);
+    const auditStore = getBlobStore('gadu-audit');
     const timestamp = new Date().toISOString();
     await auditStore.set(`${timestamp}-${event}`, JSON.stringify(data));
   } catch (error: any) {
     console.error('[AUDIT] Failed to save audit log to Blobs:', error?.message);
+    throw error;
   }
 }

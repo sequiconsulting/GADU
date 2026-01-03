@@ -60,12 +60,16 @@ export const handler: Handler = async (event) => {
       adminName || 'Admin'
     );
     
-    // Log audit event
-    await logAuditEvent('supabase_setup', {
-      glriNumber,
-      adminEmail,
-      results
-    });
+    // Log audit event (non bloccare il flusso se audit fallisce)
+    try {
+      await logAuditEvent('supabase_setup', {
+        glriNumber,
+        adminEmail,
+        results
+      });
+    } catch (auditError) {
+      console.warn('[SUPABASE-SETUP] Audit log failed (non-critical):', auditError);
+    }
     
     // Determine response status
     const allSuccess = results.adminUserCreated && results.errors.length === 0;

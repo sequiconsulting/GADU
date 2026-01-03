@@ -76,8 +76,12 @@ export const handler: Handler = async (event) => {
         });
         
         if (error) throw error;
-        
-        await logAuditEvent('user_created', { lodgeNumber, email });
+
+        try {
+          await logAuditEvent('user_created', { lodgeNumber, email });
+        } catch (auditError) {
+          console.warn('[MANAGE-USERS] Audit log failed (non-critical):', auditError);
+        }
         
         return {
           statusCode: 200,
@@ -96,8 +100,12 @@ export const handler: Handler = async (event) => {
         
         const { error } = await supabase.auth.admin.deleteUser(user.id);
         if (error) throw error;
-        
-        await logAuditEvent('user_deleted', { lodgeNumber, email });
+
+        try {
+          await logAuditEvent('user_deleted', { lodgeNumber, email });
+        } catch (auditError) {
+          console.warn('[MANAGE-USERS] Audit log failed (non-critical):', auditError);
+        }
         
         return {
           statusCode: 200,
@@ -119,8 +127,12 @@ export const handler: Handler = async (event) => {
         });
         
         if (error) throw error;
-        
-        await logAuditEvent('user_password_changed', { lodgeNumber, email });
+
+        try {
+          await logAuditEvent('user_password_changed', { lodgeNumber, email });
+        } catch (auditError) {
+          console.warn('[MANAGE-USERS] Audit log failed (non-critical):', auditError);
+        }
         
         return {
           statusCode: 200,
@@ -157,8 +169,12 @@ export const handler: Handler = async (event) => {
         });
         
         if (error) throw error;
-        
-        await logAuditEvent('user_privileges_updated', { lodgeNumber, email, privileges });
+
+        try {
+          await logAuditEvent('user_privileges_updated', { lodgeNumber, email, privileges });
+        } catch (auditError) {
+          console.warn('[MANAGE-USERS] Audit log failed (non-critical):', auditError);
+        }
         
         return {
           statusCode: 200,
@@ -194,8 +210,12 @@ export const handler: Handler = async (event) => {
         });
         
         if (error) throw error;
-        
-        await logAuditEvent('user_password_changed', { lodgeNumber, userId });
+
+        try {
+          await logAuditEvent('user_password_changed', { lodgeNumber, userId });
+        } catch (auditError) {
+          console.warn('[MANAGE-USERS] Audit log failed (non-critical):', auditError);
+        }
         
         return {
           statusCode: 200,

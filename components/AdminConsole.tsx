@@ -61,12 +61,14 @@ export const AdminConsole: React.FC = () => {
       }
       if (!res.ok || !data.success) throw new Error(data.error || 'Errore caricamento registry');
       setRegistry(data.registry || {});
+      setAuthError(null);
       if (!selectedLodge) {
         const first = Object.keys(data.registry || {})[0];
         if (first) setSelectedLodge(first);
       }
     } catch (err: any) {
       setAuthError(err.message);
+      setRegistry({});
     } finally {
       setLoading(false);
     }
@@ -186,6 +188,12 @@ export const AdminConsole: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 p-6">
       <div className="max-w-6xl mx-auto space-y-6">
+        {authError && (
+          <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg px-4 py-3">
+            <div className="font-semibold">Errore</div>
+            <div className="text-sm whitespace-pre-line">{authError}</div>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Console Admin</h1>

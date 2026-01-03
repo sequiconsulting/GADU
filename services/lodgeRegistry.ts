@@ -23,7 +23,16 @@ class LodgeRegistryService {
         if (contentType?.includes('text/html')) {
           throw new Error('Netlify Functions not available. Use "netlify dev" instead of "npm run dev"');
         }
-        throw new Error('Failed to fetch config');
+
+        let details = response.statusText;
+        try {
+          const payload = await response.json();
+          details = payload?.error || payload?.message || details;
+        } catch {
+          // ignore JSON parse errors
+        }
+
+        throw new Error(`Errore caricamento configurazione loggia (${response.status}): ${details}`);
       }
       
       const config: PublicLodgeConfig = await response.json();

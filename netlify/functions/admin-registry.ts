@@ -16,8 +16,6 @@ function requireAuth(event: any) {
   const token = event.headers?.authorization?.replace('Bearer ', '').trim();
   const adminPassword = process.env.ADMIN_INTERFACE_PASSWORD;
 
-  console.log('[DEBUG] Auth check. Password configured:', !!adminPassword);
-
   if (!adminPassword) {
     console.error('[ADMIN-REGISTRY] ADMIN_INTERFACE_PASSWORD non configurata');
     const err: any = new Error('Admin password non configurata');
@@ -61,7 +59,7 @@ export const handler: Handler = async (event, context) => {
     const { action = 'list', lodge } = event.body ? JSON.parse(event.body) : {} as { action?: string; lodge?: UpsertPayload; glriNumber?: string };
 
     if (action === 'list') {
-      const registry = await loadRegistry(context);
+      const registry = await loadRegistry();
       return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, registry }) };
     }
 
@@ -70,10 +68,14 @@ export const handler: Handler = async (event, context) => {
       if (!glriNumber) {
         return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'glriNumber richiesto' }) };
       }
-      const registry = await loadRegistry(context);
+      const registry = await loadRegistry();
       delete registry[glriNumber];
-      await saveRegistry(registry, context);
-      await logAuditEvent('lodge_deleted_admin', { glriNumber }, context);
+      await saveRegistry(registry);
+      try {
+        await logAuditEvent('lodge_deleted_admin', { glriNumber });
+      } catch (e) {
+        console.error('[ADMIN-REGISTRY] Audit log failed:', e);
+      }
       return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, registry }) };
     }
 
@@ -82,7 +84,7 @@ export const handler: Handler = async (event, context) => {
       if (validationError) {
         return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: validationError }) };
       }
-      const registry: Registry = await loadRegistry(context);
+      const registry: Registry = await loadRegistry();
       const glri = lodge!.glriNumber;
       const now = new Date();
       const existing = registry[glri];
@@ -94,8 +96,12 @@ export const handler: Handler = async (event, context) => {
         lastAccess: now,
         isActive: lodge?.isActive ?? existing?.isActive ?? true,
       } as LodgeConfig;
-      await saveRegistry(registry, context);
-      await logAuditEvent('lodge_upsert_admin', { glriNumber: glri }, context);
+      await saveRegistry(registry);
+      try {
+        await logAuditEvent('lodge_upsert_admin', { glriNumber: glri });
+      } catch (e) {
+        console.error('[ADMIN-REGISTRY] Audit log failed:', e);
+      }
       return { statusCode: 200, headers: corsHeaders, body: JSON.stringify({ success: true, registry }) };
     }
 
@@ -103,13 +109,10 @@ export const handler: Handler = async (event, context) => {
   } catch (error: any) {
     const statusCode = error?.statusCode || (error?.message === 'Unauthorized' ? 401 : 500);
     console.error('[ADMIN-REGISTRY] Error:', error?.message || error);
-    return { 
-      statusCode, 
-      headers: corsHeaders, 
-      body: JSON.stringify({ 
-        error: error?.message || 'Errore server',
-        details: error?.stack // Debug info
-      }) 
+    return {
+      statusCode,
+      headers: corsHeaders,
+      body: JSON.stringify({ success: false, error: error?.message || 'Errore server' })
     };
   }
 };

@@ -36,7 +36,7 @@ export const handler: Handler = async (event, context) => {
       };
     }
 
-    const registry = await loadRegistry(context);
+    const registry = await loadRegistry();
 
     console.log(`[SETUP-LODGE] Attempting to register lodge ${glriNumber}`);
     console.log(`[SETUP-LODGE] Registry keys: ${Object.keys(registry).join(', ')}`);
@@ -70,8 +70,12 @@ export const handler: Handler = async (event, context) => {
     };
 
     registry[glriNumber] = lodgeConfig;
-    await saveRegistry(registry, context);
-    await logAuditEvent('lodge_created', { glriNumber, lodgeName }, context);
+    await saveRegistry(registry);
+    try {
+      await logAuditEvent('lodge_created', { glriNumber, lodgeName });
+    } catch (auditError) {
+      console.warn('[SETUP-LODGE] Audit log failed (non-critical):', auditError);
+    }
 
     let supabaseSetupResults = null;
     if (adminEmail && adminPassword) {
