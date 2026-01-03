@@ -1,10 +1,11 @@
 import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
-import { loadRegistry, logAuditEvent } from './shared/registry';
+import { initNetlifyBlobs, loadRegistry, logAuditEvent } from './shared/registry';
 
 const jsonHeaders = { 'Content-Type': 'application/json' } as const;
 
 export const handler: Handler = async (event) => {
+  initNetlifyBlobs(event);
   // GET - List users
   if (event.httpMethod === 'GET') {
     const lodgeNumber = event.queryStringParameters?.lodge;

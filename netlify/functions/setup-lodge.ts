@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-import { loadRegistry, saveRegistry, logAuditEvent } from './shared/registry';
+import { initNetlifyBlobs, loadRegistry, saveRegistry, logAuditEvent } from './shared/registry';
 import { setupSupabaseLodge } from './shared/supabaseSetup';
 import { LodgeConfig } from '../../types/lodge';
 
@@ -9,6 +9,7 @@ export const handler: Handler = async (event, context) => {
   }
 
   try {
+    initNetlifyBlobs(event);
     const body = event.body ? JSON.parse(event.body) : {};
     const {
       glriNumber,

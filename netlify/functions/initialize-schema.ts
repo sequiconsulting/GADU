@@ -4,7 +4,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import dns from 'dns';
 import { lookup as dnsLookup } from 'dns/promises';
-import { logAuditEvent } from './shared/registry';
+import { initNetlifyBlobs, logAuditEvent } from './shared/registry';
 
 // Forza IPv4 first per evitare ENETUNREACH su host IPv6 dei cluster Supabase
 dns.setDefaultResultOrder('ipv4first');
@@ -62,6 +62,7 @@ export const handler: Handler = async (event) => {
   let sql: any = null;
 
   try {
+    initNetlifyBlobs(event);
     const { supabaseUrl, databasePassword } = (event.body ? JSON.parse(event.body) : {}) as any;
     
     if (!supabaseUrl || !databasePassword) {

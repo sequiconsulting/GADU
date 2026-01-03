@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-import { loadRegistry, logAuditEvent } from './shared/registry';
+import { initNetlifyBlobs, loadRegistry, logAuditEvent } from './shared/registry';
 import { setupSupabaseLodge } from './shared/supabaseSetup';
 
 /**
@@ -28,6 +28,7 @@ export const handler: Handler = async (event) => {
   }
   
   try {
+    initNetlifyBlobs(event);
     const { glriNumber, adminEmail, adminPassword, adminName } = (event.body ? JSON.parse(event.body) : {}) as SetupRequest;
     
     if (!glriNumber || !adminEmail || !adminPassword) {

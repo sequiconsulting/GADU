@@ -1,16 +1,42 @@
-import { getStore } from '@netlify/blobs';
-import { LodgeConfig, Registry } from '../../../types/lodge';
+import { connectLambda, getStore } from '@netlify/blobs';
+import { Registry } from '../../../types/lodge';
 import { createCipheriv, createDecipheriv, randomBytes, publicEncrypt, privateDecrypt } from 'crypto';
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 
-// Helper to configure Blob Store with available environment variables
-function getBlobStore(name: string) {
-  const siteID = process.env.NETLIFY_SITE_ID || process.env.SITE_ID;
-  const token = process.env.NETLIFY_AUTH_TOKEN || process.env.NETLIFY_FUNCTIONS_TOKEN;
+let blobsInitialized = false;
 
-  if (siteID && token) {
-    return getStore({ name, siteID, token });
+function normalizeHeaders(headers: any): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!headers || typeof headers !== 'object') return out;
+  for (const [key, value] of Object.entries(headers)) {
+    if (value == null) continue;
+    out[String(key).toLowerCase()] = Array.isArray(value) ? String(value[0]) : String(value);
   }
+  return out;
+}
+
+// In Netlify runtime, Blobs context is provided per-request via event.blobs.
+// We must call connectLambda(event) before using getStore().
+export function initNetlifyBlobs(event: any): void {
+  if (blobsInitialized) return;
+
+  // If Netlify injected a global/env context, use it.
+  const hasEnvContext = Boolean(process.env.NETLIFY_BLOBS_CONTEXT) || Boolean((globalThis as any).netlifyBlobsContext);
+  if (hasEnvContext) {
+    blobsInitialized = true;
+    return;
+  }
+
+  const blobs = event?.blobs;
+  if (!blobs) {
+    throw new Error('Netlify Blobs context mancante (event.blobs non presente)');
+  }
+
+  connectLambda({ blobs, headers: normalizeHeaders(event?.headers) } as any);
+  blobsInitialized = true;
+}
+
+function getBlobStore(name: string) {
   return getStore(name);
 }
 

@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-import { loadRegistry, saveRegistry, logAuditEvent } from './shared/registry';
+import { initNetlifyBlobs, loadRegistry, saveRegistry, logAuditEvent } from './shared/registry';
 import { LodgeConfig, Registry } from '../../types/lodge';
 
 const corsHeaders = {
@@ -56,6 +56,8 @@ export const handler: Handler = async (event, context) => {
       return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
     requireAuth(event);
+
+    initNetlifyBlobs(event);
     const { action = 'list', lodge } = event.body ? JSON.parse(event.body) : {} as { action?: string; lodge?: UpsertPayload; glriNumber?: string };
 
     if (action === 'list') {

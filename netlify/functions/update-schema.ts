@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-import { loadRegistry } from './shared/registry';
+import { initNetlifyBlobs, loadRegistry } from './shared/registry';
 import postgres from 'postgres';
 import { join } from 'path';
 
@@ -47,6 +47,7 @@ export const handler: Handler = async (event) => {
   let sql: any = null;
 
   try {
+    initNetlifyBlobs(event);
     const glriNumber =
       event.queryStringParameters?.glriNumber || event.queryStringParameters?.number;
 
