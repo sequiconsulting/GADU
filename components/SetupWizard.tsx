@@ -17,7 +17,7 @@ interface SetupFormData {
   supabaseAnonKey: string;
   supabaseServiceKey: string;
   databasePassword: string;
-  adminEmail: string;
+  lodgeEmail: string;
 }
 
 export function SetupWizard() {
@@ -45,7 +45,7 @@ export function SetupWizard() {
     supabaseAnonKey: '',
     supabaseServiceKey: '',
     databasePassword: '',
-    adminEmail: ''
+    lodgeEmail: ''
   });
 
   const updateField = (field: keyof SetupFormData, value: string) => {
@@ -89,7 +89,7 @@ export function SetupWizard() {
       }
     }
 
-    setCurrentStep(prev => Math.min(prev + 1, 7));
+    setCurrentStep(prev => Math.min(prev + 1, 8));
   };
 
   const handleBack = () => {
@@ -154,6 +154,21 @@ export function SetupWizard() {
           setError('Inserisci una chiave Service Role valida');
           return false;
         }
+        if (!formData.databasePassword || formData.databasePassword.length < 8) {
+          setError('Inserisci la password del database Postgres');
+          return false;
+        }
+        return true;
+      case 7:
+        if (!formData.lodgeEmail) {
+          setError('Inserisci l\'email della loggia');
+          return false;
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.lodgeEmail)) {
+          setError('Inserisci un indirizzo email valido');
+          return false;
+        }
         return true;
       default:
         return true;
@@ -192,8 +207,28 @@ export function SetupWizard() {
         throw new Error(errorData.error || 'Errore durante l\'inizializzazione del database');
       }
 
-      // 3. Successo! Vai al login
-      setCurrentStep(7);
+      // 3. Crea utente Segretario con email della loggia
+      const userResponse = await fetch('/.netlify/functions/manage-supabase-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          lodgeNumber: formData.glriNumber,
+          email: formData.lodgeEmail,
+          password: '123456789',
+          name: 'Segretario',
+          privileges: ['AD']
+        })
+      });
+
+      if (!userResponse.ok) {
+        const errorData = await userResponse.json();
+        console.warn('Warning: Failed to create secretary user:', errorData.error);
+        // Non bloccare il setup se la creazione utente fallisce
+      }
+
+      // 4. Successo! Vai alla schermata di completamento
+      setCurrentStep(8);
       
       setTimeout(() => {
         navigate('/');
@@ -213,7 +248,8 @@ export function SetupWizard() {
     { num: 4, title: 'Database URL', icon: Database },
     { num: 5, title: 'Anon Key', icon: Key },
     { num: 6, title: 'Service Key', icon: Key },
-    { num: 7, title: 'Completo!', icon: CheckCircle }
+    { num: 7, title: 'Email Loggia', icon: Building2 },
+    { num: 8, title: 'Completo!', icon: CheckCircle }
   ];
 
   console.log('[SETUP-WIZARD] Rendering, currentStep:', currentStep);
@@ -435,8 +471,28 @@ export function SetupWizard() {
           {currentStep === 4 && (
             <div className="space-y-4 animate-fadeIn">
               <h2 className="text-xl font-bold text-slate-800">Database Supabase - URL</h2>
+              
+              {/* PREREQUISITO IMPORTANTE */}
+              <div className="bg-amber-50 border-l-4 border-amber-500 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="text-amber-600 flex-shrink-0" size={24} />
+                  <div className="text-sm text-amber-900">
+                    <p className="font-semibold mb-2">⚠️ PREREQUISITO: Progetto Supabase</p>
+                    <p className="mb-2">
+                      Prima di continuare, devi aver <strong>già creato un progetto Supabase gratuito</strong> su{' '}
+                      <a href="https://supabase.com" target="_blank" rel="noopener" className="text-masonic-gold hover:underline font-semibold">
+                        supabase.com
+                      </a>
+                    </p>
+                    <p className="text-xs">
+                      Il wizard non crea automaticamente il progetto. Se non l'hai ancora fatto, fallo ora e poi torna qui.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
               <p className="text-slate-600 text-sm">
-                Crea un progetto su <a href="https://supabase.com" target="_blank" rel="noopener" className="text-masonic-gold hover:underline">supabase.com</a> e inserisci l'URL del progetto
+                Inserisci l'URL del progetto Supabase che hai appena creato
               </p>
               <input
                 type="url"
@@ -485,47 +541,45 @@ export function SetupWizard() {
               <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 text-sm text-amber-800">
                 ⚠️ Questa chiave è <strong>privata</strong>. Trovala in <strong>Project Settings → API → service_role secret</strong>
               </div>
-                            <div className="mt-6">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Password Database Postgres</label>
-                <input
-                  type="password"
-                  value={formData.databasePassword}
-                  onChange={(e) => updateField('databasePassword', e.target.value)}
-                  placeholder="Password database postgres"
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none font-mono"
-                />
-                <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 mt-2 text-sm text-blue-800">
-                  ℹ️ Diversa dalla Service Key! Trovala in <strong>Project Settings → Database → Database password</strong>
-                </div>
-              </div>
-                            <div className="mt-6">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Password Database Postgres</label>
-                <input
-                  type="password"
-                  value={formData.databasePassword}
-                  onChange={(e) => updateField('databasePassword', e.target.value)}
-                  placeholder="Password database postgres"
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none font-mono"
-                />
-                <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 mt-2 text-sm text-blue-800">
-                  ℹ️ Diversa dalla Service Key! Trovala in <strong>Project Settings → Database → Database password</strong>
-                </div>
-              </div>
               
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Email Amministratore (opzionale)</label>
+              <div className="mt-6">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Password Database Postgres</label>
                 <input
-                  type="email"
-                  value={formData.adminEmail}
-                  onChange={(e) => updateField('adminEmail', e.target.value)}
-                  placeholder="admin@example.com"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none"
+                  type="password"
+                  value={formData.databasePassword}
+                  onChange={(e) => updateField('databasePassword', e.target.value)}
+                  placeholder="Password database postgres"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none font-mono"
                 />
+                <div className="bg-blue-50 border border-blue-300 rounded-lg p-3 mt-2 text-sm text-blue-800">
+                  ℹ️ <strong>Attenzione:</strong> Questa è la password del database Postgres, diversa dalla Service Key!<br />
+                  Trovala in <strong>Project Settings → Database → Database password</strong>
+                </div>
               </div>
             </div>
           )}
 
           {currentStep === 7 && (
+            <div className="space-y-4 animate-fadeIn">
+              <h2 className="text-xl font-bold text-slate-800">Email Loggia</h2>
+              <p className="text-slate-600 text-sm">Inserisci l'indirizzo email ufficiale della loggia</p>
+              <input
+                type="email"
+                value={formData.lodgeEmail}
+                onChange={(e) => updateField('lodgeEmail', e.target.value)}
+                placeholder="segreteria@loggia.it"
+                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-masonic-gold focus:border-transparent outline-none"
+                autoFocus
+              />
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                ℹ️ Questa email sarà utilizzata per creare automaticamente l'utente <strong>Segretario</strong> con privilegi amministrativi.
+                <br />Password temporanea: <code className="font-mono bg-white px-2 py-1 rounded">123456789</code>
+                <br />Dovrai cambiarla al primo accesso.
+              </div>
+            </div>
+          )}
+
+          {currentStep === 8 && (
             <div className="text-center py-12 animate-fadeIn">
               <div className="inline-flex items-center justify-center w-20 h-20 bg-green-500 rounded-full mb-6">
                 <CheckCircle size={48} className="text-white" />
@@ -544,7 +598,7 @@ export function SetupWizard() {
         </div>
 
         {/* Navigation Buttons */}
-        {currentStep < 7 && (
+        {currentStep < 8 && (
           <div className="flex justify-between gap-4">
             <button
               onClick={handleBack}
@@ -555,7 +609,7 @@ export function SetupWizard() {
               Indietro
             </button>
 
-            {currentStep < 6 ? (
+            {currentStep < 7 ? (
               <button
                 onClick={handleNext}
                 disabled={loading || (currentStep === 1 && !disclaimerAccepted)}

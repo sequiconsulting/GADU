@@ -1,0 +1,318 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { Shield, RefreshCw, Plus, Trash2, Save, Users, Upload, Download } from 'lucide-react';
+import { LodgeConfig } from '../types/lodge';
+
+interface RegistryResponse {
+  success: boolean;
+  registry: Record<string, LodgeConfig>;
+  error?: string;
+}
+
+type Tab = 'lodges' | 'registry' | 'users';
+
+const ADMIN_PASSWORD_KEY = 'gadu_admin_session';
+const ADMIN_API_BASE = (import.meta as any)?.env?.VITE_ADMIN_API_BASE ? ((import.meta as any).env.VITE_ADMIN_API_BASE as string).replace(/\/$/, '') : '';
+
+function buildApiUrl(path: string) {
+  return `${ADMIN_API_BASE}${path}`;
+}
+
+export const AdminConsole: React.FC = () => {
+  const [auth, setAuth] = useState<string | null>(() => sessionStorage.getItem(ADMIN_PASSWORD_KEY));
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('lodges');
+  const [loading, setLoading] = useState(false);
+  const [registry, setRegistry] = useState<Record<string, LodgeConfig>>({});
+  const [selectedLodge, setSelectedLodge] = useState<string>('');
+  const [users, setUsers] = useState<any[]>([]);
+  const [userEmail, setUserEmail] = useState('');
+  const [userPassword, setUserPassword] = useState('123456789');
+  const [userPrivileges, setUserPrivileges] = useState('AD');
+  const [form, setForm] = useState<Partial<LodgeConfig>>({ isActive: true });
+  // Considera autenticato se esiste una password in sessione; la validazione vera è lato funzione (Bearer === ADMIN_INTERFACE_PASSWORD)
+  const isAuthenticated = Boolean(auth);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      void loadRegistry();
+    }
+  }, [isAuthenticated]);
+
+  const sortedLodges = useMemo(() => Object.values(registry).sort((a, b) => a.glriNumber.localeCompare(b.glriNumber)), [registry]);
+
+  async function authorizedFetch(url: string, options: RequestInit = {}) {
+    const headers = new Headers(options.headers || {});
+    headers.set('Content-Type', 'application/json');
+    if (!auth) throw new Error('Sessione admin mancante');
+    headers.set('Authorization', `Bearer ${auth}`);
+    return fetch(url, { ...options, headers });
+  }
+
+  async function loadRegistry() {
+    setLoading(true);
+    try {
+      const res = await authorizedFetch(buildApiUrl('/.netlify/functions/admin-registry'), { method: 'POST', body: JSON.stringify({ action: 'list' }) });
+      const data = await res.json() as RegistryResponse;
+      if (res.status === 401) {
+        setAuth(null);
+        sessionStorage.removeItem(ADMIN_PASSWORD_KEY);
+        throw new Error('Unauthorized: verifica la password admin');
+      }
+      if (!res.ok || !data.success) throw new Error(data.error || 'Errore caricamento registry');
+      setRegistry(data.registry || {});
+      if (!selectedLodge) {
+        const first = Object.keys(data.registry || {})[0];
+        if (first) setSelectedLodge(first);
+      }
+    } catch (err: any) {
+      setAuthError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveLodge() {
+    setLoading(true);
+    try {
+      const res = await authorizedFetch(buildApiUrl('/.netlify/functions/admin-registry'), { method: 'POST', body: JSON.stringify({ action: 'upsert', lodge: form }) });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Errore salvataggio');
+      setRegistry(data.registry || {});
+      setForm({ isActive: true });
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteLodge(glriNumber: string) {
+    if (!confirm(`Eliminare la loggia ${glriNumber}?`)) return;
+    setLoading(true);
+    try {
+      const res = await authorizedFetch(buildApiUrl('/.netlify/functions/admin-registry'), { method: 'POST', body: JSON.stringify({ action: 'delete', lodge: { glriNumber } }) });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Errore eliminazione');
+      setRegistry(data.registry || {});
+      if (selectedLodge === glriNumber) setSelectedLodge('');
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadUsers(glriNumber: string) {
+    setLoading(true);
+    try {
+      const res = await fetch(buildApiUrl(`/.netlify/functions/manage-supabase-users?lodge=${glriNumber}`));
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Errore caricamento utenti');
+      setUsers(data.users || []);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function createUser() {
+    if (!selectedLodge) return alert('Seleziona una loggia');
+    setLoading(true);
+    try {
+      const res = await fetch(buildApiUrl('/.netlify/functions/manage-supabase-users'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create',
+          lodgeNumber: selectedLodge,
+          email: userEmail,
+          password: userPassword,
+          privileges: [userPrivileges],
+          mustChangePassword: true,
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Errore creazione utente');
+      await loadUsers(selectedLodge);
+      setUserEmail('');
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-full bg-masonic-gold/10 flex items-center justify-center"><Shield className="text-masonic-gold" /></div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">Accesso Admin</h1>
+              <p className="text-sm text-slate-600">Inserisci la password amministrativa</p>
+            </div>
+          </div>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => { setPassword(e.target.value); setAuthError(null); }}
+            className="w-full border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-masonic-gold"
+            placeholder="Password"
+            autoFocus
+          />
+          {authError && <div className="mt-3 text-sm text-red-600">{authError}</div>}
+          <button
+            onClick={() => {
+              if (!password) {
+                setAuthError('Inserisci la password');
+                return;
+              }
+              sessionStorage.setItem(ADMIN_PASSWORD_KEY, password);
+              setAuth(password);
+              setAuthError(null);
+            }}
+            className="mt-4 w-full bg-masonic-gold text-white font-semibold py-2 rounded-lg hover:bg-yellow-600"
+          >
+            Entra
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 p-6">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Console Admin</h1>
+            <p className="text-sm text-slate-500">Gestione registry, logge e utenti</p>
+          </div>
+          <button onClick={loadRegistry} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-100"><RefreshCw size={16}/> Aggiorna</button>
+        </div>
+
+        <div className="flex gap-2">
+          <button onClick={() => setActiveTab('lodges')} className={`px-4 py-2 rounded-lg ${activeTab==='lodges'?'bg-slate-900 text-white':'bg-white border border-slate-200 text-slate-700'}`}>Logge</button>
+          <button onClick={() => setActiveTab('registry')} className={`px-4 py-2 rounded-lg ${activeTab==='registry'?'bg-slate-900 text-white':'bg-white border border-slate-200 text-slate-700'}`}>Registry</button>
+          <button onClick={() => { setActiveTab('users'); if (selectedLodge) void loadUsers(selectedLodge); }} className={`px-4 py-2 rounded-lg ${activeTab==='users'?'bg-slate-900 text-white':'bg-white border border-slate-200 text-slate-700'}`}>Utenti</button>
+        </div>
+
+        {activeTab === 'lodges' && (
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold">Elenco Logge</h3>
+                <span className="text-xs text-slate-500">{sortedLodges.length} logge</span>
+              </div>
+              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                {sortedLodges.map(l => (
+                  <div key={l.glriNumber} className="border border-slate-200 rounded-lg px-3 py-2 flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold">{l.glriNumber} - {l.lodgeName}</div>
+                      <div className="text-xs text-slate-500">{l.supabaseUrl}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => setForm(l)} className="text-slate-600 hover:text-slate-900"><Save size={16}/></button>
+                      <button onClick={() => deleteLodge(l.glriNumber)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
+                    </div>
+                  </div>
+                ))}
+                {sortedLodges.length === 0 && <div className="text-sm text-slate-500">Nessuna loggia</div>}
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+              <div className="flex items-center gap-2"><Plus size={16}/> <h3 className="font-semibold">Nuova/Modifica Loggia</h3></div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-1" placeholder="GLRI Number" value={form.glriNumber || ''} onChange={(e)=>setForm({...form, glriNumber:e.target.value})}/>
+                <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-1" placeholder="Nome loggia" value={form.lodgeName || ''} onChange={(e)=>setForm({...form, lodgeName:e.target.value})}/>
+                <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-1" placeholder="Provincia" value={form.province || ''} onChange={(e)=>setForm({...form, province:e.target.value})}/>
+                <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-1" placeholder="Associazione" value={form.associationName || ''} onChange={(e)=>setForm({...form, associationName:e.target.value})}/>
+                <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-2" placeholder="Indirizzo" value={form.address || ''} onChange={(e)=>setForm({...form, address:e.target.value})}/>
+                <input className="border border-slate-200 rounded-lg px-3 py-2" placeholder="CAP" value={form.zipCode || ''} onChange={(e)=>setForm({...form, zipCode:e.target.value})}/>
+                <input className="border border-slate-200 rounded-lg px-3 py-2" placeholder="Città" value={form.city || ''} onChange={(e)=>setForm({...form, city:e.target.value})}/>
+                <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-2" placeholder="Codice Fiscale" value={form.taxCode || ''} onChange={(e)=>setForm({...form, taxCode:e.target.value})}/>
+                <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-2" placeholder="Supabase URL" value={form.supabaseUrl || ''} onChange={(e)=>setForm({...form, supabaseUrl:e.target.value})}/>
+                <textarea className="border border-slate-200 rounded-lg px-3 py-2 col-span-2" placeholder="Anon key" value={form.supabaseAnonKey || ''} onChange={(e)=>setForm({...form, supabaseAnonKey:e.target.value})}/>
+                <textarea className="border border-slate-200 rounded-lg px-3 py-2 col-span-2" placeholder="Service key" value={form.supabaseServiceKey || ''} onChange={(e)=>setForm({...form, supabaseServiceKey:e.target.value})}/>
+                <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-2" placeholder="Database password" value={form.databasePassword || ''} onChange={(e)=>setForm({...form, databasePassword:e.target.value})}/>
+                <input className="border border-slate-200 rounded-lg px-3 py-2 col-span-2" placeholder="Email Segretario" value={(form as any).lodgeEmail || ''} onChange={(e)=>setForm({...form, lodgeEmail:e.target.value} as any)}/>
+              </div>
+              <button disabled={loading} onClick={saveLodge} className="w-full bg-slate-900 text-white rounded-lg py-2 flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-50"><Save size={16}/> Salva loggia</button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'registry' && (
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2"><Download size={16}/> <h3 className="font-semibold">Registry corrente</h3></div>
+              <div className="flex gap-2">
+                <button onClick={loadRegistry} className="px-3 py-2 border border-slate-200 rounded-lg text-sm">Ricarica</button>
+              </div>
+            </div>
+            <pre className="text-xs bg-slate-900 text-slate-100 rounded-lg p-4 overflow-auto max-h-[500px]">{JSON.stringify(registry, null, 2)}</pre>
+          </div>
+        )}
+
+        {activeTab === 'users' && (
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+              <h3 className="font-semibold flex items-center gap-2"><Users size={16}/> Seleziona loggia</h3>
+              <select value={selectedLodge} onChange={(e)=>{setSelectedLodge(e.target.value); if (e.target.value) void loadUsers(e.target.value);}} className="w-full border border-slate-200 rounded-lg px-3 py-2">
+                <option value="">-- Seleziona --</option>
+                {sortedLodges.map(l => (
+                  <option key={l.glriNumber} value={l.glriNumber}>{l.glriNumber} - {l.lodgeName}</option>
+                ))}
+              </select>
+              <div className="space-y-2">
+                <input className="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="Email" value={userEmail} onChange={(e)=>setUserEmail(e.target.value)}/>
+                <input className="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="Password" value={userPassword} onChange={(e)=>setUserPassword(e.target.value)}/>
+                <select className="w-full border border-slate-200 rounded-lg px-3 py-2" value={userPrivileges} onChange={(e)=>setUserPrivileges(e.target.value)}>
+                  <option value="AD">AD (Admin)</option>
+                  <option value="SE">SE (Segretario)</option>
+                  <option value="VI">VI (Visore)</option>
+                </select>
+                <button disabled={!selectedLodge || loading} onClick={createUser} className="w-full bg-slate-900 text-white rounded-lg py-2 flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-50"><Upload size={16}/> Crea utente</button>
+              </div>
+            </div>
+            <div className="md:col-span-2 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold">Utenti loggia {selectedLodge || '-'}</h3>
+                {selectedLodge && <button onClick={()=>loadUsers(selectedLodge)} className="px-3 py-1 border border-slate-200 rounded-lg text-xs">Aggiorna</button>}
+              </div>
+              <div className="space-y-2 max-h-[500px] overflow-y-auto text-sm">
+                {users.map(u => (
+                  <div key={u.email} className="border border-slate-200 rounded-lg px-3 py-2 flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold">{u.email}</div>
+                      <div className="text-xs text-slate-500">Privilegi: {(u.privileges || []).join(', ')}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="text-red-500 hover:text-red-700" onClick={async ()=>{
+                        if (!confirm(`Eliminare ${u.email}?`)) return;
+                        setLoading(true);
+                        try {
+                          const res = await fetch(buildApiUrl('/.netlify/functions/manage-supabase-users'), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'delete', lodgeNumber: selectedLodge, email: u.email }) });
+                          const data = await res.json();
+                          if (!res.ok || !data.success) throw new Error(data.error || 'Errore eliminazione');
+                          await loadUsers(selectedLodge);
+                        } catch (err:any) { alert(err.message); } finally { setLoading(false);} 
+                      }}><Trash2 size={16}/></button>
+                    </div>
+                  </div>
+                ))}
+                {users.length === 0 && <div className="text-slate-500 text-sm">Nessun utente</div>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AdminConsole;

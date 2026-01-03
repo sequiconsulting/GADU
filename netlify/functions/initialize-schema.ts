@@ -2,16 +2,37 @@ import { Handler } from '@netlify/functions';
 import postgres from 'postgres';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import dns from 'dns';
+import { lookup as dnsLookup } from 'dns/promises';
 import { logAuditEvent } from './shared/registry';
 
-function extractPostgresUrl(supabaseUrl: string, databasePassword: string): string {
+// Forza IPv4 first per evitare ENETUNREACH su host IPv6 dei cluster Supabase
+dns.setDefaultResultOrder('ipv4first');
+
+// Costruisce una lista di URL di connessione Postgres per Supabase.
+// Prova prima la connessione diretta (db.<project>.supabase.co) risolvendo IPv4, poi un fallback su pooler.
+async function buildConnectionUrls(supabaseUrl: string, databasePassword: string): Promise<string[]> {
   const match = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);
   if (!match) throw new Error('Invalid Supabase URL');
   const projectId = match[1];
-  // Use Supabase Shared Pooler - Session Mode (IPv4, port 5432) for DDL migrations
-  // Session mode supports prepared statements and complex DDL operations
-  // Format: postgres://postgres.PROJECT:[PASSWORD]@aws-1-REGION.pooler.supabase.com:5432/postgres
-  return `postgresql://postgres.${projectId}:${databasePassword}@aws-1-eu-west-3.pooler.supabase.com:5432/postgres`;
+
+  const host = `db.${projectId}.supabase.co`;
+  let ipv4Host = host;
+  try {
+    const res = await dnsLookup(host, { family: 4 });
+    ipv4Host = res.address;
+    console.log('[INITIALIZE-SCHEMA] Resolved IPv4 for', host, '->', ipv4Host);
+  } catch (err: any) {
+    console.warn('[INITIALIZE-SCHEMA] DNS IPv4 lookup failed for', host, ':', err.message);
+  }
+
+  // Connessione diretta (raccomandata per DDL): user postgres, host IPv4 se disponibile
+  const direct = `postgresql://postgres:${databasePassword}@${ipv4Host}:5432/postgres`;
+
+  // Fallback: pooler session mode. Region non deducibile dall'URL; usiamo eu-west-3 che è quella del progetto GADU.
+  const pooler = `postgresql://postgres.${projectId}:${databasePassword}@aws-1-eu-west-3.pooler.supabase.com:5432/postgres`;
+
+  return [direct, pooler];
 }
 
 async function connectWithRetry(dbUrl: string, maxRetries: number = 3) {
@@ -59,12 +80,24 @@ export const handler: Handler = async (event) => {
     const schemaSQL = readFileSync(schemaPath, 'utf8');
     console.log('[INITIALIZE-SCHEMA] Schema file loaded, size:', schemaSQL.length, 'bytes');
 
-    // Connect to postgres via database password
-    const dbUrl = extractPostgresUrl(supabaseUrl, databasePassword);
-    console.log('[INITIALIZE-SCHEMA] Connecting to:', dbUrl.replace(databasePassword, '***'));
-    
-    sql = await connectWithRetry(dbUrl);
-    console.log('[INITIALIZE-SCHEMA] Connected to postgres');
+    // Connect to postgres via database password, provando più URL se necessario
+    const dbUrls = await buildConnectionUrls(supabaseUrl, databasePassword);
+    let lastError: any = null;
+    for (const dbUrl of dbUrls) {
+      try {
+        console.log('[INITIALIZE-SCHEMA] Connecting to:', dbUrl.replace(databasePassword, '***'));
+        sql = await connectWithRetry(dbUrl);
+        console.log('[INITIALIZE-SCHEMA] Connected to postgres');
+        break;
+      } catch (connErr: any) {
+        lastError = connErr;
+        console.warn('[INITIALIZE-SCHEMA] Connection failed with URL:', connErr.message);
+      }
+    }
+
+    if (!sql) {
+      throw lastError || new Error('Unable to connect to Supabase Postgres');
+    }
 
     // Execute entire schema SQL using unsafe for DDL
     await sql.unsafe(schemaSQL);
@@ -98,12 +131,27 @@ export const handler: Handler = async (event) => {
         console.warn('[INITIALIZE-SCHEMA] Error closing connection:', e);
       }
     }
+    
+    // Provide helpful error messages for common issues
+    let userFriendlyError = error.message;
+    if (error.message?.includes('ENETUNREACH')) {
+      userFriendlyError = 'Connessione al database non raggiungibile (IPv6). Riprova: la risoluzione forzata IPv4 è già attiva, controlla la connettività di rete.';
+    } else if (error.message?.includes('Tenant or user not found')) {
+      userFriendlyError = 'Credenziali database non valide. Verifica che:\n' +
+        '1. Il progetto Supabase esista e sia attivo\n' +
+        '2. La Database Password sia corretta (Settings → Database → Database Password)\n' +
+        '3. L\'URL Supabase corrisponda al progetto (formato: https://xxx.supabase.co)';
+    } else if (error.message?.includes('password authentication failed')) {
+      userFriendlyError = 'Password del database non corretta. Controlla in Settings → Database → Database Password';
+    } else if (error.message?.includes('timeout')) {
+      userFriendlyError = 'Timeout di connessione. Il progetto Supabase potrebbe essere in pausa o non raggiungibile.';
+    }
     return {
       statusCode: 500,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        error: error.message,
-        details: error.toString()
+        error: userFriendlyError,
+        technicalDetails: error.message
       })
     };
   }

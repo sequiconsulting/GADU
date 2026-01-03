@@ -1,13 +1,7 @@
 import { getStore } from '@netlify/blobs';
 import { LodgeConfig, Registry } from '../../../types/lodge';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { join } from 'path';
 import { createCipheriv, createDecipheriv, randomBytes, publicEncrypt, privateDecrypt } from 'crypto';
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
-
-const isLocalDev = process.env.NETLIFY_DEV === 'true';
-const localRegistryPath = join(process.cwd(), '.netlify', 'registry.json');
-const localQuantumKeysPath = join(process.cwd(), '.netlify', 'quantum-keys.json');
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
@@ -26,15 +20,6 @@ interface QuantumKeys {
 }
 
 async function getQuantumKeys(): Promise<QuantumKeys | null> {
-  if (isLocalDev) {
-    if (existsSync(localQuantumKeysPath)) {
-      const data = readFileSync(localQuantumKeysPath, 'utf-8');
-      return JSON.parse(data);
-    }
-    console.log('[QUANTUM] No local quantum keys found - encryption disabled in dev');
-    return null;
-  }
-  
   const kyberPubKey = process.env.KYBER_PUBLIC_KEY;
   const rsaPubKeyB64 = process.env.RSA_PUBLIC_KEY_B64;
   const masterKey = process.env.QUANTUM_MASTER_KEY;
@@ -96,11 +81,6 @@ async function getQuantumKeys(): Promise<QuantumKeys | null> {
 }
 
 async function encryptData(text: string): Promise<string> {
-  if (isLocalDev) {
-    console.log('[CRYPTO] Local dev mode - skipping encryption');
-    return text;
-  }
-  
   const quantumKeys = await getQuantumKeys();
   if (!quantumKeys) {
     throw new Error('Quantum keys not available for encryption');
@@ -141,10 +121,6 @@ async function encryptData(text: string): Promise<string> {
 }
 
 async function decryptData(encryptedText: string): Promise<string> {
-  if (isLocalDev) {
-    return encryptedText;
-  }
-  
   if (!encryptedText.startsWith('v2:')) {
     throw new Error(`Unsupported encryption format. Expected v2 but got: ${encryptedText.substring(0, 30)}`);
   }
@@ -196,23 +172,7 @@ async function decryptData(encryptedText: string): Promise<string> {
   }
 }
 
-function ensureLocalRegistryDir() {
-  const dir = join(process.cwd(), '.netlify');
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
-}
-
 export async function loadRegistry(): Promise<Registry> {
-  if (isLocalDev) {
-    ensureLocalRegistryDir();
-    if (existsSync(localRegistryPath)) {
-      const data = readFileSync(localRegistryPath, 'utf-8');
-      return JSON.parse(data);
-    }
-    return {};
-  }
-  
   try {
     const store = getStore('gadu-registry');
     const data = await store.get('lodges');
@@ -232,12 +192,6 @@ export async function loadRegistry(): Promise<Registry> {
 }
 
 export async function saveRegistry(registry: Registry): Promise<void> {
-  if (isLocalDev) {
-    ensureLocalRegistryDir();
-    writeFileSync(localRegistryPath, JSON.stringify(registry, null, 2), 'utf-8');
-    return;
-  }
-  
   try {
     const store = getStore('gadu-registry');
     const jsonString = JSON.stringify(registry);
