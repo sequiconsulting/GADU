@@ -1,3 +1,91 @@
+// Baseline schema SQL (ultima versione)
+const BASELINE_SCHEMA_SQL = `
+create extension if not exists "uuid-ossp";
+
+create or replace function public.query(sql text) returns void as $$
+begin
+  execute sql;
+end;
+$$ language plpgsql security definer;
+
+create table if not exists public.app_settings (
+  id text primary key,
+  data jsonb not null default '{}'::jsonb,
+  db_version integer not null default 1,
+  schema_version integer not null default 1,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table if not exists public.members (
+  id uuid primary key default gen_random_uuid(),
+  data jsonb not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists members_lastname_idx on public.members ((data ->> 'lastName'));
+
+create table if not exists public.convocazioni (
+  id uuid primary key default gen_random_uuid(),
+  branch_type text not null,
+  year_start integer not null,
+  data jsonb not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists convocazioni_branch_idx on public.convocazioni (branch_type);
+create index if not exists convocazioni_year_idx on public.convocazioni (year_start);
+
+alter table public.app_settings enable row level security;
+alter table public.members enable row level security;
+alter table public.convocazioni enable row level security;
+
+drop policy if exists "anon_deny_app_settings" on public.app_settings;
+drop policy if exists "anon_deny_members" on public.members;
+drop policy if exists "anon_deny_convocazioni" on public.convocazioni;
+
+drop policy if exists "authenticated_all_app_settings" on public.app_settings;
+drop policy if exists "authenticated_all_members" on public.members;
+drop policy if exists "authenticated_all_convocazioni" on public.convocazioni;
+
+create policy "anon_deny_app_settings" 
+  on public.app_settings 
+  for all 
+  using (auth.role() != 'anon') 
+  with check (auth.role() != 'anon');
+
+create policy "anon_deny_members" 
+  on public.members 
+  for all 
+  using (auth.role() != 'anon') 
+  with check (auth.role() != 'anon');
+
+create policy "anon_deny_convocazioni" 
+  on public.convocazioni 
+  for all 
+  using (auth.role() != 'anon') 
+  with check (auth.role() != 'anon');
+
+create policy "authenticated_all_app_settings" 
+  on public.app_settings 
+  for all 
+  using (auth.role() = 'authenticated') 
+  with check (auth.role() = 'authenticated');
+
+create policy "authenticated_all_members" 
+  on public.members 
+  for all 
+  using (auth.role() = 'authenticated') 
+  with check (auth.role() = 'authenticated');
+
+create policy "authenticated_all_convocazioni" 
+  on public.convocazioni 
+  for all 
+  using (auth.role() = 'authenticated') 
+  with check (auth.role() = 'authenticated');
+`;
 import { Handler } from '@netlify/functions';
 import { initNetlifyBlobs, loadRegistry } from './shared/registry';
 import postgres from 'postgres';
@@ -86,24 +174,35 @@ export const handler: Handler = async (event) => {
 
     // Get current db_version
     console.log('[UPDATE-SCHEMA] Reading current db_version...');
-    const result = await sql`
-      SELECT db_version FROM public.app_settings WHERE id = 'app'
-    `;
-
-    if (result.length === 0) {
-      console.warn('[UPDATE-SCHEMA] Schema not initialized - app_settings not found');
-      await sql.end();
-      return {
-        statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          error: 'Schema not initialized',
-          message: 'Run the Setup Wizard to initialize the database schema'
-        })
-      };
+    let currentVersion = 0;
+    let result;
+    try {
+      result = await sql`SELECT db_version FROM public.app_settings WHERE id = 'app'`;
+      if (result.length > 0) {
+        currentVersion = result[0].db_version || 0;
+      } else {
+        // Schema non inizializzato: esegui baseline
+        console.warn('[UPDATE-SCHEMA] Schema not initialized - applying baseline schema');
+        await sql.unsafe(BASELINE_SCHEMA_SQL);
+        // Dopo baseline, imposta currentVersion
+        result = await sql`SELECT db_version FROM public.app_settings WHERE id = 'app'`;
+        if (result.length > 0) {
+          currentVersion = result[0].db_version || 1;
+        } else {
+          currentVersion = 1;
+        }
+      }
+    } catch (e) {
+      // Se la tabella non esiste, crea tutto da zero
+      console.warn('[UPDATE-SCHEMA] app_settings missing, applying baseline schema');
+      await sql.unsafe(BASELINE_SCHEMA_SQL);
+      result = await sql`SELECT db_version FROM public.app_settings WHERE id = 'app'`;
+      if (result.length > 0) {
+        currentVersion = result[0].db_version || 1;
+      } else {
+        currentVersion = 1;
+      }
     }
-
-    const currentVersion = result[0].db_version || 0;
     console.log(`[UPDATE-SCHEMA] Current version: ${currentVersion}, Target: ${DB_VERSION}`);
 
     if (currentVersion >= DB_VERSION) {
