@@ -94,8 +94,17 @@ async function connectWithRetry(dbUrl: string, maxRetries: number = 3) {
 }
 
 async function initializeSchema(supabaseUrl: string, databasePassword: string, glriNumber: string): Promise<void> {
-  // Chiama la funzione update-schema come endpoint HTTP locale
-  const url = process.env.UPDATE_SCHEMA_URL || 'http://localhost:8888/.netlify/functions/update-schema';
+  // Determina l'URL della funzione update-schema in modo robusto
+  let url = process.env.UPDATE_SCHEMA_URL;
+  if (!url) {
+    // Se in ambiente Netlify, usa l'URL pubblico
+    if (process.env.URL) {
+      url = `${process.env.URL}/.netlify/functions/update-schema`;
+    } else {
+      // Fallback locale
+      url = 'http://localhost:8888/.netlify/functions/update-schema';
+    }
+  }
   const params = new URLSearchParams({ glriNumber });
   const fullUrl = `${url}?${params.toString()}`;
   const res = await fetch(fullUrl, { method: 'GET' });
