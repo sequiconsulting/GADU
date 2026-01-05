@@ -20,7 +20,7 @@ const RelazioneAnnuale = React.lazy(() => import('./components/RelazioneAnnuale'
 const RolesHistory = React.lazy(() => import('./components/RolesHistory').then(m => ({ default: m.RolesHistory })));
 const Convocazioni = React.lazy(() => import('./components/Tornate').then(m => ({ default: m.Tornate })));
 const SetupAdmin = React.lazy(() => import('./components/SetupAdmin').then(m => ({ default: m.SetupAdmin })));
-const AdminConsole = React.lazy(() => import('./components/AdminConsole').then(m => ({ default: m.default })));
+const SuperadminConsole = React.lazy(() => import('./components/AdminConsole').then(m => ({ default: m.default })));
 import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation, getDegreesByRitual } from './constants';
 
 type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'ROLES_HISTORY' | 'PIEDILISTA' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE' | 'CONVOCAZIONI';
@@ -963,13 +963,12 @@ const App: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/admin" element={
-          <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-100">Caricamento admin...</div>}>
-            <AdminConsole />
+        <Route path="/superadmin" element={
+          <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-slate-100">Caricamento superadmin...</div>}>
+            <SuperadminConsole />
           </React.Suspense>
         } />
-        <Route path="/setup/:glriNumber" element={<SetupWizard />} />
-        <Route path="/setup" element={<Navigate to="/" replace />} />
+        <Route path="/setup" element={<SetupWizard />} />
         <Route path="/:glriNumber/*" element={<AppContent />} />
         <Route path="/" element={<InvalidLodge />} />
         <Route path="*" element={<Navigate to="/" replace />} />

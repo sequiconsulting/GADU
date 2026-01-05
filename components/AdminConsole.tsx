@@ -17,7 +17,7 @@ function buildApiUrl(path: string) {
   return `${ADMIN_API_BASE}${path}`;
 }
 
-export const AdminConsole: React.FC = () => {
+export const SuperadminConsole: React.FC = () => {
   const [auth, setAuth] = useState<string | null>(() => sessionStorage.getItem(ADMIN_PASSWORD_KEY));
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
@@ -281,7 +281,7 @@ export const AdminConsole: React.FC = () => {
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 rounded-full bg-masonic-gold/10 flex items-center justify-center"><Shield className="text-masonic-gold" /></div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900">Accesso Admin</h1>
+              <h1 className="text-xl font-bold text-slate-900">Accesso Superadmin</h1>
               <p className="text-sm text-slate-600">Inserisci la password amministrativa</p>
             </div>
           </div>
@@ -324,7 +324,7 @@ export const AdminConsole: React.FC = () => {
         )}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Console Admin</h1>
+            <h1 className="text-2xl font-bold">Console Superadmin</h1>
             <p className="text-sm text-slate-500">Gestione registry, logge e utenti</p>
           </div>
           <button onClick={loadRegistry} className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-100"><RefreshCw size={16}/> Aggiorna</button>
@@ -513,4 +513,4 @@ export const AdminConsole: React.FC = () => {
   );
 };
 
-export default AdminConsole;
+export default SuperadminConsole;
