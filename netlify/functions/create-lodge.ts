@@ -2,8 +2,7 @@ import { Handler } from '@netlify/functions';
 import dns from 'dns';
 import { lookup as dnsLookup } from 'dns/promises';
 import postgres from 'postgres';
-import { readFileSync } from 'fs';
-import { join } from 'path';
+import fetch from 'node-fetch';
 import { createClient } from '@supabase/supabase-js';
 import { initNetlifyBlobs, loadRegistry, logAuditEvent, saveRegistry } from './shared/registry';
 import { LodgeConfig, Registry } from '../../types/lodge';
@@ -94,38 +93,19 @@ async function connectWithRetry(dbUrl: string, maxRetries: number = 3) {
   throw lastError;
 }
 
-async function initializeSchema(supabaseUrl: string, databasePassword: string): Promise<void> {
-  let sql: any = null;
-  try {
-    const schemaPath = join(process.cwd(), 'supabase-schema.sql');
-    const schemaSQL = readFileSync(schemaPath, 'utf8');
-
-    const dbUrls = await buildConnectionUrls(supabaseUrl, databasePassword);
-    let lastError: any = null;
-    for (const dbUrl of dbUrls) {
-      try {
-        console.log('[CREATE-LODGE] Connecting to:', dbUrl.replace(databasePassword, '***'));
-        sql = await connectWithRetry(dbUrl);
-        break;
-      } catch (connErr: any) {
-        lastError = connErr;
-        console.warn('[CREATE-LODGE] Connection failed with URL:', connErr.message);
-      }
-    }
-
-    if (!sql) {
-      throw lastError || new Error('Unable to connect to Supabase Postgres');
-    }
-
-    await sql.unsafe(schemaSQL);
-  } finally {
-    if (sql) {
-      try {
-        await sql.end();
-      } catch {
-        // ignore
-      }
-    }
+async function initializeSchema(supabaseUrl: string, databasePassword: string, glriNumber: string): Promise<void> {
+  // Chiama la funzione update-schema come endpoint HTTP locale
+  const url = process.env.UPDATE_SCHEMA_URL || 'http://localhost:8888/.netlify/functions/update-schema';
+  const params = new URLSearchParams({ glriNumber });
+  const fullUrl = `${url}?${params.toString()}`;
+  const res = await fetch(fullUrl, { method: 'GET' });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Errore update-schema: ${res.status} ${text}`);
+  }
+  const data = await res.json();
+  if (typeof data === 'object' && data !== null && 'error' in data && (data as any).error) {
+    throw new Error(`Errore update-schema: ${(data as any).error}`);
   }
 }
 
@@ -216,7 +196,7 @@ export const handler: Handler = async (event) => {
     }
 
     console.log('[CREATE-LODGE] Initializing schema for', glriNumber);
-    await initializeSchema(supabaseUrl, databasePassword);
+    await initializeSchema(supabaseUrl, databasePassword, glriNumber);
 
     console.log('[CREATE-LODGE] Creating Segretario user for', glriNumber);
     const secretaryResult = await upsertSecretaryUser({ supabaseUrl, supabaseServiceKey, email: secretaryEmail });
