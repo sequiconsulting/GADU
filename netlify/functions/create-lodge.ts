@@ -204,12 +204,6 @@ export const handler: Handler = async (event) => {
       return { statusCode: 409, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'Loggia già esistente' }) };
     }
 
-    console.log('[CREATE-LODGE] Initializing schema for', glriNumber);
-    await initializeSchema(supabaseUrl, databasePassword, glriNumber);
-
-    console.log('[CREATE-LODGE] Creating Segretario user for', glriNumber);
-    const secretaryResult = await upsertSecretaryUser({ supabaseUrl, supabaseServiceKey, email: secretaryEmail });
-
     const now = new Date();
     const lodgeConfig: LodgeConfig = {
       glriNumber,
@@ -230,8 +224,15 @@ export const handler: Handler = async (event) => {
       taxCode,
     } as any;
 
+    // Salva la loggia PRIMA di chiamare update-schema
     registry[glriNumber] = lodgeConfig;
     await saveRegistry(registry);
+
+    console.log('[CREATE-LODGE] Initializing schema for', glriNumber);
+    await initializeSchema(supabaseUrl, databasePassword, glriNumber);
+
+    console.log('[CREATE-LODGE] Creating Segretario user for', glriNumber);
+    const secretaryResult = await upsertSecretaryUser({ supabaseUrl, supabaseServiceKey, email: secretaryEmail });
 
     try {
       await logAuditEvent('lodge_created', { glriNumber, secretaryEmail, secretaryResult });
