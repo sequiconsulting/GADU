@@ -60,16 +60,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
     setSettings(prev => ({ ...prev, [field]: value }));
   };
 
-  const handlePreferenceChange = (branch: keyof AppSettings['preferences'], value: string) => {
-    setSettings(prev => ({
-      ...prev,
-      preferences: {
-        ...(prev.preferences || { craft: 'Emulation', markAndArch: 'Irlandese', ram: 'Irlandese' }),
-        [branch]: value,
-      },
-    }));
-  };
-
   const handleClearDatabase = async () => {
     setIsProcessing(true);
     try {

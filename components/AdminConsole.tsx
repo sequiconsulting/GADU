@@ -110,10 +110,15 @@ export const SuperadminConsole: React.FC = () => {
   const [selectedLodge, setSelectedLodge] = useState<string>('');
   const [users, setUsers] = useState<any[]>([]);
   const [userEmail, setUserEmail] = useState('');
+  const [userName, setUserName] = useState('');
   const [userPassword, setUserPassword] = useState('123456789');
   const [userPrivileges, setUserPrivileges] = useState('AD');
   const [form, setForm] = useState<Partial<LodgeConfig>>({ isActive: true });
   const [createLodgeMessage, setCreateLodgeMessage] = useState<string | null>(null);
+
+  const [showCreateLodgeModal, setShowCreateLodgeModal] = useState(false);
+  const [createLodgeDraft, setCreateLodgeDraft] = useState<Partial<LodgeConfig> & { secretaryEmail?: string }>({ isActive: true });
+  const [createLodgeErrors, setCreateLodgeErrors] = useState<Record<string, string>>({});
   // Considera autenticato se esiste una password in sessione; la validazione vera è lato funzione (Bearer === ADMIN_INTERFACE_PASSWORD)
   const isAuthenticated = Boolean(auth);
 
@@ -213,6 +218,7 @@ export const SuperadminConsole: React.FC = () => {
           action: 'create',
           lodgeNumber: selectedLodge,
           email: userEmail,
+          name: userName,
           password: userPassword,
           privileges: [userPrivileges],
           mustChangePassword: true,
@@ -222,6 +228,7 @@ export const SuperadminConsole: React.FC = () => {
       if (!res.ok || !data.success) throw new Error(data.error || 'Errore creazione utente');
       await loadUsers(selectedLodge);
       setUserEmail('');
+      setUserName('');
     } catch (err: any) {
       alert(err.message);
     } finally {
@@ -229,25 +236,64 @@ export const SuperadminConsole: React.FC = () => {
     }
   }
 
+  function validateCreateLodgeDraft(draft: Partial<LodgeConfig> & { secretaryEmail?: string }) {
+    const errors: Record<string, string> = {};
+    const required: Array<[keyof (Partial<LodgeConfig> & { secretaryEmail?: string }), string]> = [
+      ['glriNumber', 'GLRI Number obbligatorio'],
+      ['lodgeName', 'Nome loggia obbligatorio'],
+      ['province', 'Provincia obbligatoria'],
+      ['supabaseUrl', 'Supabase URL obbligatorio'],
+      ['supabaseAnonKey', 'Anon key obbligatoria'],
+      ['supabaseServiceKey', 'Service key obbligatoria'],
+      ['databasePassword', 'Database password obbligatoria'],
+      ['secretaryEmail', 'Email Segretario obbligatoria'],
+    ];
+    for (const [key, msg] of required) {
+      const val = (draft as any)[key];
+      if (!val || String(val).trim() === '') errors[String(key)] = msg;
+    }
+    if (draft.supabaseUrl && !/^https:\/\/.+\.supabase\.co$/.test(String(draft.supabaseUrl).trim())) {
+      errors.supabaseUrl = 'Supabase URL non valido';
+    }
+    if (draft.secretaryEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(String(draft.secretaryEmail).trim())) {
+        errors.secretaryEmail = 'Email Segretario non valida';
+      }
+    }
+    return errors;
+  }
+
+  function openCreateLodgeModalFromForm() {
+    setCreateLodgeMessage(null);
+    setCreateLodgeErrors({});
+    setCreateLodgeDraft({
+      ...form,
+      isActive: true,
+      secretaryEmail: ((form as any).lodgeEmail || '').trim(),
+    } as any);
+    setShowCreateLodgeModal(true);
+  }
+
   async function createNewLodge() {
     setCreateLodgeMessage(null);
     setLoading(true);
     try {
-      const secretaryEmail = ((form as any).lodgeEmail || '').trim();
+      const secretaryEmail = (createLodgeDraft.secretaryEmail || '').trim();
       const payload = {
-        glriNumber: (form.glriNumber || '').trim(),
-        lodgeName: (form.lodgeName || '').trim(),
-        province: (form.province || '').trim(),
-        supabaseUrl: (form.supabaseUrl || '').trim(),
-        supabaseAnonKey: form.supabaseAnonKey,
-        supabaseServiceKey: form.supabaseServiceKey,
-        databasePassword: form.databasePassword,
+        glriNumber: (createLodgeDraft.glriNumber || '').trim(),
+        lodgeName: (createLodgeDraft.lodgeName || '').trim(),
+        province: (createLodgeDraft.province || '').trim(),
+        supabaseUrl: (createLodgeDraft.supabaseUrl || '').trim(),
+        supabaseAnonKey: createLodgeDraft.supabaseAnonKey,
+        supabaseServiceKey: createLodgeDraft.supabaseServiceKey,
+        databasePassword: createLodgeDraft.databasePassword,
         secretaryEmail,
-        associationName: form.associationName,
-        address: form.address,
-        zipCode: form.zipCode,
-        city: form.city,
-        taxCode: form.taxCode,
+        associationName: createLodgeDraft.associationName,
+        address: createLodgeDraft.address,
+        zipCode: createLodgeDraft.zipCode,
+        city: createLodgeDraft.city,
+        taxCode: createLodgeDraft.taxCode,
       };
 
       const res = await authorizedFetch(buildApiUrl('/.netlify/functions/create-lodge'), {
@@ -266,6 +312,7 @@ export const SuperadminConsole: React.FC = () => {
       }
 
       setCreateLodgeMessage(`Loggia ${data.glriNumber} creata con successo`);
+      setShowCreateLodgeModal(false);
       await loadRegistry();
     } catch (err: any) {
       setCreateLodgeMessage(err.message || 'Errore creazione loggia');
@@ -439,7 +486,109 @@ export const SuperadminConsole: React.FC = () => {
                 </div>
               )}
               <button disabled={loading} onClick={saveLodge} className="w-full bg-slate-900 text-white rounded-lg py-2 flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-50"><Save size={16}/> Salva loggia</button>
-              <button disabled={loading} onClick={createNewLodge} className="w-full bg-masonic-gold text-white rounded-lg py-2 flex items-center justify-center gap-2 hover:bg-yellow-600 disabled:opacity-50"><Plus size={16}/> Crea nuova loggia</button>
+              <button disabled={loading} onClick={openCreateLodgeModalFromForm} className="w-full bg-masonic-gold text-white rounded-lg py-2 flex items-center justify-center gap-2 hover:bg-yellow-600 disabled:opacity-50"><Plus size={16}/> Crea nuova loggia…</button>
+            </div>
+          </div>
+        )}
+
+        {showCreateLodgeModal && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-bold">Crea nuova loggia</div>
+                  <div className="text-xs text-slate-500">Verifica credenziali DB → registry (inattiva) → schema → utente Segretario → attivazione.</div>
+                </div>
+                <button
+                  disabled={loading}
+                  onClick={() => { setShowCreateLodgeModal(false); setCreateLodgeErrors({}); }}
+                  className="px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Chiudi
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {createLodgeMessage && (
+                  <div className={`text-sm rounded-lg px-3 py-2 ${createLodgeMessage.toLowerCase().includes('successo') ? 'bg-green-50 border border-green-200 text-green-800' : 'bg-red-50 border border-red-200 text-red-800'}`}>
+                    {createLodgeMessage}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <input className={`w-full border rounded-lg px-3 py-2 ${createLodgeErrors.glriNumber ? 'border-red-300' : 'border-slate-200'}`} placeholder="GLRI Number" value={createLodgeDraft.glriNumber || ''} onChange={(e)=>setCreateLodgeDraft(prev=>({ ...prev, glriNumber: e.target.value }))}/>
+                    {createLodgeErrors.glriNumber && <div className="text-xs text-red-600 mt-1">{createLodgeErrors.glriNumber}</div>}
+                  </div>
+                  <div>
+                    <input className={`w-full border rounded-lg px-3 py-2 ${createLodgeErrors.province ? 'border-red-300' : 'border-slate-200'}`} placeholder="Provincia" value={createLodgeDraft.province || ''} onChange={(e)=>setCreateLodgeDraft(prev=>({ ...prev, province: e.target.value }))}/>
+                    {createLodgeErrors.province && <div className="text-xs text-red-600 mt-1">{createLodgeErrors.province}</div>}
+                  </div>
+                  <div className="md:col-span-2">
+                    <input className={`w-full border rounded-lg px-3 py-2 ${createLodgeErrors.lodgeName ? 'border-red-300' : 'border-slate-200'}`} placeholder="Nome loggia" value={createLodgeDraft.lodgeName || ''} onChange={(e)=>setCreateLodgeDraft(prev=>({ ...prev, lodgeName: e.target.value }))}/>
+                    {createLodgeErrors.lodgeName && <div className="text-xs text-red-600 mt-1">{createLodgeErrors.lodgeName}</div>}
+                  </div>
+
+                  <div>
+                    <input className="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="Associazione (opzionale)" value={createLodgeDraft.associationName || ''} onChange={(e)=>setCreateLodgeDraft(prev=>({ ...prev, associationName: e.target.value }))}/>
+                  </div>
+                  <div>
+                    <input className="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="Codice Fiscale (opzionale)" value={createLodgeDraft.taxCode || ''} onChange={(e)=>setCreateLodgeDraft(prev=>({ ...prev, taxCode: e.target.value }))}/>
+                  </div>
+                  <div className="md:col-span-2">
+                    <input className="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="Indirizzo (opzionale)" value={createLodgeDraft.address || ''} onChange={(e)=>setCreateLodgeDraft(prev=>({ ...prev, address: e.target.value }))}/>
+                  </div>
+                  <div>
+                    <input className="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="CAP (opzionale)" value={createLodgeDraft.zipCode || ''} onChange={(e)=>setCreateLodgeDraft(prev=>({ ...prev, zipCode: e.target.value }))}/>
+                  </div>
+                  <div>
+                    <input className="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="Città (opzionale)" value={createLodgeDraft.city || ''} onChange={(e)=>setCreateLodgeDraft(prev=>({ ...prev, city: e.target.value }))}/>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <input className={`w-full border rounded-lg px-3 py-2 ${createLodgeErrors.supabaseUrl ? 'border-red-300' : 'border-slate-200'}`} placeholder="Supabase URL" value={createLodgeDraft.supabaseUrl || ''} onChange={(e)=>setCreateLodgeDraft(prev=>({ ...prev, supabaseUrl: e.target.value }))}/>
+                    {createLodgeErrors.supabaseUrl && <div className="text-xs text-red-600 mt-1">{createLodgeErrors.supabaseUrl}</div>}
+                  </div>
+                  <div className="md:col-span-2">
+                    <textarea className={`w-full border rounded-lg px-3 py-2 h-20 ${createLodgeErrors.supabaseAnonKey ? 'border-red-300' : 'border-slate-200'}`} placeholder="Anon key" value={createLodgeDraft.supabaseAnonKey || ''} onChange={(e)=>setCreateLodgeDraft(prev=>({ ...prev, supabaseAnonKey: e.target.value }))}/>
+                    {createLodgeErrors.supabaseAnonKey && <div className="text-xs text-red-600 mt-1">{createLodgeErrors.supabaseAnonKey}</div>}
+                  </div>
+                  <div className="md:col-span-2">
+                    <textarea className={`w-full border rounded-lg px-3 py-2 h-20 ${createLodgeErrors.supabaseServiceKey ? 'border-red-300' : 'border-slate-200'}`} placeholder="Service key" value={createLodgeDraft.supabaseServiceKey || ''} onChange={(e)=>setCreateLodgeDraft(prev=>({ ...prev, supabaseServiceKey: e.target.value }))}/>
+                    {createLodgeErrors.supabaseServiceKey && <div className="text-xs text-red-600 mt-1">{createLodgeErrors.supabaseServiceKey}</div>}
+                  </div>
+                  <div className="md:col-span-2">
+                    <input className={`w-full border rounded-lg px-3 py-2 ${createLodgeErrors.databasePassword ? 'border-red-300' : 'border-slate-200'}`} placeholder="Database password" value={createLodgeDraft.databasePassword || ''} onChange={(e)=>setCreateLodgeDraft(prev=>({ ...prev, databasePassword: e.target.value }))}/>
+                    {createLodgeErrors.databasePassword && <div className="text-xs text-red-600 mt-1">{createLodgeErrors.databasePassword}</div>}
+                  </div>
+                  <div className="md:col-span-2">
+                    <input className={`w-full border rounded-lg px-3 py-2 ${createLodgeErrors.secretaryEmail ? 'border-red-300' : 'border-slate-200'}`} placeholder="Email Segretario" value={createLodgeDraft.secretaryEmail || ''} onChange={(e)=>setCreateLodgeDraft(prev=>({ ...prev, secretaryEmail: e.target.value }))}/>
+                    {createLodgeErrors.secretaryEmail && <div className="text-xs text-red-600 mt-1">{createLodgeErrors.secretaryEmail}</div>}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    disabled={loading}
+                    onClick={() => { setShowCreateLodgeModal(false); setCreateLodgeErrors({}); }}
+                    className="px-4 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Annulla
+                  </button>
+                  <button
+                    disabled={loading}
+                    onClick={async () => {
+                      const errors = validateCreateLodgeDraft(createLodgeDraft);
+                      setCreateLodgeErrors(errors);
+                      if (Object.keys(errors).length > 0) return;
+                      await createNewLodge();
+                    }}
+                    className="px-4 py-2 rounded-lg bg-masonic-gold text-white font-semibold hover:bg-yellow-600 disabled:opacity-50"
+                  >
+                    {loading ? 'Creazione in corso…' : 'Crea loggia'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -468,6 +617,7 @@ export const SuperadminConsole: React.FC = () => {
               </select>
               <div className="space-y-2">
                 <input className="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="Email" value={userEmail} onChange={(e)=>setUserEmail(e.target.value)}/>
+                <input className="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="Nome" value={userName} onChange={(e)=>setUserName(e.target.value)}/>
                 <input className="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="Password" value={userPassword} onChange={(e)=>setUserPassword(e.target.value)}/>
                 <select className="w-full border border-slate-200 rounded-lg px-3 py-2" value={userPrivileges} onChange={(e)=>setUserPrivileges(e.target.value)}>
                   <option value="AD">AD (Admin)</option>
@@ -486,7 +636,7 @@ export const SuperadminConsole: React.FC = () => {
                 {users.map(u => (
                   <div key={u.email} className="border border-slate-200 rounded-lg px-3 py-2 flex items-center justify-between">
                     <div>
-                      <div className="font-semibold">{u.email}</div>
+                      <div className="font-semibold">{u.user_metadata?.name ? `${u.user_metadata.name} — ${u.email}` : u.email}</div>
                       <div className="text-xs text-slate-500">Privilegi: {(((u.user_metadata?.privileges || u.privileges) || []) as any[]).join(', ')}</div>
                     </div>
                     <div className="flex gap-2">

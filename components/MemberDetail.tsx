@@ -107,7 +107,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
     setError(null);
 
     // 1. Matricola: deve essere vuoto oppure numerico e univoco
-    if (mem.matricola !== '') {
+    if (mem.matricula !== '') {
       // Se non vuoto, deve essere numerico
       if (!/^\d+$/.test(mem.matricula)) {
         setError("La matricola deve contenere solo numeri o essere vuota.");

@@ -115,6 +115,8 @@ export interface Member {
   ram: MasonicBranchData;
   
   // Changelog
+  // Timestamp ISO aggiornato ad ogni salvataggio (usato per rilevare conflitti)
+  lastModified?: string;
   changelog?: ChangeLogEntry[];
 }
 

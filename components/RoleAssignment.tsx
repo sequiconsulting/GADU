@@ -35,7 +35,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
     setLoading(true);
     try {
       // Prepare ritual updates
-      const updatedRituals = { ...settings.yearlyRituals } || {};
+      const updatedRituals = { ...(settings.yearlyRituals || {}) };
       if (!updatedRituals[selectedYear]) {
         updatedRituals[selectedYear] = {
           craft: getRitualForYear(selectedYear, 'CRAFT') as any,

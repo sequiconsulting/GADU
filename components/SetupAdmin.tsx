@@ -36,7 +36,15 @@ export const SetupAdmin: React.FC<SetupAdminProps> = ({ onComplete }) => {
         setLoading(false);
         return;
       }
-      await dataService.bootstrapLodge({ lodgeName, lodgeNumber, province }, { email: adminEmail, name: adminName, privileges: adminPrivileges });
+      // Setup minimale: salva le impostazioni della loggia.
+      // La creazione/gestione utenti avviene tramite Supabase Auth (vedi AdminPanel → Gestione Utenti).
+      const current = await dataService.getSettings();
+      await dataService.saveSettings({
+        ...current,
+        lodgeName,
+        lodgeNumber,
+        province,
+      });
       setSuccess(true);
       if (onComplete) onComplete();
     } catch (e: any) {

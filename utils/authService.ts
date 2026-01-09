@@ -133,12 +133,13 @@ export const markAuthSchemaVersion = async (): Promise<void> => {
   }
   const client = ensureSupabaseClient();
   if (!client) return;
-  const { data, error } = await client.auth.updateUser({ data: { [AUTH_SCHEMA_KEY]: SUPABASE_AUTH_SCHEMA_VERSION } });
+  const { error } = await client.auth.updateUser({ data: { [AUTH_SCHEMA_KEY]: SUPABASE_AUTH_SCHEMA_VERSION } });
   if (error) {
     console.error('[Auth] Failed to update Supabase auth schema version:', error.message);
     return;
   }
-  cacheSession(data?.session ?? cachedSession);
+  const { data: sessionData } = await client.auth.getSession();
+  cacheSession(sessionData?.session ?? cachedSession);
 };
 
 /**

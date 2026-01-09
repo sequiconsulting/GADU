@@ -93,6 +93,24 @@ async function connectWithRetry(dbUrl: string, maxRetries: number = 3) {
   throw lastError;
 }
 
+async function preflightDatabaseConnection(supabaseUrl: string, databasePassword: string): Promise<void> {
+  const urls = await buildConnectionUrls(supabaseUrl, databasePassword);
+  let lastError: any;
+  for (const url of urls) {
+    try {
+      console.log('[CREATE-LODGE] Preflight DB connection:', url.includes('pooler') ? 'pooler' : 'direct');
+      const sql = await connectWithRetry(url, 2);
+      await sql.end();
+      console.log('[CREATE-LODGE] ✓ Preflight DB connection OK');
+      return;
+    } catch (err: any) {
+      lastError = err;
+      console.warn('[CREATE-LODGE] Preflight DB connection failed:', err?.message || err);
+    }
+  }
+  throw lastError || new Error('Database connection preflight failed');
+}
+
 async function initializeSchema(supabaseUrl: string, databasePassword: string, glriNumber: string): Promise<void> {
   // Determina l'URL della funzione update-schema in modo robusto
   let url = process.env.UPDATE_SCHEMA_URL;
@@ -126,7 +144,7 @@ async function upsertSecretaryUser(params: { supabaseUrl: string; supabaseServic
   const email = params.email.trim().toLowerCase();
   const password = '123456789';
 
-  const { error: createErr } = await supabaseAdmin.auth.admin.createUser({
+  const { data: createdData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
@@ -137,35 +155,22 @@ async function upsertSecretaryUser(params: { supabaseUrl: string; supabaseServic
     },
   });
 
-  if (!createErr) return { created: true, updated: false };
+  if (!createErr) return { created: true, existed: false, userId: createdData?.user?.id };
 
   if (!createErr.message?.includes('already registered')) {
     throw createErr;
   }
 
-  const { data: usersData, error: listErr } = await supabaseAdmin.auth.admin.listUsers();
-  if (listErr) throw listErr;
-
-  const existing = (usersData as any)?.users?.find((u: any) => (u.email || '').toLowerCase() === email);
-  if (!existing) {
-    throw new Error('Utente esiste ma non trovato in listUsers');
-  }
-
-  const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(existing.id, {
-    password,
-    user_metadata: {
-      ...(existing.user_metadata || {}),
-      name: 'Segretario',
-      privileges: ['AD'],
-      mustChangePassword: true,
-    },
-  });
-  if (updateErr) throw updateErr;
-
-  return { created: false, updated: true };
+  // Modalità B richiesta: se l'utente esiste già, prosegui senza modificare password/metadata.
+  return { created: false, existed: true };
 }
 
 export const handler: Handler = async (event) => {
+  let glriNumberForRollback: string | null = null;
+  let userIdToRollback: string | undefined;
+  let rollbackSupabaseUrl: string | undefined;
+  let rollbackSupabaseServiceKey: string | undefined;
+
   try {
     if (event.httpMethod === 'OPTIONS') {
       return { statusCode: 200, headers: corsHeaders, body: '' };
@@ -199,10 +204,16 @@ export const handler: Handler = async (event) => {
       taxCode,
     } = body as any;
 
+    rollbackSupabaseUrl = supabaseUrl;
+    rollbackSupabaseServiceKey = supabaseServiceKey;
+
     const registry: Registry = await loadRegistry();
     if (registry[glriNumber]) {
       return { statusCode: 409, headers: corsHeaders, body: JSON.stringify({ success: false, error: 'Loggia già esistente' }) };
     }
+
+    // Preflight: verifica credenziali DB prima di scrivere nel registry
+    await preflightDatabaseConnection(supabaseUrl, databasePassword);
 
     const now = new Date();
     const lodgeConfig: LodgeConfig = {
@@ -215,7 +226,8 @@ export const handler: Handler = async (event) => {
       databasePassword,
       createdAt: now,
       lastAccess: now,
-      isActive: true,
+      // Stage 1: inserisci in registry come inattiva (verrà attivata a fine procedura)
+      isActive: false,
       adminEmail: secretaryEmail,
       associationName,
       address,
@@ -224,15 +236,31 @@ export const handler: Handler = async (event) => {
       taxCode,
     } as any;
 
-    // Salva la loggia PRIMA di chiamare update-schema
+    // Stage 1: salva la loggia nel registry (inattiva)
     registry[glriNumber] = lodgeConfig;
     await saveRegistry(registry);
+    glriNumberForRollback = glriNumber;
 
     console.log('[CREATE-LODGE] Initializing schema for', glriNumber);
     await initializeSchema(supabaseUrl, databasePassword, glriNumber);
 
     console.log('[CREATE-LODGE] Creating Segretario user for', glriNumber);
     const secretaryResult = await upsertSecretaryUser({ supabaseUrl, supabaseServiceKey, email: secretaryEmail });
+
+    if (secretaryResult?.created && secretaryResult.userId) {
+      userIdToRollback = secretaryResult.userId;
+    }
+
+    // Stage 3: attiva loggia nel registry (commit finale)
+    const committedRegistry: Registry = await loadRegistry();
+    if (committedRegistry[glriNumber]) {
+      committedRegistry[glriNumber] = {
+        ...committedRegistry[glriNumber],
+        isActive: true,
+        lastAccess: new Date(),
+      } as any;
+      await saveRegistry(committedRegistry);
+    }
 
     try {
       await logAuditEvent('lodge_created', { glriNumber, secretaryEmail, secretaryResult });
@@ -246,6 +274,35 @@ export const handler: Handler = async (event) => {
       body: JSON.stringify({ success: true, glriNumber, secretaryResult }),
     };
   } catch (error: any) {
+    // Rollback best-effort: rimuovi la loggia dal registry se l'abbiamo inserita.
+    if (glriNumberForRollback) {
+      try {
+        const registry: Registry = await loadRegistry();
+        if (registry[glriNumberForRollback]) {
+          delete registry[glriNumberForRollback];
+          await saveRegistry(registry);
+          console.warn('[CREATE-LODGE] Rollback registry completed for', glriNumberForRollback);
+        }
+      } catch (rollbackErr: any) {
+        console.error('[CREATE-LODGE] Rollback registry failed:', rollbackErr?.message || rollbackErr);
+      }
+    }
+
+    // Rollback best-effort: se abbiamo creato l'utente in questa procedura, prova a cancellarlo.
+    if (userIdToRollback) {
+      try {
+        if (rollbackSupabaseUrl && rollbackSupabaseServiceKey) {
+          const supabaseAdmin = createClient(rollbackSupabaseUrl, rollbackSupabaseServiceKey, {
+            auth: { autoRefreshToken: false, persistSession: false },
+          });
+          await supabaseAdmin.auth.admin.deleteUser(userIdToRollback);
+          console.warn('[CREATE-LODGE] Rollback user completed for', userIdToRollback);
+        }
+      } catch (rollbackErr: any) {
+        console.warn('[CREATE-LODGE] Rollback user failed (non-critical):', rollbackErr?.message || rollbackErr);
+      }
+    }
+
     const statusCode = error?.statusCode || (error?.message === 'Unauthorized' ? 401 : 500);
 
     let userFriendlyError = error?.message || 'Errore server';

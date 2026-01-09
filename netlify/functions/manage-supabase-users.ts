@@ -198,20 +198,14 @@ export const handler: Handler = async (event) => {
         } catch (auditError) {
           console.warn('[MANAGE-USERS] Audit log failed (non-critical):', auditError);
         }
-        
+
         return {
-          statusCode: error?.statusCode || 500,
+          statusCode: 200,
           headers: jsonHeaders,
-          body: JSON.stringify({ error: error.message })
+          body: JSON.stringify({ success: true })
         };
       }
-      
 
-    return {
-      statusCode: 405,
-      headers: jsonHeaders,
-      body: JSON.stringify({ error: 'Method Not Allowed' }),
-    };
       if (action === 'updatePrivileges') {
         if (!userId) {
           return {
@@ -302,7 +296,7 @@ export const handler: Handler = async (event) => {
       };
     } catch (error: any) {
       return {
-        statusCode: 500,
+        statusCode: error?.statusCode || 500,
         headers: jsonHeaders,
         body: JSON.stringify({ error: error.message })
       };
