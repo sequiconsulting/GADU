@@ -1,6 +1,8 @@
 import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import { initNetlifyBlobs, loadRegistry, logAuditEvent } from './shared/registry';
+import { manageUsersGetQuerySchema, manageUsersPostBodySchema } from '../../schemas/netlify';
+import { formatZodError } from '../../schemas/common';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -68,15 +70,15 @@ export const handler: Handler = async (event) => {
   initNetlifyBlobs(event);
   // GET - List users
   if (event.httpMethod === 'GET') {
-    const lodgeNumber = event.queryStringParameters?.lodge;
-    
-    if (!lodgeNumber) {
+    const parsedQuery = manageUsersGetQuerySchema.safeParse(event.queryStringParameters || {});
+    if (!parsedQuery.success) {
       return {
         statusCode: 400,
         headers: jsonHeaders,
-        body: JSON.stringify({ error: 'Missing lodge parameter' })
+        body: JSON.stringify({ error: formatZodError(parsedQuery.error) }),
       };
     }
+    const lodgeNumber = parsedQuery.data.lodge;
     
     try {
       const registry = await loadRegistry();
@@ -114,7 +116,18 @@ export const handler: Handler = async (event) => {
   // POST - Create/Delete/Update user
   if (event.httpMethod === 'POST') {
     try {
-      const { action, lodgeNumber, email, password, metadata, name, privileges, userId } = (event.body ? JSON.parse(event.body) : {}) as any;
+      const rawBody = (event.body ? JSON.parse(event.body) : {}) as unknown;
+      const parsedBody = manageUsersPostBodySchema.safeParse(rawBody);
+      if (!parsedBody.success) {
+        return {
+          statusCode: 400,
+          headers: jsonHeaders,
+          body: JSON.stringify({ error: formatZodError(parsedBody.error) }),
+        };
+      }
+
+      const body = parsedBody.data;
+      const lodgeNumber = body.lodgeNumber;
       
       const registry = await loadRegistry();
       const lodge = registry[lodgeNumber];
@@ -127,23 +140,23 @@ export const handler: Handler = async (event) => {
       
       const supabase = createClient(lodge.supabaseUrl, lodge.supabaseServiceKey);
       
-      if (action === 'create') {
+      if (body.action === 'create') {
         const { data, error } = await supabase.auth.admin.createUser({
-          email,
-          password,
+          email: body.email,
+          password: body.password,
           email_confirm: true,
           user_metadata: {
-            name: name || email,
-            privileges: privileges || [],
+            name: body.name || body.email,
+            privileges: body.privileges || [],
             mustChangePassword: true,
-            ...metadata
+            ...(body.metadata || {})
           }
         });
         
         if (error) throw error;
 
         try {
-          await logAuditEvent('user_created', { lodgeNumber, email });
+          await logAuditEvent('user_created', { lodgeNumber, email: body.email });
         } catch (auditError) {
           console.warn('[MANAGE-USERS] Audit log failed (non-critical):', auditError);
         }
@@ -155,9 +168,9 @@ export const handler: Handler = async (event) => {
         };
       }
       
-      if (action === 'delete') {
+      if (body.action === 'delete') {
         const { data: { users } } = await supabase.auth.admin.listUsers();
-        const user = users?.find((u: any) => u.email === email);
+        const user = users?.find((u: any) => u.email === body.email);
         
         if (!user) {
           return { statusCode: 404, headers: jsonHeaders, body: JSON.stringify({ error: 'User not found' }) };
@@ -167,7 +180,7 @@ export const handler: Handler = async (event) => {
         if (error) throw error;
 
         try {
-          await logAuditEvent('user_deleted', { lodgeNumber, email });
+          await logAuditEvent('user_deleted', { lodgeNumber, email: body.email });
         } catch (auditError) {
           console.warn('[MANAGE-USERS] Audit log failed (non-critical):', auditError);
         }
@@ -179,13 +192,9 @@ export const handler: Handler = async (event) => {
         };
       }
       
-      if (action === 'updatePassword') {
-        if (!userId) {
-          return { statusCode: 400, headers: jsonHeaders, body: JSON.stringify({ error: 'Missing userId' }) };
-        }
-        
-        const { error } = await supabase.auth.admin.updateUserById(userId, {
-          password,
+      if (body.action === 'updatePassword') {
+        const { error } = await supabase.auth.admin.updateUserById(body.userId, {
+          password: body.password,
           user_metadata: {
             mustChangePassword: false
           }
@@ -194,7 +203,7 @@ export const handler: Handler = async (event) => {
         if (error) throw error;
 
         try {
-          await logAuditEvent('user_password_changed', { lodgeNumber, email });
+          await logAuditEvent('user_password_changed', { lodgeNumber, email: body.email });
         } catch (auditError) {
           console.warn('[MANAGE-USERS] Audit log failed (non-critical):', auditError);
         }
@@ -206,16 +215,8 @@ export const handler: Handler = async (event) => {
         };
       }
 
-      if (action === 'updatePrivileges') {
-        if (!userId) {
-          return {
-            statusCode: 400,
-            headers: jsonHeaders,
-            body: JSON.stringify({ error: 'Missing userId' })
-          };
-        }
-        
-        const { data: { user }, error: getError } = await supabase.auth.admin.getUserById(userId);
+      if (body.action === 'updatePrivileges') {
+        const { data: { user }, error: getError } = await supabase.auth.admin.getUserById(body.userId);
         
         if (getError || !user) {
           return {
@@ -225,18 +226,18 @@ export const handler: Handler = async (event) => {
           };
         }
         
-        const { error } = await supabase.auth.admin.updateUserById(userId, {
+        const { error } = await supabase.auth.admin.updateUserById(body.userId, {
           user_metadata: {
             ...user.user_metadata,
-            name: name || user.user_metadata?.name || email,
-            privileges: privileges || []
+            name: body.name || (user.user_metadata as any)?.name || body.email || (user as any)?.email,
+            privileges: body.privileges
           }
         });
         
         if (error) throw error;
 
         try {
-          await logAuditEvent('user_privileges_updated', { lodgeNumber, email, privileges });
+          await logAuditEvent('user_privileges_updated', { lodgeNumber, email: body.email || (user as any)?.email, privileges: body.privileges });
         } catch (auditError) {
           console.warn('[MANAGE-USERS] Audit log failed (non-critical):', auditError);
         }
@@ -248,16 +249,8 @@ export const handler: Handler = async (event) => {
         };
       }
 
-      if (action === 'clearMustChangePassword') {
-        if (!userId) {
-          return {
-            statusCode: 400,
-            headers: jsonHeaders,
-            body: JSON.stringify({ error: 'Missing userId' })
-          };
-        }
-        
-        const { data: { user }, error: getError } = await supabase.auth.admin.getUserById(userId);
+      if (body.action === 'clearMustChangePassword') {
+        const { data: { user }, error: getError } = await supabase.auth.admin.getUserById(body.userId);
         
         if (getError || !user) {
           return {
@@ -267,7 +260,7 @@ export const handler: Handler = async (event) => {
           };
         }
         
-        const { error } = await supabase.auth.admin.updateUserById(userId, {
+        const { error } = await supabase.auth.admin.updateUserById(body.userId, {
           user_metadata: {
             ...user.user_metadata,
             mustChangePassword: false
@@ -277,7 +270,7 @@ export const handler: Handler = async (event) => {
         if (error) throw error;
 
         try {
-          await logAuditEvent('user_password_changed', { lodgeNumber, userId });
+          await logAuditEvent('user_password_changed', { lodgeNumber, userId: body.userId });
         } catch (auditError) {
           console.warn('[MANAGE-USERS] Audit log failed (non-critical):', auditError);
         }

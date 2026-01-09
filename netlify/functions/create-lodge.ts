@@ -6,6 +6,8 @@ import fetch from 'node-fetch';
 import { createClient } from '@supabase/supabase-js';
 import { initNetlifyBlobs, loadRegistry, logAuditEvent, saveRegistry } from './shared/registry';
 import { LodgeConfig, Registry } from '../../types/lodge';
+import { createLodgeRequestSchema } from '../../schemas/netlify';
+import { formatZodError } from '../../schemas/common';
 
 // Forza IPv4 first per evitare ENETUNREACH su host IPv6 dei cluster Supabase
 dns.setDefaultResultOrder('ipv4first');
@@ -37,21 +39,6 @@ function requireAdminAuth(event: any) {
     err.statusCode = 401;
     throw err;
   }
-}
-
-function validatePayload(input: any): string | null {
-  const required = ['glriNumber', 'lodgeName', 'province', 'supabaseUrl', 'supabaseAnonKey', 'supabaseServiceKey', 'databasePassword', 'secretaryEmail'];
-  for (const key of required) {
-    if (!input?.[key]) return `Campo mancante: ${key}`;
-  }
-  if (!/^https:\/\/.+\.supabase\.co$/.test(input.supabaseUrl)) {
-    return 'Supabase URL non valido';
-  }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(input.secretaryEmail)) {
-    return 'Email Segretario non valida';
-  }
-  return null;
 }
 
 async function buildConnectionUrls(supabaseUrl: string, databasePassword: string): Promise<string[]> {
@@ -183,9 +170,13 @@ export const handler: Handler = async (event) => {
     initNetlifyBlobs(event);
 
     const body = event.body ? JSON.parse(event.body) : {};
-    const validationError = validatePayload(body);
-    if (validationError) {
-      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ success: false, error: validationError }) };
+    const parsedBody = createLodgeRequestSchema.safeParse(body);
+    if (!parsedBody.success) {
+      return {
+        statusCode: 400,
+        headers: corsHeaders,
+        body: JSON.stringify({ success: false, error: formatZodError(parsedBody.error) }),
+      };
     }
 
     const {
@@ -202,7 +193,7 @@ export const handler: Handler = async (event) => {
       zipCode,
       city,
       taxCode,
-    } = body as any;
+    } = parsedBody.data;
 
     rollbackSupabaseUrl = supabaseUrl;
     rollbackSupabaseServiceKey = supabaseServiceKey;

@@ -5,13 +5,17 @@ import { PublicLodgeConfig } from '../types/lodge';
 import { faker } from '@faker-js/faker/locale/it';
 import { INITIATION_TERMS } from '../constants';
 import { getCachedSupabaseClient } from '../utils/supabaseClientCache';
+import { memberDataSchema } from '../schemas/member';
+import { appSettingsSchema } from '../schemas/settings';
+import { convocazioneDataSchema, convocazioneSchema } from '../schemas/convocazione';
+import { formatZodError } from '../schemas/common';
 
 type MemberRow = { id: string; data: Member };
 type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_version: number };
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
-  public APP_VERSION = '0.189';
+  public APP_VERSION = '0.190';
   public DB_VERSION = 14;
   public SUPABASE_SCHEMA_VERSION = 2;
 
@@ -331,7 +335,25 @@ class DataService {
     try {
       const { data, error } = await client.from('members').select('id, data');
       if (error) throw new Error(`Failed to load members: ${error.message} (code: ${error.code})`);
-      return (data || []).map((row: MemberRow) => ({ ...row.data, id: row.id }));
+      const invalid: Array<{ id: string; details: string }> = [];
+      const members: Member[] = [];
+      for (const row of data || []) {
+        const r = row as MemberRow;
+        const parsed = memberDataSchema.safeParse(r.data);
+        if (!parsed.success) {
+          invalid.push({ id: r.id, details: formatZodError(parsed.error) });
+          continue;
+        }
+        members.push({ ...(parsed.data as any), id: r.id } as Member);
+      }
+      if (invalid.length) {
+        const preview = invalid
+          .slice(0, 3)
+          .map(x => `- ${x.id}:\n${x.details}`)
+          .join('\n');
+        throw new Error(`Dati membri non validi (${invalid.length}).\n${preview}`);
+      }
+      return members;
     } catch (err: any) {
       console.error('[DataService] getMembers error:', err);
       throw err;
@@ -347,7 +369,13 @@ class DataService {
     try {
       const { data, error } = await client.from('members').select('id, data').eq('id', id).maybeSingle();
       if (error) throw new Error(`Failed to load member ${id}: ${error.message}`);
-      return data ? { ...(data as MemberRow).data, id: (data as MemberRow).id } : undefined;
+      if (!data) return undefined;
+      const row = data as MemberRow;
+      const parsed = memberDataSchema.safeParse(row.data);
+      if (!parsed.success) {
+        throw new Error(`Dati membro non validi (${row.id}).\n${formatZodError(parsed.error)}`);
+      }
+      return { ...(parsed.data as any), id: row.id } as Member;
     } catch (err: any) {
       console.error(`[DataService] getMemberById(${id}) error:`, err);
       throw err;
@@ -394,7 +422,12 @@ class DataService {
     
     // Rimuovi l'id dall'oggetto data per evitare duplicati
     const { id, ...dataWithoutId } = memberToSave;
-    const row = { id, data: { ...dataWithoutId, lastModified } };
+    const dataToPersist = { ...dataWithoutId, lastModified };
+    const parsed = memberDataSchema.safeParse(dataToPersist);
+    if (!parsed.success) {
+      throw new Error(`Impossibile salvare: dati membro non validi.\n${formatZodError(parsed.error)}`);
+    }
+    const row = { id, data: parsed.data };
     
     try {
       const { error } = await client.from('members').upsert(row);
@@ -463,7 +496,12 @@ class DataService {
       dbVersion: this.DB_VERSION,
       userChangelog: row.data.userChangelog || [],
     };
-    return merged;
+    const parsed = appSettingsSchema.safeParse(merged);
+    if (!parsed.success) {
+      console.warn('[DataService] Settings non validi, uso default. Dettagli:', formatZodError(parsed.error));
+      return { lodgeName: '', lodgeNumber: '', province: '', dbVersion: this.DB_VERSION, userChangelog: [] };
+    }
+    return parsed.data as unknown as AppSettings;
   }
 
   async saveSettings(settings: AppSettings): Promise<AppSettings> {
@@ -475,14 +513,19 @@ class DataService {
       userChangelog: (settings.userChangelog || []).slice(-100),
     };
 
+    const parsed = appSettingsSchema.safeParse(settingsToSave);
+    if (!parsed.success) {
+      throw new Error(`Impossibile salvare impostazioni: dati non validi.\n${formatZodError(parsed.error)}`);
+    }
+
     const { error } = await client.from('app_settings').upsert({
       id: 'app',
-      data: settingsToSave,
+      data: parsed.data,
       db_version: this.DB_VERSION,
       schema_version: this.SUPABASE_SCHEMA_VERSION,
     });
     if (error) throw error;
-    return settingsToSave;
+    return parsed.data as unknown as AppSettings;
   }
 
   async getConvocazioniForBranch(branch: BranchType): Promise<Convocazione[]> {
@@ -493,7 +536,24 @@ class DataService {
       .select('id, branch_type, year_start, data')
       .eq('branch_type', branch);
     if (error) throw error;
-    const list = (data || []).map((row: ConvocazioneRow) => ({ ...row.data, id: row.id } as Convocazione));
+    const invalid: Array<{ id: string; details: string }> = [];
+    const list: Convocazione[] = [];
+    for (const rowAny of data || []) {
+      const row = rowAny as ConvocazioneRow;
+      const parsed = convocazioneDataSchema.safeParse(row.data);
+      if (!parsed.success) {
+        invalid.push({ id: row.id, details: formatZodError(parsed.error) });
+        continue;
+      }
+      list.push({ ...parsed.data, id: row.id } as Convocazione);
+    }
+    if (invalid.length) {
+      const preview = invalid
+        .slice(0, 3)
+        .map(x => `- ${x.id}:\n${x.details}`)
+        .join('\n');
+      throw new Error(`Dati convocazioni non validi (${invalid.length}).\n${preview}`);
+    }
     list.sort((a, b) => (a.numeroConvocazione || 0) - (b.numeroConvocazione || 0));
     return list;
   }
@@ -514,11 +574,16 @@ class DataService {
     }
     toSave.updatedAt = now;
 
+    const parsed = convocazioneSchema.safeParse(toSave);
+    if (!parsed.success) {
+      throw new Error(`Impossibile salvare convocazione: dati non validi.\n${formatZodError(parsed.error)}`);
+    }
+
     const row: ConvocazioneRow = {
-      id: toSave.id,
-      branch_type: toSave.branchType,
-      year_start: toSave.yearStart,
-      data: toSave,
+      id: parsed.data.id,
+      branch_type: parsed.data.branchType,
+      year_start: parsed.data.yearStart,
+      data: parsed.data,
     } as ConvocazioneRow;
 
     const { error } = await client.from('convocazioni').upsert(row);
