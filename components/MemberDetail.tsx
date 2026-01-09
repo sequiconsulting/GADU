@@ -46,7 +46,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
   const getRitualForYear = (year: number, branch: BranchType): string => {
     const yearlyRituals = appSettings.yearlyRituals?.[year];
     if (branch === 'CRAFT') return yearlyRituals?.craft || 'Emulation';
-    if (branch === 'MARK' || branch === 'CHAPTER') return yearlyRituals?.markAndArch || 'Irlandese';
+    if (branch === 'MARK' || branch === 'ARCH') return yearlyRituals?.markAndArch || 'Irlandese';
     return '';
   };
 
@@ -124,34 +124,34 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
     }
 
     // 3. Check incompatibility between isMotherLodgeMember and isDualAppartenance
-    (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+    (['craft', 'mark', 'arch', 'ram'] as const).forEach(branchKey => {
       const branchData = mem[branchKey];
       if (branchData.isMotherLodgeMember === true && branchData.isDualAppartenance === true) {
-        const branchLabel = { craft: 'Craft', mark: 'Mark', chapter: 'Chapter', ram: 'RAM' }[branchKey];
+        const branchLabel = { craft: 'Craft', mark: 'Mark', arch: 'Arch', ram: 'RAM' }[branchKey];
         setError(`Incongruenza nel ramo ${branchLabel}: non è possibile essere sia "Appartiene alla Loggia Madre" che "Doppia Appartenenza". Seleziona uno solo.`);
         throw new Error('incompatibility');
       }
     });
 
     // 4. For non-Craft branches, if not Mother Lodge member, loggia name is required
-    (['mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+    (['mark', 'arch', 'ram'] as const).forEach(branchKey => {
       const branchData = mem[branchKey];
       if (branchData.isMotherLodgeMember === false && (!branchData.otherLodgeName || branchData.otherLodgeName.trim() === '')) {
-        const branchLabel = { mark: 'Mark', chapter: 'Chapter', ram: 'RAM' }[branchKey];
+        const branchLabel = { mark: 'Mark', arch: 'Arch', ram: 'RAM' }[branchKey];
         setError(`Nel ramo ${branchLabel}: se non è membro della Loggia Madre, è obbligatorio specificare il nome della loggia di provenienza.`);
         throw new Error('missing-lodge-name');
       }
     });
 
     // 5. Check that active members have at least one degree in that branch
-    (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+    (['craft', 'mark', 'arch', 'ram'] as const).forEach(branchKey => {
       const branchData = mem[branchKey];
       const hasDegrees = branchData.degrees && branchData.degrees.length > 0;
       const hasActiveEvent = branchData.statusEvents && branchData.statusEvents.some(e => e.status === 'ACTIVE');
       
       // Se ci sono eventi ACTIVE, deve esserci almeno un grado
       if (hasActiveEvent && !hasDegrees) {
-        const branchLabel = { craft: 'Craft', mark: 'Mark', chapter: 'Chapter', ram: 'RAM' }[branchKey];
+        const branchLabel = { craft: 'Craft', mark: 'Mark', arch: 'Arch', ram: 'RAM' }[branchKey];
         setError(`Non è possibile salvare un membro con eventi di attivazione nel ramo ${branchLabel} senza almeno un grado massonico. Aggiungi un grado prima di salvare.`);
         throw new Error('no-degrees-while-active');
       }
@@ -196,9 +196,9 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
       if (originalMember.phone !== member.phone) changes.push(`Telefono: ${originalMember.phone} → ${member.phone}`);
       
       // Verificare cambiamenti nei rami
-      const branchNames: { [key: string]: string } = { craft: 'Craft', mark: 'Mark', chapter: 'Chapter', ram: 'RAM' };
+      const branchNames: { [key: string]: string } = { craft: 'Craft', mark: 'Mark', arch: 'Arch', ram: 'RAM' };
       
-      (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+      (['craft', 'mark', 'arch', 'ram'] as const).forEach(branchKey => {
         const origBranch = originalMember[branchKey];
         const newBranch = member[branchKey];
         const branchLabel = branchNames[branchKey];
@@ -296,7 +296,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
 
   const updateBranchData = (branch: BranchType, data: any) => {
     if (!member) return;
-    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
     const currentBranchData = member[branchKey];
     
     // Auto-aggiungi evento ACTIVE quando viene aggiunto il primo grado
@@ -337,7 +337,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
 
   const handleStatusChange = (branch: BranchType, newStatus: StatusType) => {
      if (!member) return;
-     const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+      const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
      const currentData = member[branchKey];
 
      // Add status event with reason and lodge (if applicable)
@@ -370,7 +370,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
 
   const handleProvenanceChange = (branch: BranchType, provenance: 'mother' | 'dual' | 'other') => {
     if (!member) return;
-    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
 
     const updatedMember = { ...member };
 
@@ -408,7 +408,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
     }
     
     // Conferma ricevuta, procedi con la cancellazione
-    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
     const currentData = member[branchKey];
     
     const updatedEvents = currentData.statusEvents.filter((_, idx) => idx !== eventIndex);
@@ -418,7 +418,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
 
   const handleEditStatusEventDate = (branch: BranchType, eventIndex: number) => {
     if (!member) return;
-    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
     const currentData = member[branchKey];
     const event = currentData.statusEvents[eventIndex];
     
@@ -427,7 +427,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
 
   const handleSaveStatusEventDate = () => {
     if (!member || !editingStatusEvent) return;
-    const branchKey = editingStatusEvent.branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+    const branchKey = editingStatusEvent.branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
     const currentData = member[branchKey];
     
     const updatedEvents = currentData.statusEvents.map((evt, idx) => 
@@ -467,7 +467,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
           'Maestro del Marchio': { req: [{ branch: 'CRAFT', name: 'Maestro Muratore' }, { branch: 'MARK', name: 'Uomo del Marchio' }], message: 'Requisiti: Maestro Muratore (Craft) e Uomo del Marchio (Mark)' },
           'Maestro Installato del Marchio': { req: [{ branch: 'CRAFT', name: 'Maestro Installato' }, { branch: 'MARK', name: 'Maestro del Marchio' }], message: 'Requisiti: Maestro Installato (Craft) e Maestro del Marchio (Mark)' },
           "Compagno dell'Arco Reale": { req: [{ branch: 'MARK', name: 'Maestro del Marchio' }], message: 'Requisito: Maestro del Marchio (Mark)' },
-          "Principale dell'Arco Reale": { req: [{ branch: 'CRAFT', name: 'Maestro Installato' }, { branch: 'CHAPTER', name: "Compagno dell'Arco Reale" }], message: "Requisiti: Maestro Installato (Craft) e Compagno dell'Arco Reale (Chapter)" },
+            "Principale dell'Arco Reale": { req: [{ branch: 'CRAFT', name: 'Maestro Installato' }, { branch: 'ARCH', name: "Compagno dell'Arco Reale" }], message: "Requisiti: Maestro Installato (Craft) e Compagno dell'Arco Reale (Arch)" },
           "Marinaio dell'Arca Reale": { req: [{ branch: 'CRAFT', name: 'Maestro Muratore' }], message: 'Requisito: Maestro Muratore (Craft)' },
           "Comandante del RAM": { req: [{ branch: 'CRAFT', name: 'Maestro Installato' }, { branch: 'RAM', name: "Marinaio dell'Arca Reale" }], message: "Requisiti: Maestro Installato (Craft) e Marinaio dell'Arca Reale (RAM)" },
       };
@@ -495,6 +495,13 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
       }
 
       return null;
+  };
+  const formatIsoDateOrNd = (iso: string | undefined | null): string => {
+    if (!iso) return 'n.d.';
+    const s = iso.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return 'n.d.';
+    const [year, month, day] = s.split('-');
+    return `${day}/${month}/${year}`;
   };
 
   if (isLoading || !member) return <div className="p-8 text-center">Caricamento...</div>;
@@ -687,8 +694,8 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                         hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === 'Maestro Installato del Marchio') || false;
                                         defaultTitolo = 'Fr.';
                                         specialTitolo = 'MVM Fr.';
-                                      } else if (branch.type === 'CHAPTER') {
-                                        // Chapter: Principale dell'Arco Reale -> Ecc. Comp. / Ecc.mo Comp.
+                                      } else if (branch.type === 'ARCH') {
+                                        // Arch: Principale dell'Arco Reale -> Ecc. Comp. / Ecc.mo Comp.
                                         hasSpecialDegree = branchData.degrees?.some(d => d.degreeName === "Principale dell'Arco Reale") || false;
                                         defaultTitolo = 'Comp.';
                                         specialTitolo = 'Ecc. Comp.';
@@ -782,8 +789,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                     </div>
                                     {branchData.statusEvents && branchData.statusEvents.length > 0 && (() => {
                                       const lastEvent = [...branchData.statusEvents].reverse()[0];
-                                      const [year, month, day] = lastEvent.date.split('-');
-                                      const formattedDate = `${day}/${month}/${year}`;
+                                      const formattedDate = formatIsoDateOrNd(lastEvent.date);
                                       return (
                                         <div className="text-xs text-slate-500 mt-1">
                                           {lastEvent.reason && <span className="font-medium">{lastEvent.reason}</span>}
@@ -869,11 +875,10 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                   </thead>
                                   <tbody>
                                     {[...branchData.statusEvents]
-                                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                                      .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
                                       .map((event, idx) => {
                                         const originalIdx = branchData.statusEvents.findIndex(e => e === event);
-                                        const [year, month, day] = event.date.split('-');
-                                        const formattedDate = `${day}/${month}/${year}`;
+                                        const formattedDate = formatIsoDateOrNd(event.date);
                                         const isConfirming = deleteConfirmation?.branch === branch.type && deleteConfirmation?.eventIndex === originalIdx;
                                         return (
                                           <React.Fragment key={originalIdx}>

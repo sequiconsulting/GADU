@@ -6,11 +6,11 @@ import { BranchType, UserPrivilege, AppUser } from '../types';
  * - AD = Admin (full access, can manage users)
  * - CR = Craft Read (read-only Craft)
  * - MR = Mark Read (read-only Mark)
- * - AR = Chapter/Ark Read (read-only Chapter)
+ * - AR = Arch Read (read-only Arch)
  * - RR = RAM Read (read-only RAM)
  * - CW = Craft Write (read-write Craft)
  * - MW = Mark Write (read-write Mark)
- * - AW = Chapter/Ark Write (read-write Chapter)
+ * - AW = Arch Write (read-write Arch)
  * - RW = RAM Write (read-write RAM)
  */
 
@@ -32,7 +32,7 @@ export const canReadBranch = (user: AppUser | null, branch: BranchType): boolean
   const readPrivileges: Record<BranchType, UserPrivilege[]> = {
     'CRAFT': ['CR', 'CW'],
     'MARK': ['MR', 'MW'],
-    'CHAPTER': ['AR', 'AW'],
+    'ARCH': ['AR', 'AW'],
     'RAM': ['RR', 'RW'],
   };
 
@@ -49,7 +49,7 @@ export const canWriteBranch = (user: AppUser | null, branch: BranchType): boolea
   const writePrivileges: Record<BranchType, UserPrivilege[]> = {
     'CRAFT': ['CW'],
     'MARK': ['MW'],
-    'CHAPTER': ['AW'],
+    'ARCH': ['AW'],
     'RAM': ['RW'],
   };
 
@@ -61,12 +61,12 @@ export const canWriteBranch = (user: AppUser | null, branch: BranchType): boolea
  */
 export const getReadableBranches = (user: AppUser | null): BranchType[] => {
   if (!user) return [];
-  if (user.privileges.includes('AD')) return ['CRAFT', 'MARK', 'CHAPTER', 'RAM'];
+  if (user.privileges.includes('AD')) return ['CRAFT', 'MARK', 'ARCH', 'RAM'];
 
   const branches: BranchType[] = [];
   if (user.privileges.some(p => ['CR', 'CW'].includes(p))) branches.push('CRAFT');
   if (user.privileges.some(p => ['MR', 'MW'].includes(p))) branches.push('MARK');
-  if (user.privileges.some(p => ['AR', 'AW'].includes(p))) branches.push('CHAPTER');
+  if (user.privileges.some(p => ['AR', 'AW'].includes(p))) branches.push('ARCH');
   if (user.privileges.some(p => ['RR', 'RW'].includes(p))) branches.push('RAM');
 
   return branches;
@@ -77,12 +77,12 @@ export const getReadableBranches = (user: AppUser | null): BranchType[] => {
  */
 export const getWritableBranches = (user: AppUser | null): BranchType[] => {
   if (!user) return [];
-  if (user.privileges.includes('AD')) return ['CRAFT', 'MARK', 'CHAPTER', 'RAM'];
+  if (user.privileges.includes('AD')) return ['CRAFT', 'MARK', 'ARCH', 'RAM'];
 
   const branches: BranchType[] = [];
   if (user.privileges.includes('CW')) branches.push('CRAFT');
   if (user.privileges.includes('MW')) branches.push('MARK');
-  if (user.privileges.includes('AW')) branches.push('CHAPTER');
+  if (user.privileges.includes('AW')) branches.push('ARCH');
   if (user.privileges.includes('RW')) branches.push('RAM');
 
   return branches;

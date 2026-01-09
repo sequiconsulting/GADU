@@ -20,7 +20,7 @@ export const RoleEditor: React.FC<RoleEditorProps> = ({ roles, branch, onChange,
     if (branch === 'RAM') return 'RAM';
     const yearlyRituals = appSettings?.yearlyRituals?.[year];
     if (branch === 'CRAFT') return yearlyRituals?.craft || 'Emulation';
-    if (branch === 'MARK' || branch === 'CHAPTER') return yearlyRituals?.markAndArch || 'Irlandese';
+    if (branch === 'MARK' || branch === 'ARCH') return yearlyRituals?.markAndArch || 'Irlandese';
     return 'N/A';
   };
   

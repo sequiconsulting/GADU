@@ -28,9 +28,9 @@ export const CAPITAZIONE_DEFAULT = 'Ordinaria';
 //   - Emulation: DEGREES_CRAFT_EMULATION (default, 4 gradi)
 //   - Scozzese: DEGREES_CRAFT_SCOZZESE (4 gradi)
 //
-// MARK & CHAPTER BRANCHES:
-//   - Irlandese: DEGREES_MARK_IRLANDESE, DEGREES_CHAPTER_IRLANDESE (default)
-//   - Aldersgate: DEGREES_MARK_ALDERSGATE, DEGREES_CHAPTER_ALDERSGATE
+// MARK & ARCH BRANCHES:
+//   - Irlandese: DEGREES_MARK_IRLANDESE, DEGREES_ARCH_IRLANDESE (default)
+//   - Aldersgate: DEGREES_MARK_ALDERSGATE, DEGREES_ARCH_ALDERSGATE
 //
 // RAM BRANCH:
 //   - No ritual variants: DEGREES_RAM (fixed, 2 gradi)
@@ -45,7 +45,7 @@ export const CAPITAZIONE_DEFAULT = 'Ordinaria';
 export const INITIATION_TERMS: Record<BranchType, string> = {
   CRAFT: 'Iniziazione',
   MARK: 'Avanzamento',
-  CHAPTER: 'Esaltazione',
+  ARCH: 'Esaltazione',
   RAM: 'Elevazione'
 };
 
@@ -54,13 +54,13 @@ export const STATUS_REASONS = {
   ACTIVATION: {
     CRAFT: ['Iniziazione', 'Riammissione', 'Regolarizzazione', 'Trasferimento Italia', 'Trasferimento Estero'],
     MARK: ['Avanzamento', 'Riammissione', 'Regolarizzazione', 'Trasferimento Italia', 'Trasferimento Estero'],
-    CHAPTER: ['Esaltazione', 'Riammissione', 'Regolarizzazione', 'Trasferimento Italia', 'Trasferimento Estero'],
+    ARCH: ['Esaltazione', 'Riammissione', 'Regolarizzazione', 'Trasferimento Italia', 'Trasferimento Estero'],
     RAM: ['Elevazione', 'Riammissione', 'Regolarizzazione', 'Trasferimento Italia', 'Trasferimento Estero']
   },
   DEACTIVATION: {
     CRAFT: ['Dimissioni', 'Oriente Eterno', 'Depennamento', 'Trasferimento Italia', 'Trasferimento Estero'],
     MARK: ['Dimissioni', 'Oriente Eterno', 'Depennamento', 'Trasferimento Italia', 'Trasferimento Estero'],
-    CHAPTER: ['Dimissioni', 'Oriente Eterno', 'Depennamento', 'Trasferimento Italia', 'Trasferimento Estero'],
+    ARCH: ['Dimissioni', 'Oriente Eterno', 'Depennamento', 'Trasferimento Italia', 'Trasferimento Estero'],
     RAM: ['Dimissioni', 'Oriente Eterno', 'Depennamento', 'Trasferimento Italia', 'Trasferimento Estero']
   }
 };
@@ -95,14 +95,14 @@ export const DEGREES_MARK_ALDERSGATE = [
   { name: 'Maestro Aldersgate', abbreviation: 'MA' },
 ];
 
-// Irlandese (Irish) variant for Chapter - DEFAULT
-export const DEGREES_CHAPTER_IRLANDESE = [
+// Irlandese (Irish) variant for Arch - DEFAULT
+export const DEGREES_ARCH_IRLANDESE = [
   { name: "Compagno dell'Arco Reale", abbreviation: 'CAR' },
   { name: "Principale dell'Arco Reale", abbreviation: 'PAR' },
 ];
 
-// Aldersgate variant for Chapter
-export const DEGREES_CHAPTER_ALDERSGATE = [
+// Aldersgate variant for Arch
+export const DEGREES_ARCH_ALDERSGATE = [
   { name: "Compagno dell'Arco Reale", abbreviation: 'CAR' },
   { name: "Principale Aldersgate", abbreviation: 'PA' },
 ];
@@ -129,11 +129,11 @@ export const BRANCHES: { type: BranchType; label: string; shortLabel: string; co
     degreeLabels: DEGREES_MARK_IRLANDESE.map(d => d.name)
   },
   {
-    type: 'CHAPTER',
+    type: 'ARCH',
     label: 'Arco Reale',
-    shortLabel: 'Arco',
+    shortLabel: 'Arch',
     color: 'bg-masonic-red',
-    degreeLabels: DEGREES_CHAPTER_IRLANDESE.map(d => d.name)
+    degreeLabels: DEGREES_ARCH_IRLANDESE.map(d => d.name)
   },
   {
     type: 'RAM',
@@ -226,8 +226,8 @@ export const MARCHIO_ALDERSGATE_ROLES = [
   'Ospitaliere'
 ];
 
-// CAPITOLO IRLANDESE - Default
-export const CAPITOLO_IRLANDESE_ROLES = [
+// ARCH (ARCO REALE) IRLANDESE - Default
+export const ARCH_IRLANDESE_ROLES = [
   'Re Eccellente',
   'Sommo Sacerdote',
   'Primo Scriba',
@@ -242,12 +242,12 @@ export const CAPITOLO_IRLANDESE_ROLES = [
   'Janitor'
 ];
 
-// CAPITOLO ALDERSGATE
-export const CAPITOLO_ALDERSGATE_ROLES = [
+// ARCH (ARCO REALE) ALDERSGATE
+export const ARCH_ALDERSGATE_ROLES = [
   'Primo Principale',
   'Secondo Principale',
   'Terzo Principale',
-  'Scrivano del Capitolo',
+  "Scrivano dell'Arco Reale",
   'Tesoriere',
   'Maestro delle Cerimonie',
   'Maestro del Velo',
@@ -276,8 +276,8 @@ export const getDegreesByRitual = (branch: BranchType, ritual: string): { name: 
   if (branch === 'MARK') {
     return ritual === 'Aldersgate' ? DEGREES_MARK_ALDERSGATE : DEGREES_MARK_IRLANDESE;
   }
-  if (branch === 'CHAPTER') {
-    return ritual === 'Aldersgate' ? DEGREES_CHAPTER_ALDERSGATE : DEGREES_CHAPTER_IRLANDESE;
+  if (branch === 'ARCH') {
+    return ritual === 'Aldersgate' ? DEGREES_ARCH_ALDERSGATE : DEGREES_ARCH_IRLANDESE;
   }
   if (branch === 'RAM') {
     return DEGREES_RAM;
@@ -293,8 +293,8 @@ export const getRolesForRitual = (branch: BranchType, ritual: string): string[] 
   if (branch === 'MARK') {
     return ritual === 'Aldersgate' ? MARCHIO_ALDERSGATE_ROLES : MARCHIO_IRLANDESE_ROLES;
   }
-  if (branch === 'CHAPTER') {
-    return ritual === 'Aldersgate' ? CAPITOLO_ALDERSGATE_ROLES : CAPITOLO_IRLANDESE_ROLES;
+  if (branch === 'ARCH') {
+    return ritual === 'Aldersgate' ? ARCH_ALDERSGATE_ROLES : ARCH_IRLANDESE_ROLES;
   }
   if (branch === 'RAM') {
     return RAM_ROLES;
@@ -348,8 +348,8 @@ export const getDegreeAbbreviation = (degreeName: string): string => {
       DEGREES_CRAFT_SCOZZESE,
       DEGREES_MARK_IRLANDESE,
       DEGREES_MARK_ALDERSGATE,
-      DEGREES_CHAPTER_IRLANDESE,
-      DEGREES_CHAPTER_ALDERSGATE,
+      DEGREES_ARCH_IRLANDESE,
+      DEGREES_ARCH_ALDERSGATE,
       DEGREES_RAM,
     ];
     

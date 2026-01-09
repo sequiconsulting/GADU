@@ -407,7 +407,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                             {[
                               { label: 'Craft', r: 'CR', w: 'CW' },
                               { label: 'Mark', r: 'MR', w: 'MW' },
-                              { label: 'Chapter', r: 'AR', w: 'AW' },
+                              { label: 'Arch', r: 'AR', w: 'AW' },
                               { label: 'RAM', r: 'RR', w: 'RW' }
                             ].map(({ label, r, w }) => (
                               <div key={label} className="flex flex-col gap-1 border border-slate-200 p-2 rounded">

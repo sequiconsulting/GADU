@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Member, BranchType, AppSettings } from '../types';
-import { BRANCHES, calculateMasonicYearString, getRolesForRitual, CRAFT_EMULATION_ROLES, CRAFT_SCOZZESE_ROLES, MARCHIO_IRLANDESE_ROLES, MARCHIO_ALDERSGATE_ROLES, CAPITOLO_IRLANDESE_ROLES, CAPITOLO_ALDERSGATE_ROLES, RAM_ROLES } from '../constants';
+import { BRANCHES, calculateMasonicYearString, getRolesForRitual, CRAFT_EMULATION_ROLES, CRAFT_SCOZZESE_ROLES, MARCHIO_IRLANDESE_ROLES, MARCHIO_ALDERSGATE_ROLES, ARCH_IRLANDESE_ROLES, ARCH_ALDERSGATE_ROLES, RAM_ROLES } from '../constants';
 import { Printer } from 'lucide-react';
 
 interface RolesHistoryProps {
@@ -17,13 +17,13 @@ export const RolesHistory: React.FC<RolesHistoryProps> = ({ members, selectedYea
       // Default rituals
       if (branch === 'CRAFT') return 'Emulation';
       if (branch === 'MARK') return 'Irlandese';
-      if (branch === 'CHAPTER') return 'Irlandese';
+      if (branch === 'ARCH') return 'Irlandese';
       return '';
     }
     const ritual = appSettings.yearlyRituals[year];
     if (branch === 'CRAFT') return ritual.craft || 'Emulation';
     if (branch === 'MARK') return ritual.markAndArch || 'Irlandese';
-    if (branch === 'CHAPTER') return ritual.markAndArch || 'Irlandese';
+    if (branch === 'ARCH') return ritual.markAndArch || 'Irlandese';
     return '';
   };
 
@@ -49,7 +49,7 @@ export const RolesHistory: React.FC<RolesHistoryProps> = ({ members, selectedYea
   };
 
   const getRolesByYear = (branch: BranchType, year: number) => {
-    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+    const branchKey = branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
     const rolesMap = new Map<string, string[]>();
 
     members.forEach(member => {

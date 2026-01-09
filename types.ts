@@ -1,5 +1,5 @@
 
-export type BranchType = 'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM';
+export type BranchType = 'CRAFT' | 'MARK' | 'ARCH' | 'RAM';
 export type StatusType = 'ACTIVE' | 'INACTIVE';
 
 // Supabase Authentication & Authorization (prepared, disabled by default)
@@ -39,7 +39,7 @@ export interface SupabaseAuthUser {
 
 export interface DegreeEvent {
   degreeName: string;
-  date: string; // ISO string YYYY-MM-DD
+  date?: string; // ISO string YYYY-MM-DD
   meetingNumber: string;
   location?: string;
 }
@@ -111,7 +111,7 @@ export interface Member {
   // Branch specific data
   craft: MasonicBranchData;
   mark: MasonicBranchData;
-  chapter: MasonicBranchData;
+  arch: MasonicBranchData;
   ram: MasonicBranchData;
   
   // Changelog
@@ -185,13 +185,13 @@ export interface AppSettings {
   // Note: Users are now stored in Supabase Auth user_metadata, not here
   userChangelog?: UserChangeLogEntry[];
   // Branch preferences (casa massonica, motto, logos)
-  branchPreferences?: Record<'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM', BranchPreferences>;
+  branchPreferences?: Record<'CRAFT' | 'MARK' | 'ARCH' | 'RAM', BranchPreferences>;
 }
 
 export interface DashboardStats {
   totalMembers: number;
   craftMembers: number;
   markMembers: number;
-  chapterMembers: number;
+  archMembers: number;
   ramMembers: number;
 }

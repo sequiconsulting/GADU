@@ -52,7 +52,7 @@ export const appSettingsSchema = z
     userChangelog: z.array(userChangeLogEntrySchema).optional(),
 
     branchPreferences: z
-      .record(z.enum(['CRAFT', 'MARK', 'CHAPTER', 'RAM']), branchPreferencesSchema)
+      .record(z.enum(['CRAFT', 'MARK', 'ARCH', 'RAM']), branchPreferencesSchema)
       .optional(),
   })
   .passthrough();

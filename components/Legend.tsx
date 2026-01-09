@@ -1,13 +1,13 @@
 
 import React from 'react';
 import { Shield, BookOpen } from 'lucide-react';
-import { BRANCHES, DEGREES_CRAFT_EMULATION, DEGREES_CRAFT_SCOZZESE, DEGREES_MARK_IRLANDESE, DEGREES_MARK_ALDERSGATE, DEGREES_CHAPTER_IRLANDESE, DEGREES_CHAPTER_ALDERSGATE, DEGREES_RAM } from '../constants';
+import { BRANCHES, DEGREES_CRAFT_EMULATION, DEGREES_CRAFT_SCOZZESE, DEGREES_MARK_IRLANDESE, DEGREES_MARK_ALDERSGATE, DEGREES_ARCH_IRLANDESE, DEGREES_ARCH_ALDERSGATE, DEGREES_RAM } from '../constants';
 
 export const Legend: React.FC = () => {
     const degreesByBranch = {
       CRAFT: DEGREES_CRAFT_EMULATION,
       MARK: DEGREES_MARK_IRLANDESE,
-      CHAPTER: DEGREES_CHAPTER_IRLANDESE,
+            ARCH: DEGREES_ARCH_IRLANDESE,
       RAM: DEGREES_RAM
     };
 
@@ -16,8 +16,8 @@ export const Legend: React.FC = () => {
       ...DEGREES_CRAFT_SCOZZESE,
       ...DEGREES_MARK_IRLANDESE,
       ...DEGREES_MARK_ALDERSGATE,
-      ...DEGREES_CHAPTER_IRLANDESE,
-      ...DEGREES_CHAPTER_ALDERSGATE,
+            ...DEGREES_ARCH_IRLANDESE,
+            ...DEGREES_ARCH_ALDERSGATE,
       ...DEGREES_RAM
     ].filter((d, i, arr) => arr.findIndex(x => x.name === d.name) === i);
 

@@ -16,14 +16,16 @@ type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_v
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
-  public APP_VERSION = '0.196';
-  public DB_VERSION = 14;
+  public APP_VERSION = '0.201';
+  public DB_VERSION = 16;
   public SUPABASE_SCHEMA_VERSION = 2;
 
   private supabase: SupabaseClient | null = null;
   private initPromise: Promise<void> | null = null;
   private currentLodgeConfig: PublicLodgeConfig | null = null;
   private useServiceKey = false;
+  private schemaEnsured = false;
+  private schemaEnsurePromise: Promise<void> | null = null;
 
   constructor() {
     // Non auto-inizializzare - aspettare initializeLodge()
@@ -43,9 +45,12 @@ class DataService {
     
     // Usa client cachato per evitare istanze multiple
     this.supabase = getCachedSupabaseClient(config.supabaseUrl, apiKey);
+
+    this.schemaEnsured = false;
+    this.schemaEnsurePromise = null;
     
     // Re-init promise
-    this.initPromise = this.ensureSchemaAndSeed();
+    this.initPromise = this.ensureSchemaEnsured();
   }
 
   public getCurrentLodgeConfig(): PublicLodgeConfig | null {
@@ -61,7 +66,23 @@ class DataService {
 
   private async ensureInitialized(): Promise<void> {
     // Schema check fatto in ensureSchemaAndSeed dopo initializeLodge
-    await this.ensureSchemaAndSeed();
+    await this.ensureSchemaEnsured();
+  }
+
+  private async ensureSchemaEnsured(): Promise<void> {
+    if (this.schemaEnsured) return;
+    if (this.schemaEnsurePromise) return this.schemaEnsurePromise;
+
+    this.schemaEnsurePromise = (async () => {
+      const didEnsure = await this.ensureSchemaAndSeed();
+      if (didEnsure) {
+        this.schemaEnsured = true;
+      }
+    })().finally(() => {
+      this.schemaEnsurePromise = null;
+    });
+
+    return this.schemaEnsurePromise;
   }
 
   private mapSchemaError(error: any): never {
@@ -104,7 +125,7 @@ class DataService {
     console.log('[SECURITY] Skip applySecurityPolicies on client (anon key). Configure RLS via SQL/backend with service key.');
   }
 
-  private async ensureSchemaAndSeed(): Promise<void> {
+  private async ensureSchemaAndSeed(): Promise<boolean> {
     const client = this.ensureSupabaseClient();
 
     // Con anon key serve una sessione autenticata prima di toccare le tabelle protette da RLS
@@ -113,7 +134,7 @@ class DataService {
       const hasSession = Boolean(auth.session?.access_token);
       if (!hasSession) {
         console.log('[Schema] Skip ensureSchemaAndSeed: nessuna sessione attiva (anon key). Attendo login.');
-        return;
+        return false;
       }
     }
 
@@ -146,6 +167,12 @@ class DataService {
         province: 'MI',
         dbVersion: this.DB_VERSION,
         userChangelog: [],
+        branchPreferences: {
+          CRAFT: {},
+          MARK: {},
+          ARCH: {},
+          RAM: {},
+        },
       };
       await client.from('app_settings').insert({
         id: 'app',
@@ -166,6 +193,7 @@ class DataService {
     }
 
     // Auto-seed rimosso - ora si usa il bottone manuale in AdminPanel
+    return true;
   }
 
   public buildDemoMembers(): MemberData[] {
@@ -255,9 +283,9 @@ class DataService {
         }];
       }
 
-      // Mark, Chapter, RAM - TUTTI INATTIVI
+      // Mark, Arch, RAM - TUTTI INATTIVI
       const mark = inactiveBranchTemplate();
-      const chapter = inactiveBranchTemplate();
+      const arch = inactiveBranchTemplate();
       const ram = inactiveBranchTemplate();
 
       members.push({
@@ -269,7 +297,7 @@ class DataService {
         phone,
         craft,
         mark,
-        chapter,
+        arch,
         ram,
         changelog: [],
       });
@@ -317,7 +345,7 @@ class DataService {
       makeConvocazione('CRAFT', 1, 7, 'Milano', 'Lavori rituali e pianificazione lavori di loggia.'),
       makeConvocazione('CRAFT', 2, 35, 'Milano', 'Esaltazione candidati e revisione bilancio.'),
       makeConvocazione('MARK', 1, 14, 'Torino', 'Installazione ufficiali e programmazione grado Mark.'),
-      makeConvocazione('CHAPTER', 1, 21, 'Bologna', 'Capitolo ordinario con discussione studi simbolici.'),
+      makeConvocazione('ARCH', 1, 21, 'Bologna', 'Arco Reale ordinario con discussione studi simbolici.'),
       makeConvocazione('RAM', 1, 28, 'Genova', 'Lavori rituali RAM e assegnazione incarichi.'),
     ];
   }
@@ -327,6 +355,9 @@ class DataService {
       throw new Error('DataService not initialized. Call initializeLodge() first.');
     }
     await this.initPromise;
+    // In modalità anon key la prima ensure può essere stata skip (nessuna sessione).
+    // Dopo login, assicura schema/settings una sola volta.
+    await this.ensureSchemaEnsured();
   }
 
   async getMembers(): Promise<Member[]> {
@@ -411,15 +442,15 @@ class DataService {
     memberToSave.phone = normalizeRequiredString(memberToSave.phone);
     
     // Normalize branch data
-    (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+    (['craft', 'mark', 'arch', 'ram'] as const).forEach(branchKey => {
       const branchData = memberToSave[branchKey];
       branchData.otherLodgeName = normalizeOptionalString(branchData.otherLodgeName);
       
       // Sort statusEvents by date (chronological order)
       branchData.statusEvents = [...branchData.statusEvents].sort((a, b) => {
-        const dateA = new Date(a.date).getTime();
-        const dateB = new Date(b.date).getTime();
-        return dateA - dateB;
+        const dateA = (a.date ?? '').toString();
+        const dateB = (b.date ?? '').toString();
+        return dateA.localeCompare(dateB);
       });
     });
     
@@ -461,7 +492,7 @@ class DataService {
         const updated = { ...m };
         
         // Remove roles held by this member from all branches
-        (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+        (['craft', 'mark', 'arch', 'ram'] as const).forEach(branchKey => {
           const branchData = updated[branchKey];
           const filteredRoles = branchData.roles.filter((r: any) => {
             // Keep role if it's not held by this member, or it doesn't exist
@@ -491,19 +522,72 @@ class DataService {
     const { data, error } = await client.from('app_settings').select('data, db_version, schema_version').eq('id', 'app').maybeSingle();
     if (error) throw error;
     const row = data as SettingsRow | null;
-    if (!row) {
-      return { lodgeName: '', lodgeNumber: '', province: '', dbVersion: this.DB_VERSION, userChangelog: [] };
-    }
-    const merged: AppSettings = {
-      ...row.data,
-      dbVersion: this.DB_VERSION,
-      userChangelog: row.data.userChangelog || [],
+
+    const defaultBranchPreferences: NonNullable<AppSettings['branchPreferences']> = {
+      CRAFT: {},
+      MARK: {},
+      ARCH: {},
+      RAM: {},
     };
-    const parsed = appSettingsSchema.safeParse(merged);
-    if (!parsed.success) {
-      console.warn('[DataService] Settings non validi, uso default. Dettagli:', formatZodError(parsed.error));
-      return { lodgeName: '', lodgeNumber: '', province: '', dbVersion: this.DB_VERSION, userChangelog: [] };
+    const defaultSettings: AppSettings = {
+      lodgeName: '',
+      lodgeNumber: '',
+      province: '',
+      dbVersion: this.DB_VERSION,
+      userChangelog: [],
+      branchPreferences: defaultBranchPreferences,
+    };
+
+    if (!row) {
+      return defaultSettings;
     }
+
+    const raw: any = row.data || {};
+    const rawBranchPreferences: any = raw.branchPreferences;
+
+    const normalizedBranchPreferences: NonNullable<AppSettings['branchPreferences']> = {
+      CRAFT:
+        rawBranchPreferences && typeof rawBranchPreferences === 'object' && rawBranchPreferences.CRAFT && typeof rawBranchPreferences.CRAFT === 'object'
+          ? rawBranchPreferences.CRAFT
+          : {},
+      MARK:
+        rawBranchPreferences && typeof rawBranchPreferences === 'object' && rawBranchPreferences.MARK && typeof rawBranchPreferences.MARK === 'object'
+          ? rawBranchPreferences.MARK
+          : {},
+      ARCH:
+        rawBranchPreferences && typeof rawBranchPreferences === 'object' && rawBranchPreferences.ARCH && typeof rawBranchPreferences.ARCH === 'object'
+          ? rawBranchPreferences.ARCH
+          : {},
+      RAM:
+        rawBranchPreferences && typeof rawBranchPreferences === 'object' && rawBranchPreferences.RAM && typeof rawBranchPreferences.RAM === 'object'
+          ? rawBranchPreferences.RAM
+          : {},
+    };
+
+    const candidate: AppSettings = {
+      ...defaultSettings,
+      ...raw,
+      dbVersion: this.DB_VERSION,
+      userChangelog: Array.isArray(raw.userChangelog) ? raw.userChangelog : [],
+      branchPreferences: normalizedBranchPreferences,
+    };
+
+    const parsed = appSettingsSchema.safeParse(candidate);
+    if (!parsed.success) {
+      throw new Error(`Impossibile caricare impostazioni: dati non validi.\n${formatZodError(parsed.error)}`);
+    }
+
+    const shouldPersist = JSON.stringify(raw.branchPreferences) !== JSON.stringify(normalizedBranchPreferences);
+    if (shouldPersist) {
+      const { error: upsertError } = await client.from('app_settings').upsert({
+        id: 'app',
+        data: parsed.data,
+        db_version: this.DB_VERSION,
+        schema_version: this.SUPABASE_SCHEMA_VERSION,
+      });
+      if (upsertError) throw upsertError;
+    }
+
     return parsed.data as unknown as AppSettings;
   }
 
@@ -643,7 +727,7 @@ class DataService {
       phone: '',
       craft: createBranchData(),
       mark: createBranchData(),
-      chapter: createBranchData(),
+      arch: createBranchData(),
       ram: createBranchData(),
       changelog: [],
     };
@@ -656,7 +740,7 @@ class DataService {
     const cleaned = members.map(member => {
       const cleaned = { ...member };
 
-      (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
+      (['craft', 'mark', 'arch', 'ram'] as const).forEach(branchKey => {
         const branch = cleaned[branchKey];
         if (!branch || !branch.statusEvents) return;
 

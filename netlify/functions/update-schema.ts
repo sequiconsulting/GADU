@@ -91,7 +91,7 @@ import { initNetlifyBlobs, loadRegistry } from './shared/registry';
 import postgres from 'postgres';
 import { join } from 'path';
 
-const DB_VERSION = 14;
+const DB_VERSION = 16;
 
 // Database schema migrations (incremental changes only, not baseline)
 const DB_MIGRATIONS: Record<number, string> = {
@@ -99,6 +99,16 @@ const DB_MIGRATIONS: Record<number, string> = {
   13: `
     ALTER TABLE public.app_settings
       ALTER COLUMN updated_at SET DEFAULT now();
+  `,
+
+  // v14 -> v15: cambio formato JSON (no DDL). Migrazione no-op ma tracciata.
+  14: `
+    SELECT 1;
+  `,
+
+  // v15 -> v16: rename ramo Arch (solo shape JSON lato app). Migrazione no-op ma tracciata.
+  15: `
+    SELECT 1;
   `
 };
 

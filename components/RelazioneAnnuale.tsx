@@ -10,7 +10,7 @@ interface RelazioneAnnualeProps {
   settings: AppSettings;
 }
 
-type BranchKey = 'craft' | 'mark' | 'chapter' | 'ram';
+type BranchKey = 'craft' | 'mark' | 'arch' | 'ram';
 
 type MemberBranchContext = {
   member: Member;
@@ -43,7 +43,7 @@ interface BranchReport {
 const branchKeys: Record<BranchType, BranchKey> = {
   CRAFT: 'craft',
   MARK: 'mark',
-  CHAPTER: 'chapter',
+  ARCH: 'arch',
   RAM: 'ram',
 };
 
@@ -80,15 +80,15 @@ const branchReportConfig: Record<BranchType, {
     foreignAffiliationLabel: 'Affiliazioni da Logge Estere',
     doubleAffiliationLabel: 'Affiliazioni in Doppia Appartenenza',
   },
-  CHAPTER: {
-    introLabel: 'Capitolo',
+  ARCH: {
+    introLabel: 'Arco Reale',
     memberPlural: 'Compagni',
     primaryActivationLabel: 'Esaltazioni',
     primaryActivationReason: 'Esaltazione per primo',
-    transferInLabel: 'Trasferimenti da altri Capitoli',
-    transferOutLabel: 'Trasferimenti ad altri Capitoli',
+    transferInLabel: 'Trasferimenti da altri Corpi dell\'Arco Reale',
+    transferOutLabel: 'Trasferimenti ad altri Corpi dell\'Arco Reale',
     reAdmissionLabel: 'Riammissioni',
-    foreignAffiliationLabel: 'Affiliazioni da Capitoli Stranieri',
+    foreignAffiliationLabel: 'Affiliazioni da Corpi dell\'Arco Reale Stranieri',
     doubleAffiliationLabel: 'Affiliazioni in Doppia Appartenenza',
   },
   RAM: {

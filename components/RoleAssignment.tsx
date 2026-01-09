@@ -23,7 +23,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
     if (branch === 'RAM') return 'RAM';
     const yearlyRituals = settings?.yearlyRituals?.[year];
     if (branch === 'CRAFT') return yearlyRituals?.craft || 'Emulation';
-    if (branch === 'MARK' || branch === 'CHAPTER') return yearlyRituals?.markAndArch || 'Irlandese';
+    if (branch === 'MARK' || branch === 'ARCH') return yearlyRituals?.markAndArch || 'Irlandese';
     return 'Irlandese';
   };
 
@@ -44,13 +44,13 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
       }
       if (activeBranch === 'CRAFT') {
         updatedRituals[selectedYear].craft = newRitual as any;
-      } else if (activeBranch === 'MARK' || activeBranch === 'CHAPTER') {
+      } else if (activeBranch === 'MARK' || activeBranch === 'ARCH') {
         updatedRituals[selectedYear].markAndArch = newRitual as any;
       }
       
       // Prepare members with roles deleted for this branch/year
       const updatedMembers = members.map(member => {
-        const branchKey = activeBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+        const branchKey = activeBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
         const branchData = member[branchKey];
         const filteredRoles = branchData.roles.filter((r: any) => !(r.yearStart === selectedYear && r.branch === activeBranch));
         return {
@@ -96,7 +96,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
 
   const getMemberForRole = (year: number, branch: BranchType, roleName: string): Member | undefined => {
     return members.find(member => {
-      const branchData = member[branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>] as any;
+      const branchData = member[branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>] as any;
       return branchData?.roles?.some((r: any) => r.yearStart === year && r.roleName === roleName && r.branch === branch);
     });
   };
@@ -107,7 +107,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
       const currentHolder = getMemberForRole(selectedYear, activeBranch, roleName);
       if (currentHolder) {
         if (currentHolder.id === memberId) { setLoading(false); return; }
-        const branchKey = activeBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+        const branchKey = activeBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
         const updatedRoles = currentHolder[branchKey].roles.filter(r => 
             !(r.yearStart === selectedYear && r.roleName === roleName && r.branch === activeBranch)
         );
@@ -118,7 +118,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
       if (memberId) {
         const newHolder = members.find(m => m.id === memberId);
         if (newHolder) {
-            const branchKey = activeBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+            const branchKey = activeBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
             const newRoleEntry = { id: crypto.randomUUID ? crypto.randomUUID() : `role_${Date.now()}_${Math.random()}`, yearStart: selectedYear, roleName: roleName, branch: activeBranch };
             const updatedRoles = [...newHolder[branchKey].roles, newRoleEntry];
             const updatedMember = { ...newHolder, [branchKey]: { ...newHolder[branchKey], roles: updatedRoles } };
@@ -138,7 +138,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
   // Filter members: Must be active in the specific year to hold office AND have at least one degree in that branch
   const eligibleMembers = members
     .filter(m => {
-        const branchLower = activeBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+        const branchLower = activeBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
         const branchData = m[branchLower] as any;
         const isActive = isMemberActiveInYear(branchData, selectedYear);
         const hasDegree = branchData.degrees && branchData.degrees.length > 0;
@@ -161,7 +161,7 @@ export const RoleAssignment: React.FC<RoleAssignmentProps> = ({ members, selecte
       </div>
       
       {/* Ritual Selector */}
-      {(activeBranch === 'CRAFT' || activeBranch === 'MARK' || activeBranch === 'CHAPTER') && (
+      {(activeBranch === 'CRAFT' || activeBranch === 'MARK' || activeBranch === 'ARCH') && (
         <div className="bg-slate-50 border-b border-slate-200 p-4 flex items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-slate-700">Rituale {selectedYear}-{selectedYear+1}:</span>

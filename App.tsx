@@ -371,13 +371,13 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     
     if (filterBranch === 'INACTIVE_YEAR_ALL') {
         const isActiveAnywhere = BRANCHES.some(b => {
-             const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+               const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
              return isMemberActiveInYear(m[branchKey], selectedYear);
         });
         if (isActiveAnywhere) return false;
 
         const hasHistory = BRANCHES.some(b => {
-            const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+            const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
             return (m[branchKey]?.degrees?.length > 0) || (m[branchKey]?.statusEvents?.length > 0);
         });
         return hasHistory;
@@ -386,13 +386,13 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     if (filterBranch === 'INACTIVE_TOTAL_ALL') {
         const currentRealYear = new Date().getFullYear();
         const isActiveNow = BRANCHES.some(b => {
-             const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+               const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
              return isMemberActiveInYear(m[branchKey], currentRealYear);
         });
         if (isActiveNow) return false;
 
         const hasHistory = BRANCHES.some(b => {
-            const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+            const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
             return (m[branchKey]?.degrees?.length > 0) || (m[branchKey]?.statusEvents?.length > 0);
         });
         return hasHistory;
@@ -401,8 +401,8 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     if (filterBranch === 'CRAFT_ONLY_NO_MARK') {
         return isMemberActiveInYear(m.craft, selectedYear) && !isMemberActiveInYear(m.mark, selectedYear);
     }
-    if (filterBranch === 'CRAFT_ONLY_NO_CHAPTER') {
-        return isMemberActiveInYear(m.craft, selectedYear) && !isMemberActiveInYear(m.chapter, selectedYear);
+    if (filterBranch === 'CRAFT_ONLY_NO_ARCH') {
+      return isMemberActiveInYear(m.craft, selectedYear) && !isMemberActiveInYear(m.arch, selectedYear);
     }
     if (filterBranch === 'CRAFT_ONLY_NO_RAM') {
         return isMemberActiveInYear(m.craft, selectedYear) && !isMemberActiveInYear(m.ram, selectedYear);
@@ -410,12 +410,12 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
 
     if (filterBranch === 'ALL') {
         return BRANCHES.some(b => {
-             const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+             const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
              return isMemberActiveInYear(m[branchKey], selectedYear);
         });
     }
     
-    const branchKey = filterBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+    const branchKey = filterBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
     return isMemberActiveInYear(m[branchKey], selectedYear);
   }).sort((a, b) => a.lastName.localeCompare(b.lastName));
 
@@ -423,7 +423,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     total: members.length,
     craft: members.filter(m => isMemberActiveInYear(m.craft, selectedYear)).length,
     mark: members.filter(m => isMemberActiveInYear(m.mark, selectedYear)).length,
-    chapter: members.filter(m => isMemberActiveInYear(m.chapter, selectedYear)).length,
+    arch: members.filter(m => isMemberActiveInYear(m.arch, selectedYear)).length,
     ram: members.filter(m => isMemberActiveInYear(m.ram, selectedYear)).length,
   };
 
@@ -680,8 +680,8 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
                     <div className="text-3xl font-bold text-slate-800">{stats.craft}</div>
                  </div>
                  <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-masonic-red">
-                    <div className="text-masonic-red text-xs md:text-sm font-medium uppercase mb-1">Attivi Capitolo {selectedYear}-{selectedYear+1}</div>
-                    <div className="text-3xl font-bold text-slate-800">{stats.chapter}</div>
+                    <div className="text-masonic-red text-xs md:text-sm font-medium uppercase mb-1">Attivi Arco Reale {selectedYear}-{selectedYear+1}</div>
+                    <div className="text-3xl font-bold text-slate-800">{stats.arch}</div>
                  </div>
                  <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-masonic-mark">
                     <div className="text-masonic-mark text-xs md:text-sm font-medium uppercase mb-1">Attivi Marchio {selectedYear}-{selectedYear+1}</div>
@@ -717,11 +717,11 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
                     <option value="ALL">Tutti i Rami (Attivi)</option>
                     <option value="CRAFT">Attivi in Loggia</option>
                     <option value="MARK">Attivi nel Marchio</option>
-                    <option value="CHAPTER">Attivi nel Capitolo</option>
+                    <option value="ARCH">Attivi nell'Arco Reale</option>
                     <option value="RAM">Attivi in RAM</option>
                     <optgroup label="Potenziali Candidati">
                         <option value="CRAFT_ONLY_NO_MARK">Attivi Loggia (No Marchio)</option>
-                        <option value="CRAFT_ONLY_NO_CHAPTER">Attivi Loggia (No Capitolo)</option>
+                      <option value="CRAFT_ONLY_NO_ARCH">Attivi Loggia (No Arco Reale)</option>
                         <option value="CRAFT_ONLY_NO_RAM">Attivi Loggia (No RAM)</option>
                     </optgroup>
                     <optgroup label="Membri Inattivi">
@@ -758,7 +758,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
                         <tbody className="divide-y divide-slate-100">
                             {filteredMembers.map(member => {
                                 const degreeInfos = BRANCHES.map(b => {
-                                     const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>;
+                                 const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
                                      const branchData = member[branchKey];
                                      const isActive = isMemberActiveInYear(branchData, selectedYear);
                                      

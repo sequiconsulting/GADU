@@ -9,6 +9,27 @@ import {
 
 const trimmedString = z.string().transform(v => v.trim());
 
+// Date opzionale: permette ''/null/undefined e normalizza ISO datetime a YYYY-MM-DD
+const optionalIsoDateSchema = z.preprocess(val => {
+  if (val === null || val === undefined) return undefined;
+  if (typeof val !== 'string') return val;
+  const s = val.trim();
+  if (s === '') return undefined;
+  // Accetta anche ISO datetime (es. 2026-01-09T12:34:56Z) normalizzando
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0, 10);
+  return s;
+}, isoDateSchema.optional());
+
+// Date permissiva (sempre stringa): permette ''/null/undefined e normalizza ISO datetime a YYYY-MM-DD
+const permissiveIsoDateStringSchema = z.preprocess(val => {
+  if (val === null || val === undefined) return '';
+  if (typeof val !== 'string') return val;
+  const s = val.trim();
+  if (s === '') return '';
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0, 10);
+  return s;
+}, z.union([isoDateSchema, z.literal('')]));
+
 const changeLogEntrySchema = z
   .object({
     timestamp: isoDateTimeSchema,
@@ -20,7 +41,7 @@ const changeLogEntrySchema = z
 
 const statusEventSchema = z
   .object({
-    date: isoDateSchema,
+    date: permissiveIsoDateStringSchema,
     status: statusTypeSchema,
     reason: z.string().optional(),
     note: z.string().optional(),
@@ -31,7 +52,7 @@ const statusEventSchema = z
 const degreeEventSchema = z
   .object({
     degreeName: z.string(),
-    date: isoDateSchema,
+    date: optionalIsoDateSchema,
     meetingNumber: z.string(),
     location: z.string().optional(),
   })
@@ -43,8 +64,8 @@ const officerRoleSchema = z
     yearStart: z.number().int(),
     roleName: z.string(),
     branch: branchTypeSchema,
-    startDate: isoDateSchema.optional(),
-    endDate: isoDateSchema.optional(),
+    startDate: optionalIsoDateSchema,
+    endDate: optionalIsoDateSchema,
     installationMeeting: z.string().optional(),
   })
   .passthrough();
@@ -73,7 +94,7 @@ const masonicBranchDataSchema = z
     isFounder: z.boolean().optional(),
     isHonorary: z.boolean().optional(),
     isDualAppartenance: z.boolean().optional(),
-    initiationDate: isoDateSchema.optional(),
+    initiationDate: optionalIsoDateSchema,
     degrees: z.array(degreeEventSchema),
     roles: z.array(officerRoleSchema),
   })
@@ -90,7 +111,7 @@ export const memberDataSchema = z
 
     craft: masonicBranchDataSchema,
     mark: masonicBranchDataSchema,
-    chapter: masonicBranchDataSchema,
+    arch: masonicBranchDataSchema,
     ram: masonicBranchDataSchema,
 
     lastModified: isoDateTimeSchema.optional(),

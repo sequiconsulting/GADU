@@ -19,7 +19,7 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
     if (branch === 'RAM') return 'RAM';
     const yearlyRituals = settings?.yearlyRituals?.[selectedYear];
     if (branch === 'CRAFT') return yearlyRituals?.craft || 'Emulation';
-    if (branch === 'MARK' || branch === 'CHAPTER') return yearlyRituals?.markAndArch || 'Irlandese';
+    if (branch === 'MARK' || branch === 'ARCH') return yearlyRituals?.markAndArch || 'Irlandese';
     return 'Irlandese';
   };
   // Helper to find roles for a specific branch in the selected year
@@ -30,7 +30,7 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
     const rolesForRitual = getRolesForRitual(branch, ritual);
     
     members.forEach(member => {
-      const branchData = member[branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'chapter' | 'ram'>] as any;
+      const branchData = member[branch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>] as any;
       
       const activeRoles = branchData?.roles?.filter((r: any) => r.yearStart === selectedYear && r.branch === branch) || [];
       

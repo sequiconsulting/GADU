@@ -6,7 +6,7 @@ export const isoDateTimeSchema = z.string().datetime({ offset: false }).or(z.str
 // Formato usato in Convocazione.dataOraApertura: YYYY-MM-DDTHH:mm
 export const isoLocalDateTimeSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 
-export const branchTypeSchema = z.enum(['CRAFT', 'MARK', 'CHAPTER', 'RAM']);
+export const branchTypeSchema = z.enum(['CRAFT', 'MARK', 'ARCH', 'RAM']);
 export const statusTypeSchema = z.enum(['ACTIVE', 'INACTIVE']);
 
 export const userPrivilegeSchema = z.enum(['AD', 'CR', 'MR', 'AR', 'RR', 'CW', 'MW', 'AW', 'RW']);

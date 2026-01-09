@@ -14,7 +14,7 @@ interface AdminPanelProps {
   currentUserToken?: string;
 }
 
-type Tab = 'CRAFT' | 'MARK' | 'CHAPTER' | 'RAM';
+type Tab = 'CRAFT' | 'MARK' | 'ARCH' | 'RAM';
 type MainTab = 'GENERALE' | 'PREFERENZE_RAMI' | 'DEFAULT_QUOTE' | 'GESTIONE_UTENTI' | 'EXTRA';
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave, onDataChange, currentUserEmail, currentUserToken }) => {
@@ -479,7 +479,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                       }`}
                     >
                       <div className={`w-2 h-2 rounded-full ${b.color}`} />
-                      {b.type === 'CHAPTER' ? 'Capitolo (Marchio + Arco Reale)' : b.label}
+                      {b.type === 'ARCH' ? 'Arch (Marchio + Arco Reale)' : b.label}
                     </button>
                   ))}
                 </div>
@@ -491,7 +491,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                       <thead>
                         <tr className="bg-slate-100">
                           <th className="text-left py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Capitazione</th>
-                          <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">{activeTab === 'CRAFT' ? 'Gran Loggia' : 'Gran Capitolo'}</th>
+                          <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">{activeTab === 'CRAFT' ? 'Gran Loggia' : 'Gran Arco Reale'}</th>
                           <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Regionale</th>
                           <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Loggia</th>
                           <th className="text-center py-0.5 px-1 border border-slate-300 font-medium text-slate-700">Totale</th>
