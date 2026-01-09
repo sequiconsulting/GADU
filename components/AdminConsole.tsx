@@ -112,7 +112,6 @@ export const SuperadminConsole: React.FC = () => {
   const [userEmail, setUserEmail] = useState('');
   const [userName, setUserName] = useState('');
   const [userPassword, setUserPassword] = useState('123456789');
-  const [userPrivileges, setUserPrivileges] = useState('AD');
   const [form, setForm] = useState<Partial<LodgeConfig>>({ isActive: true });
   const [createLodgeMessage, setCreateLodgeMessage] = useState<string | null>(null);
 
@@ -220,7 +219,7 @@ export const SuperadminConsole: React.FC = () => {
           email: userEmail,
           name: userName,
           password: userPassword,
-          privileges: [userPrivileges],
+          privileges: ['AD'],
           mustChangePassword: true,
         })
       });
@@ -619,11 +618,7 @@ export const SuperadminConsole: React.FC = () => {
                 <input className="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="Email" value={userEmail} onChange={(e)=>setUserEmail(e.target.value)}/>
                 <input className="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="Nome" value={userName} onChange={(e)=>setUserName(e.target.value)}/>
                 <input className="w-full border border-slate-200 rounded-lg px-3 py-2" placeholder="Password" value={userPassword} onChange={(e)=>setUserPassword(e.target.value)}/>
-                <select className="w-full border border-slate-200 rounded-lg px-3 py-2" value={userPrivileges} onChange={(e)=>setUserPrivileges(e.target.value)}>
-                  <option value="AD">AD (Admin)</option>
-                  <option value="SE">SE (Segretario)</option>
-                  <option value="VI">VI (Visore)</option>
-                </select>
+                <div className="text-xs text-slate-500 px-1">Privilegio assegnato: <span className="font-semibold text-slate-700">AD</span></div>
                 <button disabled={!selectedLodge || loading} onClick={createUser} className="w-full bg-slate-900 text-white rounded-lg py-2 flex items-center justify-center gap-2 hover:bg-slate-800 disabled:opacity-50"><Upload size={16}/> Crea utente</button>
               </div>
             </div>
