@@ -48,6 +48,8 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [showLogin, setShowLogin] = useState(false);
+  const [lodgeLoadError, setLodgeLoadError] = useState<string | null>(null);
+  const [dataLoadError, setDataLoadError] = useState<string | null>(null);
   
   const [currentView, setCurrentView] = useState<View>('DASHBOARD');
   const [returnView, setReturnView] = useState<View>('MEMBERS');
@@ -109,10 +111,12 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     const initializeLodgeFromURL = async () => {
       try {
         setCheckingAuth(true);
+        setLodgeLoadError(null);
         const config = await lodgeRegistry.getLodgeConfig(glriNumber);
         
         if (!config) {
-          window.location.href = '/';
+          setLodgeLoadError(`Loggia ${glriNumber} non trovata nel registry`);
+          setCheckingAuth(false);
           return;
         }
         
@@ -140,7 +144,8 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
         setCheckingAuth(false);
       } catch (err) {
         console.error('Error loading lodge config:', err);
-        window.location.href = '/';
+        setLodgeLoadError(err instanceof Error ? err.message : 'Errore caricamento configurazione loggia');
+        setCheckingAuth(false);
       }
     };
     
@@ -165,8 +170,10 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     try {
       setMembers(await dataService.getMembers()); 
       setAppSettings(await dataService.getSettings());
+      setDataLoadError(null);
     } catch (err) {
       console.error('[APP] Error loading data:', err);
+      setDataLoadError(err instanceof Error ? err.message : 'Errore caricamento dati');
     }
   };
 
@@ -316,6 +323,11 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   // Show login interface if lodge found but not authenticated
   if (showLogin && currentLodge && !isAuthenticated) {
     return <LoginInterface glriNumber={glriNumber} onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  // Hard-fail: show explicit lodge/config load error (no redirects)
+  if (lodgeLoadError) {
+    return <InvalidLodge title="Errore caricamento loggia" message={lodgeLoadError} />;
   }
 
   // Loading state
@@ -626,6 +638,34 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
             </div>
           )}
         </header>
+        {dataLoadError && (
+          <div className="px-4 md:px-8 pt-4 print:hidden">
+            <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4 flex flex-col gap-3">
+              <div>
+                <p className="font-semibold">Errore caricamento dati</p>
+                <pre className="mt-2 text-xs whitespace-pre-wrap break-words text-red-900/90">{dataLoadError}</pre>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    setCurrentView('ADMIN');
+                    setIsMobileMenuOpen(false);
+                    openMenu(null);
+                  }}
+                  className="px-3 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors"
+                >
+                  Apri Admin (ripulisci DB)
+                </button>
+                <button
+                  onClick={loadData}
+                  className="px-3 py-2 text-sm rounded-md border border-red-300 text-red-800 hover:bg-red-100 transition-colors"
+                >
+                  Riprova
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 print:p-0 print:overflow-visible print:h-auto">
           {currentView === 'DASHBOARD' && (

@@ -272,7 +272,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
         
         member.changelog.push({
           timestamp,
-          description: descriptionWithEmail
+          action: descriptionWithEmail
         });
       }
       
@@ -575,7 +575,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                     <thead className="bg-slate-200">
                                         <tr>
                                             <th className="text-left px-2 py-1 font-semibold text-slate-700 w-32">Timestamp UTC</th>
-                                            <th className="text-left px-2 py-1 font-semibold text-slate-700">Descrizione</th>
+                                        <th className="text-left px-2 py-1 font-semibold text-slate-700">Azione</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -587,7 +587,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                             return pageItems.map((entry, idx) => (
                                                 <tr key={idx} className={`border-t border-slate-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-100'}`}>
                                                     <td className="px-2 py-1 text-slate-600 font-mono whitespace-nowrap">{entry.timestamp}</td>
-                                                    <td className="px-2 py-1 text-slate-700">{entry.description}</td>
+                                                <td className="px-2 py-1 text-slate-700">{entry.action}</td>
                                                 </tr>
                                             ));
                                         })()}

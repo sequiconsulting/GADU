@@ -10,12 +10,13 @@ import { appSettingsSchema } from '../schemas/settings';
 import { convocazioneDataSchema, convocazioneSchema } from '../schemas/convocazione';
 import { formatZodError } from '../schemas/common';
 
-type MemberRow = { id: string; data: Member };
+type MemberData = Omit<Member, 'id'>;
+type MemberRow = { id: string; data: MemberData };
 type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_version: number };
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
-  public APP_VERSION = '0.190';
+  public APP_VERSION = '0.196';
   public DB_VERSION = 14;
   public SUPABASE_SCHEMA_VERSION = 2;
 
@@ -167,7 +168,7 @@ class DataService {
     // Auto-seed rimosso - ora si usa il bottone manuale in AdminPanel
   }
 
-  public buildDemoMembers(): Member[] {
+  public buildDemoMembers(): MemberData[] {
     const baseDate = new Date();
     const year = baseDate.getFullYear();
     const today = new Date().toISOString().split('T')[0];
@@ -184,7 +185,7 @@ class DataService {
       'Primo Diacono', 'Secondo Diacono', 'Steward Interno', 'Steward Esterno', 'Copritore'
     ];
 
-    const members: Member[] = [];
+    const members: MemberData[] = [];
     const usedNames = new Set<string>();
     const cities = ['Milano', 'Roma', 'Torino', 'Bologna', 'Firenze', 'Genova', 'Napoli', 'Venezia', 'Verona', 'Brescia'];
 
@@ -260,7 +261,6 @@ class DataService {
       const ram = inactiveBranchTemplate();
 
       members.push({
-        id: `seed-${i}`,
         matricula,
         firstName,
         lastName,
@@ -396,21 +396,24 @@ class DataService {
     // Add lastModified timestamp for conflict detection
     const lastModified = new Date().toISOString();
     
-    // Normalize strings: trim empty strings to null for specific fields
-    const normalizeString = (val: string | null | undefined): string | null => {
-      if (!val) return null;
+    // Normalizza campi richiesti: sempre stringhe (niente null nel nuovo formato)
+    const normalizeRequiredString = (val: string | null | undefined): string => (val ?? '').trim();
+    // Normalizza campi opzionali: '' -> null
+    const normalizeOptionalString = (val: string | null | undefined): string | null | undefined => {
+      if (val === undefined) return undefined;
+      if (val === null) return null;
       const trimmed = val.trim();
       return trimmed === '' ? null : trimmed;
     };
     
-    memberToSave.matricula = normalizeString(memberToSave.matricula) || memberToSave.matricula;
-    memberToSave.email = normalizeString(memberToSave.email);
-    memberToSave.phone = normalizeString(memberToSave.phone);
+    memberToSave.matricula = normalizeRequiredString(memberToSave.matricula);
+    memberToSave.email = normalizeRequiredString(memberToSave.email);
+    memberToSave.phone = normalizeRequiredString(memberToSave.phone);
     
     // Normalize branch data
     (['craft', 'mark', 'chapter', 'ram'] as const).forEach(branchKey => {
       const branchData = memberToSave[branchKey];
-      branchData.otherLodgeName = normalizeString(branchData.otherLodgeName);
+      branchData.otherLodgeName = normalizeOptionalString(branchData.otherLodgeName);
       
       // Sort statusEvents by date (chronological order)
       branchData.statusEvents = [...branchData.statusEvents].sort((a, b) => {
@@ -732,7 +735,13 @@ class DataService {
     
     // Carica membri demo
     const demoMembers = this.buildDemoMembers();
-    const { error: membersError } = await client.from('members').insert(demoMembers.map(m => ({ data: m })));
+    const { error: membersError } = await client.from('members').insert(
+      demoMembers.map(m => {
+        // Nel nuovo formato, l'id vive solo nella colonna 'id' della tabella, non in 'data'
+        const { id: _ignored, ...data } = m as any;
+        return { data };
+      })
+    );
     if (membersError) throw membersError;
     
     // Carica convocazioni demo

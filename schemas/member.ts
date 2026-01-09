@@ -9,12 +9,6 @@ import {
 
 const trimmedString = z.string().transform(v => v.trim());
 
-// Attenzione: .nullish() rende la proprietà opzionale nell'inferenza TypeScript.
-// Usiamo una union per accettare null/undefined ma mantenere la chiave richiesta.
-const requiredTrimmedString = z
-  .union([z.string(), z.null(), z.undefined()])
-  .transform(v => (typeof v === 'string' ? v.trim() : ''));
-
 const changeLogEntrySchema = z
   .object({
     timestamp: isoDateTimeSchema,
@@ -87,19 +81,19 @@ const masonicBranchDataSchema = z
 
 export const memberDataSchema = z
   .object({
-    matricula: requiredTrimmedString,
-    firstName: requiredTrimmedString,
-    lastName: requiredTrimmedString,
-    email: requiredTrimmedString,
-    phone: requiredTrimmedString,
-    city: requiredTrimmedString,
+    matricula: trimmedString,
+    firstName: trimmedString,
+    lastName: trimmedString,
+    email: trimmedString,
+    phone: trimmedString,
+    city: trimmedString,
 
     craft: masonicBranchDataSchema,
     mark: masonicBranchDataSchema,
     chapter: masonicBranchDataSchema,
     ram: masonicBranchDataSchema,
 
-    lastModified: z.union([isoDateTimeSchema, z.string()]).optional(),
+    lastModified: isoDateTimeSchema.optional(),
     changelog: z.array(changeLogEntrySchema).optional(),
   })
   .passthrough();

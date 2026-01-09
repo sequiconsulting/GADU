@@ -2,8 +2,53 @@ import { connectLambda, getStore } from '@netlify/blobs';
 import { Registry } from '../../../types/lodge';
 import { createCipheriv, createDecipheriv, randomBytes, publicEncrypt, privateDecrypt, createPrivateKey } from 'crypto';
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
+import { readFileSync, writeFileSync } from 'fs';
+import { join } from 'path';
 
 let blobsInitialized = false;
+
+function tryReadJson(filePath: string): any | null {
+  try {
+    const raw = readFileSync(filePath, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+function isLocalDev(): boolean {
+  return process.env.NETLIFY_DEV === 'true';
+}
+
+function getProjectNetlifyDir(): string {
+  const base = process.env.NETLIFY_BASE || process.cwd();
+  return join(base, '.netlify');
+}
+
+function getLocalRegistryPath(): string {
+  return join(getProjectNetlifyDir(), 'registry.json');
+}
+
+function loadRegistryFromLocalFileOrThrow(): Registry {
+  const filePath = getLocalRegistryPath();
+  const json = tryReadJson(filePath);
+  if (!json) {
+    throw new Error(
+      `[REGISTRY] File locale non leggibile o non valido: ${filePath}. ` +
+        'Esegui "netlify link" e assicurati che .netlify/registry.json esista e sia JSON valido.'
+    );
+  }
+  return json as Registry;
+}
+
+function saveRegistryToLocalFileOrThrow(registry: Registry): void {
+  const filePath = getLocalRegistryPath();
+  try {
+    writeFileSync(filePath, JSON.stringify(registry, null, 2), 'utf8');
+  } catch (e: any) {
+    throw new Error(`[REGISTRY] Impossibile scrivere il file locale ${filePath}: ${e?.message || e}`);
+  }
+}
 
 function normalizeHeaders(headers: any): Record<string, string> {
   const out: Record<string, string> = {};
@@ -20,20 +65,31 @@ function normalizeHeaders(headers: any): Record<string, string> {
 export function initNetlifyBlobs(event: any): void {
   if (blobsInitialized) return;
 
-  // If Netlify injected a global/env context, use it.
+  // Local dev: non usiamo Blobs (registry su file locale)
+  if (isLocalDev()) {
+    blobsInitialized = true;
+    return;
+  }
+
+  // 1) Prefer per-request context (runtime Netlify)
+  const blobs = event?.blobs;
+  if (blobs) {
+    connectLambda({ blobs, headers: normalizeHeaders(event?.headers) } as any);
+    blobsInitialized = true;
+    return;
+  }
+
+  // 2) If Netlify injected a global/env context, use it.
   const hasEnvContext = Boolean(process.env.NETLIFY_BLOBS_CONTEXT) || Boolean((globalThis as any).netlifyBlobsContext);
   if (hasEnvContext) {
     blobsInitialized = true;
     return;
   }
 
-  const blobs = event?.blobs;
-  if (!blobs) {
-    throw new Error('Netlify Blobs context mancante (event.blobs non presente)');
-  }
-
-  connectLambda({ blobs, headers: normalizeHeaders(event?.headers) } as any);
-  blobsInitialized = true;
+  throw new Error(
+    'Netlify Blobs non configurato in locale. Impossibile accedere al registry. ' +
+      'Atteso event.blobs (runtime Netlify) oppure NETLIFY_BLOBS_CONTEXT (prod).'
+  );
 }
 
 function getBlobStore(name: string) {
@@ -71,7 +127,7 @@ async function getQuantumKeys(): Promise<QuantumKeys | null> {
   try {
     const keysStore = getBlobStore('quantum-keys');
     const encryptedKeysJson = await keysStore.get('private-keys', { type: 'text' });
-    
+
     if (!encryptedKeysJson) {
       throw new Error('[QUANTUM] Private keys not found in Blobs');
     }
@@ -227,12 +283,15 @@ async function decryptData(encryptedText: string): Promise<string> {
 
 export async function loadRegistry(): Promise<Registry> {
   try {
+    if (isLocalDev()) {
+      return loadRegistryFromLocalFileOrThrow();
+    }
+
     const store = getBlobStore('gadu-registry');
     const data = await store.get('lodges');
 
     if (!data) {
-      // Registry non ancora inizializzata: caso valido, non un errore
-      return {};
+      throw new Error('[REGISTRY] Registry non inizializzato: key gadu-registry/lodges assente');
     }
 
     const encryptedString = typeof data === 'string' ? data : new TextDecoder().decode(data);
@@ -246,6 +305,11 @@ export async function loadRegistry(): Promise<Registry> {
 
 export async function saveRegistry(registry: Registry): Promise<void> {
   try {
+    if (isLocalDev()) {
+      saveRegistryToLocalFileOrThrow(registry);
+      return;
+    }
+
     const store = getBlobStore('gadu-registry');
     const jsonString = JSON.stringify(registry);
     const encryptedData = await encryptData(jsonString);
@@ -266,6 +330,13 @@ export async function logAuditEvent(event: string, data: any): Promise<void> {
   console.log(`[AUDIT] ${event}:`, data);
   
   try {
+    if (isLocalDev()) {
+      const filePath = join(getProjectNetlifyDir(), 'audit.log');
+      const line = JSON.stringify({ at: new Date().toISOString(), event, data }) + '\n';
+      writeFileSync(filePath, line, { encoding: 'utf8', flag: 'a' });
+      return;
+    }
+
     const auditStore = getBlobStore('gadu-audit');
     const timestamp = new Date().toISOString();
     await auditStore.set(`${timestamp}-${event}`, JSON.stringify(data));

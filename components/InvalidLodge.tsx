@@ -2,7 +2,13 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Home, Sparkles } from 'lucide-react';
 
-export function InvalidLodge() {
+export function InvalidLodge({
+  title = 'Numero Loggia Mancante',
+  message = "Per accedere a G.A.D.U., devi aggiungere il numero della loggia nell'URL.",
+}: {
+  title?: string;
+  message?: string;
+}) {
   const navigate = useNavigate();
 
   return (
@@ -12,10 +18,8 @@ export function InvalidLodge() {
           <AlertCircle size={32} className="text-red-600" />
         </div>
         
-        <h1 className="text-2xl font-serif font-bold text-slate-900 mb-2">Numero Loggia Mancante</h1>
-        <p className="text-slate-600 mb-6">
-          Per accedere a G.A.D.U., devi aggiungere il numero della loggia nell'URL.
-        </p>
+        <h1 className="text-2xl font-serif font-bold text-slate-900 mb-2">{title}</h1>
+        <p className="text-slate-600 mb-6">{message}</p>
 
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-6 text-left">
           <p className="text-sm font-mono text-slate-700">
