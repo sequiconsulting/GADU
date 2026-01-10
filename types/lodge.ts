@@ -1,10 +1,17 @@
 export interface PublicLodgeConfig {
   glriNumber: string;        // "9999"
   lodgeName: string;         // "Loggia Demo"
+  name?: string;             // Alias for lodgeName (from registry)
   province: string;          // "MI"
   supabaseUrl: string;
   supabaseAnonKey: string;
   supabaseServiceKey?: string;  // Only for demo mode!
+  // Association data (from registry)
+  associationName?: string;
+  address?: string;
+  zipCode?: string;
+  city?: string;
+  taxCode?: string;
 }
 
 export interface LodgeConfig extends PublicLodgeConfig {

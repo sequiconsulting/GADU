@@ -40,8 +40,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
   }, [currentSettings]);
 
   const handleSave = async () => {
-    await Promise.resolve(onSave(settings));
-    setMessage("Impostazioni salvate con successo.");
+    // La tab "Generale" è sola lettura (dati dal registry), non salva nulla nel DB.
+    if (activeMainTab === 'GENERALE') {
+      setMessage('Sezione sola lettura: nessuna modifica da salvare.');
+      setTimeout(() => setMessage(null), 3000);
+      return;
+    }
+
+    // Salva SEMPRE partendo dai settings del DB (currentSettings) per evitare
+    // sovrascritture dei campi che arrivano dal registry (tab Generale).
+    const base = withDefaults(currentSettings);
+    let toSave: AppSettings = base;
+
+    if (activeMainTab === 'PREFERENZE_RAMI' || activeMainTab === 'DEFAULT_QUOTE') {
+      toSave = {
+        ...base,
+        branchPreferences: settings.branchPreferences,
+      };
+    }
+
+    await Promise.resolve(onSave(toSave));
+    setMessage('Impostazioni salvate con successo.');
     setTimeout(() => setMessage(null), 3000);
   };
 
@@ -52,7 +71,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
       return next;
     });
     if (next) {
-      await onSave(next);
+      // Persisti partendo dai settings del DB per evitare sovrascritture dei campi del registry.
+      const base = withDefaults(currentSettings);
+      await Promise.resolve(
+        onSave({
+          ...base,
+          userChangelog: changelog,
+        })
+      );
     }
   };
 
@@ -343,7 +369,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                     <label className="block text-sm font-medium text-slate-600 mb-1">Nome Loggia</label>
                     <input 
                         type="text" 
-                        value={dataService.getCurrentLodgeConfig()?.name || settings.lodgeName} 
+                value={dataService.getCurrentLodgeConfig()?.lodgeName || ''} 
                         className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700" 
                         placeholder="Es. G. Mazzini"
                         readOnly
@@ -353,7 +379,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                     <label className="block text-sm font-medium text-slate-600 mb-1">Numero</label>
                     <input 
                         type="text" 
-                        value={dataService.getCurrentLodgeConfig()?.glriNumber || settings.lodgeNumber} 
+                value={dataService.getCurrentLodgeConfig()?.glriNumber || ''} 
                         className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700" 
                         placeholder="Es. 100"
                         readOnly
@@ -362,7 +388,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                 <div>
                     <label className="block text-sm font-medium text-slate-600 mb-1">Provincia</label>
                     <select
-                        value={dataService.getCurrentLodgeConfig()?.province || settings.province}
+                value={dataService.getCurrentLodgeConfig()?.province || ''}
                         className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700"
                         disabled
                     >
@@ -383,7 +409,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                     <label className="block text-sm font-medium text-slate-600 mb-1">Nome Associazione</label>
                     <input 
                         type="text" 
-                        value={settings.associationName || ''} 
+                    value={dataService.getCurrentLodgeConfig()?.associationName || ''} 
                         className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700" 
                         readOnly
                     />
@@ -392,7 +418,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                     <label className="block text-sm font-medium text-slate-600 mb-1">Codice Fiscale</label>
                     <input 
                         type="text" 
-                        value={settings.taxCode || ''} 
+                    value={dataService.getCurrentLodgeConfig()?.taxCode || ''} 
                         className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700 font-mono" 
                         readOnly
                     />
@@ -401,7 +427,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                     <label className="block text-sm font-medium text-slate-600 mb-1">Indirizzo</label>
                     <input 
                         type="text" 
-                        value={settings.address || ''} 
+                    value={dataService.getCurrentLodgeConfig()?.address || ''} 
                         className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700" 
                         readOnly
                     />
@@ -410,7 +436,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                     <label className="block text-sm font-medium text-slate-600 mb-1">CAP</label>
                     <input 
                         type="text" 
-                        value={settings.zipCode || ''} 
+                    value={dataService.getCurrentLodgeConfig()?.zipCode || ''} 
                         className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700" 
                         readOnly
                     />
@@ -419,7 +445,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                     <label className="block text-sm font-medium text-slate-600 mb-1">Città</label>
                     <input 
                         type="text" 
-                        value={settings.city || ''} 
+                    value={dataService.getCurrentLodgeConfig()?.city || ''} 
                         className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700" 
                         readOnly
                     />
@@ -431,15 +457,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
               ℹ️ Questi dati sono stati configurati durante il setup e non possono essere modificati qui. Per cambiarli, contatta il super-admin.
             </div>
 
-            <div className="flex justify-end items-center gap-4 border-t border-slate-100 pt-6">
-              {message && <span className="text-green-600 font-medium text-sm animate-pulse">{message}</span>}
-              <button 
-                onClick={handleSave} 
-                className="bg-masonic-gold hover:bg-yellow-600 text-white px-6 py-2.5 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
-              >
-                <Save size={18} /> Salva Configurazione
-              </button>
-            </div>
+            {message && (
+              <div className="border-t border-slate-100 pt-6">
+                <span className="text-green-600 font-medium text-sm animate-pulse">{message}</span>
+              </div>
+            )}
           </>
         )}
 

@@ -31,9 +31,16 @@ export const handler: Handler = async (event) => {
     const publicConfig: PublicLodgeConfig = {
       glriNumber: lodge.glriNumber,
       lodgeName: lodge.lodgeName,
+      name: lodge.name,
       province: lodge.province,
       supabaseUrl: lodge.supabaseUrl,
-      supabaseAnonKey: lodge.supabaseAnonKey
+      supabaseAnonKey: lodge.supabaseAnonKey,
+      // Include association data if available
+      associationName: lodge.associationName,
+      address: lodge.address,
+      zipCode: lodge.zipCode,
+      city: lodge.city,
+      taxCode: lodge.taxCode
     };
 
     return {

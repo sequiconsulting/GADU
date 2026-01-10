@@ -55,6 +55,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [localChangelog, setLocalChangelog] = useState<UserChangeLogEntry[]>(changelog);
   const [deleteConfirmingUserId, setDeleteConfirmingUserId] = useState<string | null>(null);
+  const [changelogPageUser, setChangelogPageUser] = useState<number>(0);
 
   useEffect(() => {
     if ((changelog?.length || 0) >= localChangelog.length) {
@@ -536,18 +537,43 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {localChangelog.slice(0, 10).map((entry, idx) => (
-                  <tr key={idx} className={`border-t border-slate-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-100'}`}>
-                    <td className="px-2 py-1 text-slate-600 font-mono whitespace-nowrap">{entry.timestamp}</td>
-                    <td className="px-2 py-1 text-slate-700">
-                      {entry.action} per {entry.userEmail} da {entry.performedBy}
-                      {entry.details && ` - ${entry.details}`}
-                    </td>
-                  </tr>
-                ))}
+                {(() => {
+                  const sorted = [...localChangelog].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+                  const start = changelogPageUser * 5;
+                  const end = start + 5;
+                  const pageItems = sorted.slice(start, end);
+                  return pageItems.map((entry, idx) => (
+                    <tr key={idx} className={`border-t border-slate-200 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-100'}`}>
+                      <td className="px-2 py-1 text-slate-600 font-mono whitespace-nowrap">{entry.timestamp}</td>
+                      <td className="px-2 py-1 text-slate-700">
+                        {entry.action} per {entry.userEmail} da {entry.performedBy}
+                        {entry.details && ` - ${entry.details}`}
+                      </td>
+                    </tr>
+                  ));
+                })()}
               </tbody>
             </table>
           </div>
+          {localChangelog.length > 5 && (
+            <div className="flex justify-between items-center mt-2 text-[10px] text-slate-600">
+              <button 
+                onClick={() => setChangelogPageUser(p => Math.max(0, p - 1))}
+                disabled={changelogPageUser === 0}
+                className="px-2 py-1 rounded border border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-200 transition-colors"
+              >
+                ← Precedente
+              </button>
+              <span>Pagina {changelogPageUser + 1} di {Math.ceil(localChangelog.length / 5)}</span>
+              <button 
+                onClick={() => setChangelogPageUser(p => p + 1)}
+                disabled={(changelogPageUser + 1) * 5 >= localChangelog.length}
+                className="px-2 py-1 rounded border border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-200 transition-colors"
+              >
+                Successivo →
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
