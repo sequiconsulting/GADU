@@ -2,7 +2,6 @@ import { Handler } from '@netlify/functions';
 import dns from 'dns';
 import { lookup as dnsLookup } from 'dns/promises';
 import postgres from 'postgres';
-import fetch from 'node-fetch';
 import { createClient } from '@supabase/supabase-js';
 import { initNetlifyBlobs, loadRegistry, logAuditEvent, saveRegistry } from './shared/registry';
 import { LodgeConfig, Registry } from '../../types/lodge';
