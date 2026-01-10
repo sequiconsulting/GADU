@@ -235,15 +235,36 @@ export const handler: Handler = async (event) => {
 
     // Rileggi il registry per verificare che il save sia stato completato correttamente (single source of truth)
     console.log('[CREATE-LODGE] Verifying registry write for', glriNumber);
-    const verifyRegistry = await loadRegistry();
-    const savedLodge = verifyRegistry[glriNumber];
+    
+    // Retry con backoff per gestire latenza filesystem/Blobs
+    let verifyAttempts = 0;
+    const maxVerifyAttempts = 3;
+    let savedLodge: LodgeConfig | undefined;
+    
+    while (verifyAttempts < maxVerifyAttempts) {
+      verifyAttempts++;
+      if (verifyAttempts > 1) {
+        // Attendi prima di ritentare (100ms, 200ms, 300ms)
+        await new Promise(resolve => setTimeout(resolve, verifyAttempts * 100));
+      }
+      
+      const verifyRegistry = await loadRegistry();
+      savedLodge = verifyRegistry[glriNumber];
+      
+      if (savedLodge && savedLodge.databasePassword) {
+        console.log(`[CREATE-LODGE] ✓ Registry write verified (attempt ${verifyAttempts})`);
+        break;
+      }
+      
+      console.warn(`[CREATE-LODGE] Registry verify attempt ${verifyAttempts}/${maxVerifyAttempts} failed`);
+    }
+    
     if (!savedLodge) {
-      throw new Error('Registry write verification failed: lodge not found after save');
+      throw new Error('Registry write verification failed: lodge not found after save (exhausted retries)');
     }
     if (!savedLodge.databasePassword) {
-      throw new Error('Registry write verification failed: databasePassword missing');
+      throw new Error('Registry write verification failed: databasePassword missing (exhausted retries)');
     }
-    console.log('[CREATE-LODGE] ✓ Registry write verified');
 
     console.log('[CREATE-LODGE] Initializing schema for', glriNumber);
     await initializeSchema(glriNumber, databasePassword);
