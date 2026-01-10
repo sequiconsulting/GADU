@@ -65,7 +65,7 @@ function validatePayload(input: any): string | null {
   if (!/^\d{1,10}$/.test(String(input.glriNumber).trim())) return 'Numero loggia non valido';
   if (!/^[A-Z]{2}$/.test(String(input.province).trim().toUpperCase())) return 'Provincia non valida';
   if (!/^\d{5}$/.test(String(input.zipCode).trim())) return 'CAP non valido';
-  if (String(input.taxCode).trim().length !== 16) return 'Codice fiscale non valido (16 caratteri)';
+  if (!/^\d{15}$/.test(String(input.taxCode).trim())) return 'Codice fiscale non valido (15 caratteri numerici)';
 
   return null;
 }
