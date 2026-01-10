@@ -200,7 +200,10 @@ export const handler: Handler = async (event) => {
           }
         });
         
-        if (error) throw error;
+        if (error) {
+          console.error('[MANAGE-USERS] Password update error:', error);
+          throw new Error(error.message || 'Errore durante il cambio password');
+        }
 
         try {
           await logAuditEvent('user_password_changed', { lodgeNumber, email: body.email });

@@ -132,20 +132,8 @@ export async function changePassword(
 
   if (error) {
     console.error('[EMAIL_AUTH] Password change error:', error);
-    
-    // Errori specifici da Supabase con messaggi actionable in italiano
-    const errorMsg = error.message?.toLowerCase() || '';
-    
-    if (errorMsg.includes('same') || errorMsg.includes('same password') || errorMsg.includes('uguale')) {
-      throw new Error('La nuova password non può essere uguale a quella precedente');
-    }
-    
-    if (errorMsg.includes('weak')) {
-      throw new Error('Password troppo debole: usa almeno 8 caratteri con maiuscole, minuscole e numeri');
-    }
-    
-    // Errore generico fallback con codice per debug
-    throw new Error(`Errore durante il cambio password: ${error.message}`);
+    // Lancia direttamente l'errore di Supabase (valido per tutti i casi)
+    throw new Error(error.message || 'Errore durante il cambio password');
   }
 
   if (!data.user?.email) {
