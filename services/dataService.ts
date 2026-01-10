@@ -3,7 +3,7 @@ import { type SupabaseClient } from '@supabase/supabase-js';
 import { Member, AppSettings, BranchType, Convocazione } from '../types';
 import { PublicLodgeConfig } from '../types/lodge';
 import { faker } from '@faker-js/faker/locale/it';
-import { INITIATION_TERMS } from '../constants';
+import { INITIATION_TERMS, DEGREES_CRAFT_EMULATION, CRAFT_EMULATION_ROLES } from '../constants';
 import { getCachedSupabaseClient } from '../utils/supabaseClientCache';
 import { memberDataSchema } from '../schemas/member';
 import { appSettingsSchema } from '../schemas/settings';
@@ -197,21 +197,14 @@ class DataService {
   }
 
   public buildDemoMembers(): MemberData[] {
-    const baseDate = new Date();
-    const year = baseDate.getFullYear();
-    const today = new Date().toISOString().split('T')[0];
+    // Anno fisso 2024 per attivazioni demo
+    const year = 2024;
+    const baseDate = new Date('2024-01-15');
+    const today = '2024-01-15';
 
-    // Gradi Craft Emulation in ordine
-    const craftEmulationDegrees = ['Apprendista Ammesso', 'Compagno di Mestiere', 'Maestro Muratore', 'Maestro Installato'];
-    
-    // Ruoli Craft Emulation disponibili
-    const craftEmulationRoles = [
-      'Maestro Venerabile', 'IEM', 'Primo Sorvegliante', 'Secondo Sorvegliante', 
-      'Cappellano', 'Tesoriere', 'Segretario', 'Assistente Segretario', 
-      'Direttore delle Cerimonie', 'Elemosiniere', 'Elemosiniare Assistente',
-      'Organista', 'Porta Stendardo', 'Porta Spada', 'Sovrintendente dei Lavori',
-      'Primo Diacono', 'Secondo Diacono', 'Steward Interno', 'Steward Esterno', 'Copritore'
-    ];
+    // Gradi e ruoli Craft Emulation da constants.ts
+    const craftEmulationDegrees = DEGREES_CRAFT_EMULATION.map(d => d.name);
+    const craftEmulationRoles = CRAFT_EMULATION_ROLES;
 
     const members: MemberData[] = [];
     const usedNames = new Set<string>();

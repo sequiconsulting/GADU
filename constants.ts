@@ -78,7 +78,7 @@ export const DEGREES_CRAFT_SCOZZESE = [
   { name: 'Apprendista Ammesso', abbreviation: 'AA' },
   { name: 'Compagno di Mestiere', abbreviation: 'CdM' },
   { name: 'Maestro Muratore', abbreviation: 'MM' },
-  { name: 'Maestro Scozzese', abbreviation: 'MS' },
+  { name: 'Maestro Installato', abbreviation: 'MS' },
 ];
 
 // Irlandese (Irish) variant for Mark - DEFAULT
@@ -92,7 +92,7 @@ export const DEGREES_MARK_IRLANDESE = [
 export const DEGREES_MARK_ALDERSGATE = [
   { name: 'Uomo del Marchio', abbreviation: 'UdM' },
   { name: 'Maestro del Marchio', abbreviation: 'MMM' },
-  { name: 'Maestro Aldersgate', abbreviation: 'MA' },
+  { name: 'Maestro Installato', abbreviation: 'MA' },
 ];
 
 // Irlandese (Irish) variant for Arch - DEFAULT
@@ -104,7 +104,7 @@ export const DEGREES_ARCH_IRLANDESE = [
 // Aldersgate variant for Arch
 export const DEGREES_ARCH_ALDERSGATE = [
   { name: "Compagno dell'Arco Reale", abbreviation: 'CAR' },
-  { name: "Principale Aldersgate", abbreviation: 'PA' },
+  { name: "Principale dell'Arco Reale'", abbreviation: 'PA' },
 ];
 
 // RAM has no ritual variants
