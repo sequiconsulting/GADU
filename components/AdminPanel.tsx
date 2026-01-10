@@ -343,9 +343,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                     <label className="block text-sm font-medium text-slate-600 mb-1">Nome Loggia</label>
                     <input 
                         type="text" 
-                        value={settings.lodgeName} 
-                        onChange={(e) => handleChange('lodgeName', e.target.value)} 
-                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold bg-slate-50 cursor-not-allowed" 
+                        value={dataService.getCurrentLodgeConfig()?.name || settings.lodgeName} 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700" 
                         placeholder="Es. G. Mazzini"
                         readOnly
                     />
@@ -354,9 +353,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                     <label className="block text-sm font-medium text-slate-600 mb-1">Numero</label>
                     <input 
                         type="text" 
-                        value={settings.lodgeNumber} 
-                        onChange={(e) => handleChange('lodgeNumber', e.target.value)} 
-                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold bg-slate-50 cursor-not-allowed" 
+                        value={dataService.getCurrentLodgeConfig()?.glriNumber || settings.lodgeNumber} 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700" 
                         placeholder="Es. 100"
                         readOnly
                     />
@@ -364,9 +362,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                 <div>
                     <label className="block text-sm font-medium text-slate-600 mb-1">Provincia</label>
                     <select
-                        value={settings.province}
-                        onChange={(e) => handleChange('province', e.target.value)}
-                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none focus:border-masonic-gold bg-slate-50 cursor-not-allowed"
+                        value={dataService.getCurrentLodgeConfig()?.province || settings.province}
+                        className="w-full border border-slate-300 rounded-lg p-2.5 outline-none bg-slate-50 cursor-not-allowed text-slate-700"
                         disabled
                     >
                         <option value="">Seleziona...</option>
@@ -381,9 +378,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
             {/* DATI ASSOCIAZIONE (Read-only from registry) */}
             <div className="mb-8">
               <h3 className="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">Dati Associazione</h3>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 text-sm text-blue-800">
-                ℹ️ I seguenti dati sono stati configurati durante il setup e non possono essere modificati qui. Per cambiarli, contatta il super-admin.
-              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label className="block text-sm font-medium text-slate-600 mb-1">Nome Associazione</label>
@@ -432,6 +426,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                 </div>
               </div>
             </div>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800">
+              ℹ️ Questi dati sono stati configurati durante il setup e non possono essere modificati qui. Per cambiarli, contatta il super-admin.
+            </div>
+
             <div className="flex justify-end items-center gap-4 border-t border-slate-100 pt-6">
               {message && <span className="text-green-600 font-medium text-sm animate-pulse">{message}</span>}
               <button 
