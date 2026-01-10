@@ -177,7 +177,7 @@ export const handler: Handler = async (event) => {
       console.warn('[SUBMIT-ACTIVATION] Audit log failed (non-critical):', auditError);
     }
 
-    return { statusCode: 200, headers: jsonHeaders, body: JSON.stringify({ success: true, id }) };
+    return { statusCode: 200, headers: jsonHeaders, body: JSON.stringify({ success: true, requestId: id }) };
   } catch (error: any) {
     console.error('[SUBMIT-ACTIVATION] Error:', error?.message || error);
     return { statusCode: 500, headers: jsonHeaders, body: JSON.stringify({ success: false, error: error?.message || 'Errore server' }) };

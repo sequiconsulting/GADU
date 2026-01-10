@@ -8,6 +8,11 @@ export function SetupWizard() {
     lodgeName: '',
     glriNumber: '',
     province: '',
+    associationName: '',
+    address: '',
+    zipCode: '',
+    city: '',
+    taxCode: '',
     gdprAccepted: false,
   });
   const [loading, setLoading] = useState(false);
@@ -21,17 +26,35 @@ export function SetupWizard() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   
   const isStep2Valid = formData.lodgeName.trim() && formData.glriNumber.trim() && formData.province.trim();
+  const isStep3Valid = formData.associationName.trim() && formData.address.trim() && formData.zipCode.trim() && formData.city.trim() && formData.taxCode.trim();
 
   const handleSubmit = async () => {
     setLoading(true);
     setError(null);
     try {
-      // Simulazione invio richiesta
-      await new Promise((res) => setTimeout(res, 1000));
-      setSuccessId('RICHIESTA-' + Math.floor(Math.random() * 100000));
+      const response = await fetch('/.netlify/functions/submit-lodge-activation-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gdprAccepted: formData.gdprAccepted,
+          glriNumber: formData.glriNumber.trim(),
+          lodgeName: formData.lodgeName.trim(),
+          province: formData.province.trim().toUpperCase(),
+          associationName: formData.associationName.trim(),
+          address: formData.address.trim(),
+          zipCode: formData.zipCode.trim(),
+          city: formData.city.trim(),
+          taxCode: formData.taxCode.trim().toUpperCase(),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Errore durante l\'invio della richiesta');
+      }
+      setSuccessId(data.requestId);
       setCurrentStep(4);
-    } catch (e) {
-      setError('Errore durante l\'invio della richiesta.');
+    } catch (e: any) {
+      setError(e.message || 'Errore durante l\'invio della richiesta.');
     } finally {
       setLoading(false);
     }
@@ -122,6 +145,78 @@ export function SetupWizard() {
                 disabled={loading}
               />
             </div>
+            <div>
+              <label htmlFor="association-name" className="block text-sm font-semibold text-slate-700 mb-2">
+                Nome Associazione
+              </label>
+              <input
+                type="text"
+                id="association-name"
+                value={formData.associationName}
+                onChange={(e) => updateField('associationName', e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                placeholder="Nome dell'associazione"
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label htmlFor="address" className="block text-sm font-semibold text-slate-700 mb-2">
+                Indirizzo
+              </label>
+              <input
+                type="text"
+                id="address"
+                value={formData.address}
+                onChange={(e) => updateField('address', e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                placeholder="Via, numero"
+                disabled={loading}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="zip-code" className="block text-sm font-semibold text-slate-700 mb-2">
+                  CAP
+                </label>
+                <input
+                  type="text"
+                  id="zip-code"
+                  value={formData.zipCode}
+                  onChange={(e) => updateField('zipCode', e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                  placeholder="00000"
+                  disabled={loading}
+                />
+              </div>
+              <div>
+                <label htmlFor="city" className="block text-sm font-semibold text-slate-700 mb-2">
+                  Città
+                </label>
+                <input
+                  type="text"
+                  id="city"
+                  value={formData.city}
+                  onChange={(e) => updateField('city', e.target.value)}
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                  placeholder="Città"
+                  disabled={loading}
+                />
+              </div>
+            </div>
+            <div>
+              <label htmlFor="tax-code" className="block text-sm font-semibold text-slate-700 mb-2">
+                Codice Fiscale (16 caratteri)
+              </label>
+              <input
+                type="text"
+                id="tax-code"
+                value={formData.taxCode}
+                onChange={(e) => updateField('taxCode', e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg"
+                placeholder="XXXXXXXXXXXXXX"
+                disabled={loading}
+              />
+            </div>
           </div>
         )}
         {currentStep === 3 && (
@@ -132,6 +227,11 @@ export function SetupWizard() {
                 <li><strong>Nome loggia:</strong> {formData.lodgeName}</li>
                 <li><strong>Numero GLRI:</strong> {formData.glriNumber}</li>
                 <li><strong>Provincia:</strong> {formData.province}</li>
+                <li><strong>Nome Associazione:</strong> {formData.associationName}</li>
+                <li><strong>Indirizzo:</strong> {formData.address}</li>
+                <li><strong>CAP:</strong> {formData.zipCode}</li>
+                <li><strong>Città:</strong> {formData.city}</li>
+                <li><strong>Codice Fiscale:</strong> {formData.taxCode}</li>
                 <li><strong>GDPR accettato:</strong> {formData.gdprAccepted ? 'Sì' : 'No'}</li>
               </ul>
             </div>

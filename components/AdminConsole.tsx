@@ -72,7 +72,7 @@ export const SuperadminConsole: React.FC = () => {
       try {
         const res = await authorizedFetch(buildApiUrl('/.netlify/functions/admin-activation-requests'), {
           method: 'POST',
-          body: JSON.stringify({ action: 'update', id, update })
+          body: JSON.stringify({ action: 'update', id, data: update })
         });
         const data = await res.json();
         if (!res.ok || !data.success) throw new Error(data.error || 'Errore salvataggio richiesta');
