@@ -111,6 +111,15 @@ export async function changePassword(
   supabaseAnonKey: string,
   userId: string
 ): Promise<AuthSession> {
+  // Validazione input ESPLICITA
+  if (!newPassword || newPassword.length < 8) {
+    throw new Error('La password deve essere di almeno 8 caratteri');
+  }
+
+  if (!supabaseUrl || !supabaseAnonKey || !userId) {
+    throw new Error('Parametri di autenticazione mancanti');
+  }
+
   const client = createAuthClient(supabaseUrl, supabaseAnonKey);
 
   // Update password
@@ -123,11 +132,24 @@ export async function changePassword(
 
   if (error) {
     console.error('[EMAIL_AUTH] Password change error:', error);
-    throw new Error('Errore durante il cambio password');
+    
+    // Errori specifici da Supabase con messaggi actionable in italiano
+    const errorMsg = error.message?.toLowerCase() || '';
+    
+    if (errorMsg.includes('same') || errorMsg.includes('same password') || errorMsg.includes('uguale')) {
+      throw new Error('La nuova password non può essere uguale a quella precedente');
+    }
+    
+    if (errorMsg.includes('weak')) {
+      throw new Error('Password troppo debole: usa almeno 8 caratteri con maiuscole, minuscole e numeri');
+    }
+    
+    // Errore generico fallback con codice per debug
+    throw new Error(`Errore durante il cambio password: ${error.message}`);
   }
 
   if (!data.user?.email) {
-    throw new Error('Utente non valido');
+    throw new Error('Utente non valido dopo cambio password');
   }
 
   const { data: sessionData } = await client.auth.getSession();
