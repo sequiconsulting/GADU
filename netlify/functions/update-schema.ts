@@ -146,38 +146,72 @@ export const handler: Handler = async (event) => {
 
   try {
     initNetlifyBlobs(event);
-    const glriNumber =
-      event.queryStringParameters?.glriNumber || event.queryStringParameters?.number;
-
-    if (!glriNumber) {
-      return {
-        statusCode: 400,
-        body: 'Missing glriNumber parameter'
-      };
-    }
     
-    console.log(`[UPDATE-SCHEMA] Loading registry for lodge ${glriNumber}`);
-    const registry = await loadRegistry();
-    const lodge = registry[glriNumber];
+    // Accetta sia GET (legacy) che POST (new)
+    let glriNumber: string | undefined;
+    let databasePassword: string | undefined;
 
-    if (!lodge) {
-      return {
-        statusCode: 404,
-        body: 'Lodge not found'
-      };
-    }
-
-    if (!lodge.databasePassword) {
-      return {
-        statusCode: 500,
-        body: 'Database password not configured'
-      };
+    if (event.httpMethod === 'POST') {
+      // New: ricevi dal body
+      const body = event.body ? JSON.parse(event.body) : {};
+      glriNumber = body.glriNumber?.trim();
+      databasePassword = body.databasePassword?.trim();
+      
+      if (!glriNumber || !databasePassword) {
+        return {
+          statusCode: 400,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Missing glriNumber or databasePassword in body' })
+        };
+      }
+      console.log(`[UPDATE-SCHEMA] POST request for lodge ${glriNumber}`);
+    } else {
+      // Legacy: ricevi da query parameters (retrocompatibilità)
+      glriNumber = event.queryStringParameters?.glriNumber || event.queryStringParameters?.number;
+      
+      if (!glriNumber) {
+        return {
+          statusCode: 400,
+          body: 'Missing glriNumber parameter'
+        };
+      }
+      
+      // Se è GET, carica dal registry (legacy)
+      console.log(`[UPDATE-SCHEMA] GET request for lodge ${glriNumber}, loading from registry`);
+      const registry = await loadRegistry();
+      const lodge = registry[glriNumber];
+      
+      if (!lodge) {
+        return {
+          statusCode: 404,
+          body: 'Lodge not found'
+        };
+      }
+      
+      if (!lodge.databasePassword) {
+        return {
+          statusCode: 500,
+          body: 'Database password not configured'
+        };
+      }
+      
+      databasePassword = lodge.databasePassword;
     }
 
     console.log(`[UPDATE-SCHEMA] Starting schema update for lodge ${glriNumber}`);
 
+    // Ricava supabaseUrl dal registry (necessario per estrapolare l'host Postgres)
+    const registry = await loadRegistry();
+    const lodge = registry[glriNumber];
+    if (!lodge || !lodge.supabaseUrl) {
+      return {
+        statusCode: 500,
+        body: 'Lodge or supabaseUrl not found in registry'
+      };
+    }
+
     // Connect directly via postgres
-    const dbUrl = extractPostgresUrl(lodge.supabaseUrl, lodge.databasePassword);
+    const dbUrl = extractPostgresUrl(lodge.supabaseUrl, databasePassword!);
     console.log('[UPDATE-SCHEMA] Connecting to postgres...');
     sql = await connectWithRetry(dbUrl);
     console.log('[UPDATE-SCHEMA] Connected to postgres');

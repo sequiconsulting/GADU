@@ -97,7 +97,7 @@ async function preflightDatabaseConnection(supabaseUrl: string, databasePassword
   throw lastError || new Error('Database connection preflight failed');
 }
 
-async function initializeSchema(supabaseUrl: string, databasePassword: string, glriNumber: string): Promise<void> {
+async function initializeSchema(glriNumber: string, databasePassword: string): Promise<void> {
   // Determina l'URL della funzione update-schema in modo robusto
   let url = process.env.UPDATE_SCHEMA_URL;
   if (!url) {
@@ -109,9 +109,11 @@ async function initializeSchema(supabaseUrl: string, databasePassword: string, g
       url = 'http://localhost:8888/.netlify/functions/update-schema';
     }
   }
-  const params = new URLSearchParams({ glriNumber });
-  const fullUrl = `${url}?${params.toString()}`;
-  const res = await fetch(fullUrl, { method: 'GET' });
+  const res = await fetch(url, { 
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ glriNumber, databasePassword })
+  });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Errore update-schema: ${res.status} ${text}`);
@@ -231,8 +233,20 @@ export const handler: Handler = async (event) => {
     await saveRegistry(registry);
     glriNumberForRollback = glriNumber;
 
+    // Rileggi il registry per verificare che il save sia stato completato correttamente (single source of truth)
+    console.log('[CREATE-LODGE] Verifying registry write for', glriNumber);
+    const verifyRegistry = await loadRegistry();
+    const savedLodge = verifyRegistry[glriNumber];
+    if (!savedLodge) {
+      throw new Error('Registry write verification failed: lodge not found after save');
+    }
+    if (!savedLodge.databasePassword) {
+      throw new Error('Registry write verification failed: databasePassword missing');
+    }
+    console.log('[CREATE-LODGE] ✓ Registry write verified');
+
     console.log('[CREATE-LODGE] Initializing schema for', glriNumber);
-    await initializeSchema(supabaseUrl, databasePassword, glriNumber);
+    await initializeSchema(glriNumber, databasePassword);
 
     console.log('[CREATE-LODGE] Creating Segretario user for', glriNumber);
     const secretaryResult = await upsertSecretaryUser({ supabaseUrl, supabaseServiceKey, email: secretaryEmail });
