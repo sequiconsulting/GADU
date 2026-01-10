@@ -16,7 +16,7 @@ type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_v
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
-  public APP_VERSION = '0.201';
+  public APP_VERSION = '0.202';
   public DB_VERSION = 16;
   public SUPABASE_SCHEMA_VERSION = 2;
 
