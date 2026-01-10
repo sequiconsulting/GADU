@@ -9,7 +9,7 @@ import { dataService } from '../services/dataService';
 interface AdminPanelProps {
   currentSettings: AppSettings;
   onSave: (settings: AppSettings) => Promise<void> | void;
-  onDataChange?: () => void;
+  onDataChange?: () => Promise<void>;
   currentUserEmail?: string;
   currentUserToken?: string;
 }
@@ -67,7 +67,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
       setMessage("Database cancellato con successo.");
       setShowClearDbConfirm(false);
       if (onDataChange) {
-        onDataChange();
+        await onDataChange();
       }
     } catch (error) {
       console.error('Errore nella cancellazione del database:', error);
@@ -85,7 +85,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
       setMessage("Dati di esempio caricati con successo.");
       setShowLoadDemoConfirm(false);
       if (onDataChange) {
-        onDataChange();
+        await onDataChange();
       }
     } catch (error) {
       console.error('Errore nel caricamento dei dati di esempio:', error);

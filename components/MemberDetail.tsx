@@ -12,7 +12,7 @@ const PROFILE = 'PROFILE';
 interface MemberDetailProps {
   memberId: string | 'new';
   onBack: () => void;
-  onSave: () => void;
+  onSave: () => Promise<void>;
   defaultYear: number;
   appSettings: AppSettings;
   currentUserEmail?: string;
@@ -283,7 +283,7 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
         setOriginalMember(JSON.parse(JSON.stringify(member)));
         // Resetta la pagina del changelog
         setChangelogPage(0);
-        onSave();
+        await onSave();
       } catch (err: any) {
         // Rollback UI state on error (issue #21)
         setError(err.message || 'Errore durante il salvataggio');

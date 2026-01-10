@@ -7,7 +7,7 @@ import { BookOpen, Plus, Edit2, Lock, Unlock, Trash2, Save, X, Printer } from 'l
 interface TornateProps {
   settings: AppSettings;
   selectedYear: number;
-  onUpdate: () => void;
+  onUpdate: () => Promise<void>;
 }
 
 export const Tornate: React.FC<TornateProps> = ({ settings, selectedYear, onUpdate }) => {

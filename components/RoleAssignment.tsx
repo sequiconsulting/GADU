@@ -8,7 +8,7 @@ import { UserCog, ArrowLeftRight, Lock, Unlock } from 'lucide-react';
 interface RoleAssignmentProps {
   members: Member[];
   selectedYear: number;
-  onUpdate: () => void;
+  onUpdate: () => Promise<void>;
   settings?: AppSettings;
 }
 
