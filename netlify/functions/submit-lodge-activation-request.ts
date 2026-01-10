@@ -22,6 +22,7 @@ interface ActivationRequestData {
   zipCode: string;
   city: string;
   taxCode: string;
+  secretaryEmail: string;
 }
 
 interface ActivationRequestRecord {
@@ -56,7 +57,7 @@ function validatePayload(input: any): string | null {
   if (!input || typeof input !== 'object') return 'Payload non valido';
   if (input.gdprAccepted !== true) return 'Approvazione GDPR obbligatoria';
 
-  const required = ['glriNumber', 'lodgeName', 'province', 'associationName', 'address', 'zipCode', 'city', 'taxCode'];
+  const required = ['glriNumber', 'lodgeName', 'province', 'associationName', 'address', 'zipCode', 'city', 'taxCode', 'secretaryEmail'];
   for (const key of required) {
     const val = input[key];
     if (!val || String(val).trim().length === 0) return `Campo mancante: ${key}`;
@@ -66,6 +67,7 @@ function validatePayload(input: any): string | null {
   if (!/^[A-Z]{2}$/.test(String(input.province).trim().toUpperCase())) return 'Provincia non valida';
   if (!/^\d{5}$/.test(String(input.zipCode).trim())) return 'CAP non valido';
   if (!/^\d{15}$/.test(String(input.taxCode).trim())) return 'Codice fiscale non valido (15 caratteri numerici)';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(input.secretaryEmail).trim())) return 'Email segretario non valida';
 
   return null;
 }
@@ -120,6 +122,7 @@ export const handler: Handler = async (event) => {
       zipCode: String(body.zipCode).trim(),
       city: String(body.city).trim(),
       taxCode: String(body.taxCode).trim().toUpperCase(),
+      secretaryEmail: String(body.secretaryEmail).trim().toLowerCase(),
     };
 
     const registry = await loadRegistry();

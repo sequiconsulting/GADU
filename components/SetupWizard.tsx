@@ -13,6 +13,7 @@ export function SetupWizard() {
     zipCode: '',
     city: '',
     taxCode: '',
+    secretaryEmail: '',
     gdprAccepted: false,
   });
   const [loading, setLoading] = useState(false);
@@ -45,6 +46,7 @@ export function SetupWizard() {
     if (!formData.zipCode.trim()) errors.zipCode = 'CAP obbligatorio';
     if (!formData.city.trim()) errors.city = 'Città obbligatoria';
     if (!formData.taxCode.trim()) errors.taxCode = 'Codice fiscale obbligatorio';
+    if (!formData.secretaryEmail.trim()) errors.secretaryEmail = 'Email segretario obbligatoria';
     
     // Validazione formato glriNumber
     if (formData.glriNumber.trim() && !/^\d{1,10}$/.test(formData.glriNumber.trim())) {
@@ -64,6 +66,11 @@ export function SetupWizard() {
     // Validazione formato taxCode
     if (formData.taxCode.trim() && !/^\d{15}$/.test(formData.taxCode.trim())) {
       errors.taxCode = 'Codice fiscale non valido (15 caratteri numerici)';
+    }
+    
+    // Validazione formato email
+    if (formData.secretaryEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.secretaryEmail.trim())) {
+      errors.secretaryEmail = 'Formato email non valido';
     }
     
     return errors;
@@ -90,6 +97,7 @@ export function SetupWizard() {
           zipCode: formData.zipCode.trim(),
           city: formData.city.trim(),
           taxCode: formData.taxCode.trim(),
+          secretaryEmail: formData.secretaryEmail.trim(),
         }),
       });
       const data = await response.json();
@@ -391,6 +399,25 @@ export function SetupWizard() {
                 <p className="text-red-600 text-xs mt-1">{validationErrors.taxCode}</p>
               )}
             </div>
+            <div>
+              <label htmlFor="secretary-email" className="block text-sm font-semibold text-slate-700 mb-2">
+                Email Segretario
+              </label>
+              <input
+                type="email"
+                id="secretary-email"
+                value={formData.secretaryEmail}
+                onChange={(e) => updateField('secretaryEmail', e.target.value)}
+                className={`w-full px-4 py-2 border rounded-lg ${
+                  validationErrors.secretaryEmail ? 'border-red-500' : 'border-slate-300'
+                }`}
+                placeholder="segretario@esempio.it"
+                disabled={loading}
+              />
+              {validationErrors.secretaryEmail && (
+                <p className="text-red-600 text-xs mt-1">{validationErrors.secretaryEmail}</p>
+              )}
+            </div>
           </div>
         )}
         {currentStep === 3 && (
@@ -406,6 +433,7 @@ export function SetupWizard() {
                 <li><strong>CAP:</strong> {formData.zipCode}</li>
                 <li><strong>Città:</strong> {formData.city}</li>
                 <li><strong>Codice Fiscale:</strong> {formData.taxCode}</li>
+                <li><strong>Email Segretario:</strong> {formData.secretaryEmail}</li>
                 <li><strong>GDPR accettato:</strong> {formData.gdprAccepted ? 'Sì' : 'No'}</li>
               </ul>
             </div>
