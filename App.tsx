@@ -160,11 +160,11 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   
   useEffect(() => {
     let title = `G.A.D.U. (${dataService.APP_VERSION})`;
-    if (appSettings.lodgeName) {
-        title = `G.A.D.U. - ${appSettings.lodgeName} ${appSettings.lodgeNumber} (${dataService.APP_VERSION})`;
+    if (currentLodge) {
+        title = `G.A.D.U. - ${currentLodge.lodgeName} ${currentLodge.glriNumber} (${dataService.APP_VERSION})`;
     }
     document.title = title;
-  }, [appSettings]);
+  }, [currentLodge]);
 
   const loadData = async () => {
     try {
@@ -470,10 +470,10 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
         </div>
 
         <div className="px-6 py-4 bg-slate-950/50 border-b border-slate-800">
-            {appSettings.lodgeName ? (
+            {currentLodge ? (
                 <div>
-                    <h3 className="text-white font-serif font-bold">{appSettings.lodgeName} N. {appSettings.lodgeNumber}</h3>
-                    <p className="text-xs text-slate-500">{appSettings.province}</p>
+                    <h3 className="text-white font-serif font-bold">{currentLodge.lodgeName} N. {currentLodge.glriNumber}</h3>
+                    <p className="text-xs text-slate-500">{currentLodge.province}</p>
                 </div>
             ) : (
                 <div className="text-xs text-slate-600 italic">Nessuna loggia configurata</div>
@@ -739,7 +739,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
 
               <div className="hidden print:block text-center mb-6">
                 <h1 className="text-3xl font-serif font-bold">G.A.D.U.</h1>
-                <h2 className="text-xl font-bold mt-1">{appSettings.lodgeName} N. {appSettings.lodgeNumber}</h2>
+                <h2 className="text-xl font-bold mt-1">{currentLodge?.lodgeName} N. {currentLodge?.glriNumber}</h2>
                 <h3 className="text-lg mt-2 font-serif text-slate-700">Registro Fratelli</h3>
                 <p className="text-sm text-slate-500">Anno {selectedYear}</p>
               </div>
