@@ -240,7 +240,6 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
       filterBranch === 'CRAFT_ONLY_NO_MARK' ? 'Attivi_Craft_No_Mark' :
       filterBranch === 'CRAFT_ONLY_NO_ARCH' ? 'Attivi_Craft_No_Arch' :
       filterBranch === 'CRAFT_ONLY_NO_RAM' ? 'Attivi_Craft_No_RAM' :
-      filterBranch === 'INACTIVE_YEAR_ALL' ? 'Inattivi_Anno' :
       filterBranch === 'INACTIVE_TOTAL_ALL' ? 'Inattivi_Totale' :
       filterBranch === 'DB_ALL' ? 'Database_Completo' :
       BRANCHES.find(b => b.type === filterBranch)?.label || filterBranch;
@@ -415,20 +414,6 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
 
     if (filterBranch === 'DB_ALL') return true;
     
-    if (filterBranch === 'INACTIVE_YEAR_ALL') {
-        const isActiveAnywhere = BRANCHES.some(b => {
-               const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
-             return isMemberActiveInYear(m[branchKey], selectedYear);
-        });
-        if (isActiveAnywhere) return false;
-
-        const hasHistory = BRANCHES.some(b => {
-            const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
-            return (m[branchKey]?.degrees?.length > 0) || (m[branchKey]?.statusEvents?.length > 0);
-        });
-        return hasHistory;
-    }
-
     if (filterBranch === 'INACTIVE_TOTAL_ALL') {
         const currentRealYear = new Date().getFullYear();
         const isActiveNow = BRANCHES.some(b => {
@@ -445,13 +430,13 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     }
 
     if (filterBranch === 'CRAFT_ONLY_NO_MARK') {
-        return isMemberActiveInYear(m.craft, selectedYear) && !isMemberActiveInYear(m.mark, selectedYear);
+        return m.craft.isMotherLodgeMember && isMemberActiveInYear(m.craft, selectedYear) && !isMemberActiveInYear(m.mark, selectedYear);
     }
     if (filterBranch === 'CRAFT_ONLY_NO_ARCH') {
-      return isMemberActiveInYear(m.craft, selectedYear) && !isMemberActiveInYear(m.arch, selectedYear);
+      return m.craft.isMotherLodgeMember && isMemberActiveInYear(m.craft, selectedYear) && !isMemberActiveInYear(m.arch, selectedYear);
     }
     if (filterBranch === 'CRAFT_ONLY_NO_RAM') {
-        return isMemberActiveInYear(m.craft, selectedYear) && !isMemberActiveInYear(m.ram, selectedYear);
+        return m.craft.isMotherLodgeMember && isMemberActiveInYear(m.craft, selectedYear) && !isMemberActiveInYear(m.ram, selectedYear);
     }
 
     if (filterBranch === 'ALL') {
@@ -459,6 +444,10 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
              const branchKey = b.type.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
              return isMemberActiveInYear(m[branchKey], selectedYear);
         });
+    }
+    
+    if (filterBranch === 'CRAFT') {
+        return m.craft.isMotherLodgeMember && isMemberActiveInYear(m.craft, selectedYear);
     }
     
     const branchKey = filterBranch.toLowerCase() as keyof Pick<Member, 'craft' | 'mark' | 'arch' | 'ram'>;
@@ -768,7 +757,6 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
                         <option value="CRAFT_ONLY_NO_RAM">Attivi Loggia (No RAM)</option>
                     </optgroup>
                     <optgroup label="Membri Inattivi">
-                        <option value="INACTIVE_YEAR_ALL">Inattivi (Anno Corrente)</option>
                         <option value="INACTIVE_TOTAL_ALL">Inattivi (Ad Oggi/Totale)</option>
                     </optgroup>
                     <option value="DB_ALL">Tutto il Database (Nessun Filtro)</option>
