@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
-    "build": "vite build && tsx scripts/create-registry-blob.ts",
+    "build": "vite build",
+    "registry:blob": "tsx scripts/create-registry-blob.ts",
     "preview": "vite preview --host 0.0.0.0 --port 5173",
     "supabase": "npx supabase@2.70.5",
     "generate-quantum-keys": "tsx scripts/generate-quantum-keys.ts",

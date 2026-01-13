@@ -23,8 +23,9 @@ dist-ssr
 .netlify/quantum-keys.json
 .netlify/quantum-keys*.json
 
-# Registry blobs (encrypted, but keep in git for version control)
-# Note: .netlify/registry.json is tracked for local dev
+# Registry blobs (generated at build time, not tracked)
+public/.well-known/gadu-registry.blob
+
 *.ntvs*
 *.njsproj
 *.sln

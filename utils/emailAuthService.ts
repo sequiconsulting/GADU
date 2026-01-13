@@ -55,7 +55,7 @@ export async function signInWithPassword(
 
   if (error) {
     console.error('[EMAIL_AUTH] Login error:', error);
-    throw new Error('Email o password errati');
+    throw error;
   }
 
   if (!data.session || !data.user?.email) {
