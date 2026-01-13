@@ -316,7 +316,8 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
           if (!b.date) return -1;
           return a.date.localeCompare(b.date);
         });
-        const firstDegreeDate = sortedDegrees[0]?.date || new Date().toISOString().split('T')[0];
+        // Usa la data del primo grado se disponibile, altrimenti 1° gennaio dell'anno selezionato
+        const firstDegreeDate = sortedDegrees[0]?.date || `${defaultYear}-01-01`;
         
         const autoEvent = {
           date: firstDegreeDate,
