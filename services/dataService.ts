@@ -3,7 +3,7 @@ import { type SupabaseClient } from '@supabase/supabase-js';
 import { Member, AppSettings, BranchType, Convocazione } from '../types';
 import { PublicLodgeConfig } from '../types/lodge';
 import { faker } from '@faker-js/faker/locale/it';
-import { INITIATION_TERMS, DEGREES_CRAFT_EMULATION, CRAFT_EMULATION_ROLES } from '../constants';
+import { INITIATION_TERMS, DEGREES_CRAFT_EMULATION, CRAFT_EMULATION_ROLES, CAPITAZIONE_TYPES } from '../constants';
 import { getCachedSupabaseClient } from '../utils/supabaseClientCache';
 import { memberDataSchema } from '../schemas/member';
 import { appSettingsSchema } from '../schemas/settings';
@@ -16,8 +16,8 @@ type SettingsRow = { id: string; data: AppSettings; db_version: number };
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
-  public APP_VERSION = '0.204';
-  public DB_VERSION = 16;
+  public APP_VERSION = '0.226';
+  public DB_VERSION = 19;
 
   private supabase: SupabaseClient | null = null;
   private initPromise: Promise<void> | null = null;
@@ -840,6 +840,113 @@ class DataService {
     if (convocazioniError) {
       throw new Error(`Inserimento convocazioni demo fallito: ${convocazioniError.message} (code: ${convocazioniError.code})`);
     }
+  }
+
+  // Capitazioni Quotes Methods
+  async getCapitazioniQuotes(year: number, branch: BranchType): Promise<{ byTipo: Record<string, { quota_gl: number; quota_regionale: number; quota_loggia: number }> }> {
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+    
+    // Carica le quote customizzate per questo year/branch
+    const { data, error } = await client
+      .from('capitazioni_quotes')
+      .select('by_tipo')
+      .eq('year_start', year)
+      .eq('branch_type', branch)
+      .maybeSingle();
+    
+    if (error) {
+      throw new Error(`Capitazioni quote load failed for year ${year}/${branch}: ${error.message}`);
+    }
+    
+    // Se trovate e non vuote, ritorna subito
+    if (data && data.by_tipo && Object.keys(data.by_tipo).length > 0) {
+      return {
+        byTipo: data.by_tipo
+      };
+    }
+    
+    // Se NON trovate o vuote, carica dai defaults e salva nel DB (OPZIONE C: cancella e reinserisci)
+    const settings = await this.getSettings();
+    const branchPrefs = settings.branchPreferences?.[branch];
+    const defaultQuote = branchPrefs?.defaultQuote;
+    
+    // Costruisci le quote per tutti i tipi dal default (single source of truth: constants)
+    const defaultQuotesByTipo: Record<string, { quota_gl: number; quota_regionale: number; quota_loggia: number }> = {};
+    
+    CAPITAZIONE_TYPES.forEach(tipo => {
+      defaultQuotesByTipo[tipo] = {
+        quota_gl: defaultQuote?.quotaGLGC?.[tipo as any] || 0,
+        quota_regionale: defaultQuote?.quotaRegionale?.[tipo as any] || 0,
+        quota_loggia: defaultQuote?.quotaLoggia?.[tipo as any] || 0
+      };
+    });
+    
+    // OPZIONE C: Cancella la riga vuota se esiste, poi inserisci i dati freschi
+    try {
+      // Cancella la riga per questa anno/branch se esiste
+      const { error: deleteError } = await client
+        .from('capitazioni_quotes')
+        .delete()
+        .eq('year_start', year)
+        .eq('branch_type', branch);
+      
+      if (deleteError) {
+        throw new Error(`Failed to clean old capitazioni quotes for year ${year}/${branch}: ${deleteError.message}`);
+      }
+      
+      // Inserisci/aggiorna (upsert) i dati seedati in modo atomico per evitare 409 in caso di richieste concorrenti
+      const { error: upsertError } = await client
+        .from('capitazioni_quotes')
+        .upsert(
+          {
+            year_start: year,
+            branch_type: branch,
+            by_tipo: defaultQuotesByTipo,
+          },
+          { onConflict: 'year_start,branch_type' }
+        );
+
+      if (upsertError) {
+        throw new Error(`Failed to initialize capitazioni quotes for year ${year}/${branch}: ${upsertError.message}`);
+      }
+    } catch (err) {
+      // Se il salvataggio fallisce, lancia errore esplicito
+      throw new Error(`Failed to seed capitazioni quotes for year ${year}/${branch}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+    
+    return {
+      byTipo: defaultQuotesByTipo
+    };
+  }
+
+  async saveCapitazioniQuotes(year: number, branch: BranchType, quotes: { byTipo: Record<string, { quota_gl: number; quota_regionale: number; quota_loggia: number }> }): Promise<void> {
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+
+    if (!quotes.byTipo || Object.keys(quotes.byTipo).length === 0) {
+      throw new Error('Capitazioni save failed: byTipo object is empty or missing');
+    }
+
+    const { error } = await client
+      .from('capitazioni_quotes')
+      .upsert(
+        {
+          year_start: year,
+          branch_type: branch,
+          by_tipo: quotes.byTipo,
+        },
+        { onConflict: 'year_start,branch_type' }
+      );
+
+    if (error) {
+      throw new Error(`Capitazioni quote save failed for year ${year}/${branch}: ${error.message}`);
+    }
+  }
+
+  // Helper per determinare il tipo di capitazione di default per un ramo
+  private getDefaultCapitazioneTipo(branch: BranchType): CapitazioneTipo {
+    return 'Ordinaria';
   }
 }
 

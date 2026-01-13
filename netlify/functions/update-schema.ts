@@ -37,7 +37,19 @@ create table if not exists public.convocazioni (
 create index if not exists convocazioni_branch_idx on public.convocazioni (branch_type);
 create index if not exists convocazioni_year_idx on public.convocazioni (year_start);
 
-alter table public.app_settings enable row level security;
+create table if not exists public.capitazioni_quotes (
+  id uuid primary key default gen_random_uuid(),
+  year_start integer not null,
+  branch_type text not null,
+  by_tipo jsonb not null default '{}'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(year_start, branch_type)
+);
+
+create index if not exists capitazioni_quotes_year_branch_idx on public.capitazioni_quotes (year_start, branch_type);
+
+alter table public.capitazioni_quotes enable row level security;
 alter table public.members enable row level security;
 alter table public.convocazioni enable row level security;
 
@@ -84,13 +96,27 @@ create policy "authenticated_all_convocazioni"
   for all 
   using (auth.role() = 'authenticated') 
   with check (auth.role() = 'authenticated');
+
+drop policy if exists "anon_deny_capitazioni_quotes" on public.capitazioni_quotes;
+create policy "anon_deny_capitazioni_quotes" 
+  on public.capitazioni_quotes 
+  for all 
+  using (auth.role() != 'anon') 
+  with check (auth.role() != 'anon');
+
+drop policy if exists "authenticated_all_capitazioni_quotes" on public.capitazioni_quotes;
+create policy "authenticated_all_capitazioni_quotes" 
+  on public.capitazioni_quotes 
+  for all 
+  using (auth.role() = 'authenticated') 
+  with check (auth.role() = 'authenticated');
 `;
 import { Handler } from '@netlify/functions';
 import { initNetlifyBlobs, loadRegistry } from './shared/registry';
 import postgres from 'postgres';
 import { join } from 'path';
 
-const DB_VERSION = 16;
+const DB_VERSION = 19;
 
 // Database schema migrations (incremental changes only, not baseline)
 const DB_MIGRATIONS: Record<number, string> = {
@@ -108,8 +134,72 @@ const DB_MIGRATIONS: Record<number, string> = {
   // v15 -> v16: rename ramo Arch (solo shape JSON lato app). Migrazione no-op ma tracciata.
   15: `
     SELECT 1;
+  `,
+
+  // v16 -> v17: aggiungi tabella capitazioni_quotes per quote customizzabili per anno/ramo
+  16: `
+    CREATE TABLE IF NOT EXISTS public.capitazioni_quotes (
+      id uuid primary key default gen_random_uuid(),
+      year_start integer not null,
+      branch_type text not null,
+      quota_gl numeric(10, 2) not null default 0,
+      quota_regionale numeric(10, 2) not null default 0,
+      quota_loggia numeric(10, 2) not null default 0,
+      created_at timestamptz default now(),
+      updated_at timestamptz default now(),
+      unique(year_start, branch_type)
+    );
+    CREATE INDEX IF NOT EXISTS capitazioni_quotes_year_branch_idx ON public.capitazioni_quotes (year_start, branch_type);
+    ALTER TABLE public.capitazioni_quotes ENABLE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS "anon_deny_capitazioni_quotes" ON public.capitazioni_quotes;
+    CREATE POLICY "anon_deny_capitazioni_quotes" 
+      ON public.capitazioni_quotes 
+      FOR ALL 
+      USING (auth.role() != 'anon') 
+      WITH CHECK (auth.role() != 'anon');
+    DROP POLICY IF EXISTS "authenticated_all_capitazioni_quotes" ON public.capitazioni_quotes;
+    CREATE POLICY "authenticated_all_capitazioni_quotes" 
+      ON public.capitazioni_quotes 
+      FOR ALL 
+      USING (auth.role() = 'authenticated') 
+      WITH CHECK (auth.role() = 'authenticated');
+  `,
+
+  // v17 -> v18: migra capitazioni_quotes da singole colonne a by_tipo JSON con tutti i tipi
+  17: `
+    -- Aggiungi colonna by_tipo se non esiste
+    ALTER TABLE public.capitazioni_quotes
+      ADD COLUMN IF NOT EXISTS by_tipo jsonb default '{}'::jsonb;
+    
+    -- Migra dati dalle colonne vecchie al nuovo formato JSON per ogni tipo di capitazione
+    -- Nota: questa migrazione assume che i dati esistenti siano "Ordinaria" con le tre quote
+    -- Se ci sono altri tipi, dovranno essere gestiti manualmente o in un'altra fase
+    UPDATE public.capitazioni_quotes
+    SET by_tipo = jsonb_build_object(
+      'Ordinaria', jsonb_build_object(
+        'quota_gl', COALESCE(quota_gl, 0),
+        'quota_regionale', COALESCE(quota_regionale, 0),
+        'quota_loggia', COALESCE(quota_loggia, 0)
+      )
+    )
+    WHERE by_tipo = '{}'::jsonb OR by_tipo IS NULL;
+    
+    -- Rimuovi le vecchie colonne se non sono più necessarie
+    ALTER TABLE public.capitazioni_quotes
+      DROP COLUMN IF EXISTS quota_gl;
+    ALTER TABLE public.capitazioni_quotes
+      DROP COLUMN IF EXISTS quota_regionale;
+    ALTER TABLE public.capitazioni_quotes
+      DROP COLUMN IF EXISTS quota_loggia;
+  `
+,
+
+  // v18 -> v19: cambio shape JSON lato app (Capitazioni: pagato numerico, rimozione data_pagamento). Nessun DDL.
+  18: `
+    SELECT 1;
   `
 };
+
 
 function extractPostgresUrl(supabaseUrl: string, databasePassword: string): string {
   const match = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/);

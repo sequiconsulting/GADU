@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { AppSettings, BranchType } from '../types';
 import { Save, Settings, X, Upload, Trash2, Database } from 'lucide-react';
-import { ITALIAN_PROVINCES, BRANCHES } from '../constants';
+import { ITALIAN_PROVINCES, BRANCHES, CAPITAZIONE_TYPES } from '../constants';
 import { UserManagement } from './UserManagement';
 import { dataService } from '../services/dataService';
 
@@ -688,7 +688,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                         </tr>
                       </thead>
                       <tbody>
-                        {(['Ordinaria', 'Ridotta Settembre', 'Doppia Appartenenza', 'Ridotta Studenti', 'Ridotta Ministri di Culto', 'Onorario'] as const).map(tipo => {
+                        {CAPITAZIONE_TYPES.map(tipo => {
                           const currentBranchPrefs = settings.branchPreferences?.[activeTab] || {};
                           const quotaGL = currentBranchPrefs.defaultQuote?.quotaGLGC?.[tipo] || 0;
                           const quotaReg = currentBranchPrefs.defaultQuote?.quotaRegionale?.[tipo] || 0;

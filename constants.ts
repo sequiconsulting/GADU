@@ -18,6 +18,9 @@ export const CAPITAZIONI_CRAFT = [
 
 export const CAPITAZIONE_DEFAULT = 'Ordinaria';
 
+// Extract tipo values as array for dropdowns and lists
+export const CAPITAZIONE_TYPES = CAPITAZIONI_CRAFT.map(c => c.tipo);
+
 // ============================================================
 // DEGREE DEFINITIONS BY RITUAL
 // ============================================================

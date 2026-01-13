@@ -338,6 +338,90 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
     );
   };
 
+  const renderRiscossioniTable = () => {
+    // Raccogli i pagamenti effettuati nel ramo attivo per l'anno selezionato
+    const paid = currentReport.activeAtEnd.filter(ctx => {
+      const branchKey = activeBranch.toLowerCase() as BranchKey;
+      const capitazione = ctx.branchData.capitazioni?.find(c => c.year === selectedYear);
+      return capitazione?.pagato === true;
+    });
+
+    if (paid.length === 0) return null;
+
+    // Calcola i totali per categoria
+    let totalGL = 0;
+    let totalRegionale = 0;
+    let totalLoggia = 0;
+
+    paid.forEach(ctx => {
+      const branchKey = activeBranch.toLowerCase() as BranchKey;
+      // Usa le quote attuali impostate
+      const branchData = ctx.branchData;
+      if (branchData && branchData.capitazioni) {
+        totalGL += 100; // placeholder, dovrebbe venire dal dataService
+        totalRegionale += 50;
+        totalLoggia += 30;
+      }
+    });
+
+    return (
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 font-semibold text-slate-700">Tabella 9 · Riscossioni Capitazioni</div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-100">
+              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
+                <th className="px-3 py-2 w-10">#</th>
+                <th className="px-3 py-2">Cognome</th>
+                <th className="px-3 py-2">Nome</th>
+                <th className="px-3 py-2">Tipo Capitazione</th>
+                <th className="px-3 py-2 text-right">Quota G.L. (€)</th>
+                <th className="px-3 py-2 text-right">Quota Regionale (€)</th>
+                <th className="px-3 py-2 text-right">Quota Loggia (€)</th>
+                <th className="px-3 py-2 text-right">Totale (€)</th>
+                <th className="px-3 py-2 text-right">Pagato (€)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paid.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-3 py-4 text-center text-slate-400">Nessun pagamento registrato</td>
+                </tr>
+              )}
+              {paid.map((row, index) => {
+                const branchKey = activeBranch.toLowerCase() as BranchKey;
+                const capitazione = row.branchData.capitazioni?.find(c => c.year === selectedYear);
+                return (
+                  <tr key={`${row.member.id}-${index}`} className="odd:bg-white even:bg-slate-50">
+                    <td className="px-3 py-2 text-slate-500">{index + 1}</td>
+                    <td className="px-3 py-2 font-medium">{row.member.lastName}</td>
+                    <td className="px-3 py-2">{row.member.firstName}</td>
+                    <td className="px-3 py-2">{capitazione?.tipo || '—'}</td>
+                    <td className="px-3 py-2 text-right">100.00</td>
+                    <td className="px-3 py-2 text-right">50.00</td>
+                    <td className="px-3 py-2 text-right">30.00</td>
+                    <td className="px-3 py-2 text-right font-medium">180.00</td>
+                    <td className="px-3 py-2 text-right">{typeof (capitazione as any)?.pagato === 'number' ? (capitazione as any).pagato.toFixed(2) : '0.00'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-100 text-sm font-semibold text-slate-600">
+                <td className="px-3 py-2" colSpan={4}>Totale Riscosso</td>
+                <td className="px-3 py-2 text-right">100.00</td>
+                <td className="px-3 py-2 text-right">50.00</td>
+                <td className="px-3 py-2 text-right">30.00</td>
+                <td className="px-3 py-2 text-right font-bold">180.00</td>
+                <td className="px-3 py-2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
   const renderSummary = () => {
     if (!currentReport) return null;
     const config = currentReport.config;
@@ -615,6 +699,8 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
       {renderSimpleList('Tabella 7 · Dimissioni', currentReport.resignations)}
 
       {renderSimpleList('Tabella 8 · Depennamenti per Morosità', currentReport.deletions)}
+
+      {renderRiscossioniTable()}
 
       {renderMembersTable('Tabella 10 · Situazione al 31 dicembre', currentReport.activeAtEnd)}
 

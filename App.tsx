@@ -14,6 +14,7 @@ const MemberDetail = React.lazy(() => import('./components/MemberDetail').then(m
 const RolesReport = React.lazy(() => import('./components/RolesReport').then(m => ({ default: m.RolesReport })));
 const RoleAssignment = React.lazy(() => import('./components/RoleAssignment').then(m => ({ default: m.RoleAssignment })));
 const Piedilista = React.lazy(() => import('./components/Piedilista').then(m => ({ default: m.Piedilista })));
+const Capitazioni = React.lazy(() => import('./components/Capitazioni').then(m => ({ default: m.Capitazioni })));
 const AdminPanel = React.lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
 const Legend = React.lazy(() => import('./components/Legend').then(m => ({ default: m.Legend })));
 const RelazioneAnnuale = React.lazy(() => import('./components/RelazioneAnnuale').then(m => ({ default: m.RelazioneAnnuale })));
@@ -542,9 +543,6 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
             </button>
             {isSecretaryMenuOpen && (
                 <div className="ml-8 mt-1 space-y-1 border-l border-slate-700 pl-2">
-                    <button onClick={() => handleViewChange('CONVOCAZIONI')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'CONVOCAZIONI' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
-                        <FileText size={16} /> Convocazioni
-                    </button>
                     <button onClick={() => handleViewChange('CAPITAZIONI')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'CAPITAZIONI' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
                         <DollarSign size={16} /> Capitazioni
                     </button>
@@ -892,11 +890,9 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
             </div>
           )}
           {currentView === 'CAPITAZIONI' && (
-            <div className="text-center py-12">
-              <DollarSign size={48} className="mx-auto text-slate-300 mb-4" />
-              <h3 className="text-xl font-semibold text-slate-600">Capitazioni</h3>
-              <p className="text-slate-500 mt-2">Sezione in sviluppo</p>
-            </div>
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento capitazioni...</div>}>
+              <Capitazioni members={members} selectedYear={selectedYear} appSettings={appSettings} onUpdate={loadData} lodgeName={currentLodge?.lodgeName} lodgeNumber={currentLodge?.glriNumber} />
+            </React.Suspense>
           )}
           {currentView === 'CONVOCAZIONI' && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento convocazioni...</div>}>

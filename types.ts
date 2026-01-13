@@ -59,6 +59,24 @@ export type CapitazioneTipo = 'Ordinaria' | 'Ridotta Settembre' | 'Studenti' | '
 export interface CapitazioneEvent {
   year: number; // Masonic year start (e.g., 2025 for 2025-2026)
   tipo: CapitazioneTipo;
+  // Importo effettivamente pagato (in €) per quell'anno/ramo
+  pagato?: number;
+}
+
+export interface CapitazioneQuote {
+  year: number; // Masonic year start
+  branch: BranchType;
+  quota_gl: number; // Quota per Grande Loggia
+  quota_regionale: number;
+  quota_loggia: number;
+}
+
+export interface CapitazioneRecord {
+  member_id: string;
+  year: number;
+  branch: BranchType;
+  tipo: CapitazioneTipo;
+  pagato: number;
 }
 
 export type TitoloCraftMarchio = 'Fr.' | 'Ven. Fr.' | 'Ven.mo Fr.' | 'MVM Fr.';
