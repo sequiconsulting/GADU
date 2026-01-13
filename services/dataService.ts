@@ -390,6 +390,9 @@ class DataService {
     if (id === 'new') {
       return this.getEmptyMember();
     }
+    if (!id || id === '') {
+      throw new Error('ID membro non valido: stringa vuota');
+    }
     await this.ensureReady();
     const client = this.ensureSupabaseClient();
     try {

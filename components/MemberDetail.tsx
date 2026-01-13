@@ -167,16 +167,19 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
         if (!isValid) return;
 
         // Check for conflicts: reload fresh member to compare lastModified
-        const freshMember = await dataService.getMemberById(member.id);
-        if (freshMember && freshMember.lastModified && originalMember.lastModified && 
-            freshMember.lastModified !== originalMember.lastModified) {
-          // Data has been modified elsewhere since we loaded it
-          const confirmOverwrite = window.confirm(
-            `Questo associato è stato modificato da un altro utente.\n\nVuoi sovrascrivere le modifiche e salvare comunque?`
-          );
-          if (!confirmOverwrite) {
-            setError('Salvataggio annullato. Ricaricare la pagina per vedere le modifiche recenti.');
-            return;
+        // Skip conflict check for new members (id is empty string)
+        if (memberId !== 'new' && member.id && member.id !== '') {
+          const freshMember = await dataService.getMemberById(member.id);
+          if (freshMember && freshMember.lastModified && originalMember.lastModified && 
+              freshMember.lastModified !== originalMember.lastModified) {
+            // Data has been modified elsewhere since we loaded it
+            const confirmOverwrite = window.confirm(
+              `Questo associato è stato modificato da un altro utente.\n\nVuoi sovrascrivere le modifiche e salvare comunque?`
+            );
+            if (!confirmOverwrite) {
+              setError('Salvataggio annullato. Ricaricare la pagina per vedere le modifiche recenti.');
+              return;
+            }
           }
         }
       } catch (e) {
