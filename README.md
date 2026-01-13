@@ -279,9 +279,7 @@ netlify dev       # Dev server con Netlify Functions
 Ogni modifica al codice richiede bump di `APP_VERSION` in `services/dataService.ts`.
 
 - **APP_VERSION** – Versione UI/logica (bump sempre)
-- **DB_VERSION** – Versione dati (`Member`, `AppSettings`), solo se cambia la struttura
-- **SUPABASE_SCHEMA_VERSION** – Versione tabelle SQL, bump se cambia schema
-- **SUPABASE_AUTH_SCHEMA_VERSION** – Versione metadata auth, bump se cambiano claim utente
+- **DB_VERSION** – Versione schema dati (Member/AppSettings JSON), bump solo se cambia struttura
 
 ### Task Comuni
 

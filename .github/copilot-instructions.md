@@ -58,8 +58,7 @@ GADU (Gestione Associazioni Decisamente User-friendly) – Membership management
 ## Versioning
 
 - `APP_VERSION` – Bump for any UI/logic change
-- `DB_VERSION` – Bump only when Member/AppSettings shape changes
-- `SUPABASE_SCHEMA_VERSION` – Bump only when SQL schema changes
+- `DB_VERSION` – Bump only when Member/AppSettings JSON shape changes
 
 **Database migrations:**
 - Automatic & incremental via `DB_MIGRATIONS` map
@@ -77,7 +76,7 @@ GADU (Gestione Associazioni Decisamente User-friendly) – Membership management
 | Add branch | types.ts, constants.ts, MemberDetail.tsx, dataService.ts |
 | New view | App.tsx, create components/ViewName.tsx |
 | Styling | Tailwind in components, custom colors in index.html |
-| Supabase schema | supabase-schema.sql, update SUPABASE_SCHEMA_VERSION |
+| SQL schema change | netlify/functions/update-schema.ts (BASELINE_SCHEMA_SQL + migrations) |
 
 ## Critical Workflows
 

@@ -40,8 +40,6 @@ export const appSettingsSchema = z
     city: z.string().optional(),
     taxCode: z.string().optional(),
 
-    dbVersion: z.number().int(),
-
     yearlyRituals: z
       .record(
         z.string(),

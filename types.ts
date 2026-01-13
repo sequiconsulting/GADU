@@ -175,7 +175,6 @@ export interface AppSettings {
   zipCode?: string;
   city?: string;
   taxCode?: string;
-  dbVersion: number; // Database schema version for migrations
   // Ritual preferences per year (Masonic year start, e.g., 2025 for 2025-2026)
   yearlyRituals?: Record<number, {
     craft: 'Emulation' | 'Scozzese';

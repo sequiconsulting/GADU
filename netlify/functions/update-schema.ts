@@ -12,7 +12,6 @@ create table if not exists public.app_settings (
   id text primary key,
   data jsonb not null default '{}'::jsonb,
   db_version integer not null default 1,
-  schema_version integer not null default 1,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

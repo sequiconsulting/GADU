@@ -12,13 +12,12 @@ import { formatZodError } from '../schemas/common';
 
 type MemberData = Omit<Member, 'id'>;
 type MemberRow = { id: string; data: MemberData };
-type SettingsRow = { id: string; data: AppSettings; db_version: number; schema_version: number };
+type SettingsRow = { id: string; data: AppSettings; db_version: number };
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
   public APP_VERSION = '0.204';
   public DB_VERSION = 16;
-  public SUPABASE_SCHEMA_VERSION = 2;
 
   private supabase: SupabaseClient | null = null;
   private initPromise: Promise<void> | null = null;
@@ -120,12 +119,8 @@ class DataService {
 
   /**
    * Apply security policies to all tables.
-   * NOTE: Il client gira con anon key, quindi non può gestire policy RLS (richiede service key).
-   * Le policy vanno gestite via migrazioni/SQL o da backend con service key.
+   * REMOVED: RLS policies are now managed via SQL migrations only (BASELINE_SCHEMA_SQL).
    */
-  private async applySecurityPolicies(): Promise<void> {
-    console.log('[SECURITY] Skip applySecurityPolicies on client (anon key). Configure RLS via SQL/backend with service key.');
-  }
 
   private async ensureSchemaAndSeed(): Promise<boolean> {
     const client = this.ensureSupabaseClient();
@@ -142,7 +137,7 @@ class DataService {
 
     const { data: settingsRow, error: settingsError } = await client
       .from('app_settings')
-      .select('id, data, db_version, schema_version')
+      .select('id, data, db_version')
       .eq('id', 'app')
       .maybeSingle();
 
@@ -158,16 +153,20 @@ class DataService {
     // Rileggi dopo migrazioni per non sovrascrivere dati utente
     const { data: refreshedSettings } = await client
       .from('app_settings')
-      .select('id, data, db_version, schema_version')
+      .select('id, data, db_version')
       .eq('id', 'app')
       .maybeSingle();
 
     if (!refreshedSettings) {
       const defaultSettings: AppSettings = {
-        lodgeName: 'Loggia Supabase Demo',
-        lodgeNumber: this.currentLodgeConfig?.glriNumber || '9999',
-        province: 'MI',
-        dbVersion: this.DB_VERSION,
+        lodgeName: this.currentLodgeConfig?.lodgeName || '',
+        lodgeNumber: this.currentLodgeConfig?.glriNumber || '',
+        province: this.currentLodgeConfig?.province || '',
+        associationName: this.currentLodgeConfig?.associationName,
+        address: this.currentLodgeConfig?.address,
+        zipCode: this.currentLodgeConfig?.zipCode,
+        city: this.currentLodgeConfig?.city,
+        taxCode: this.currentLodgeConfig?.taxCode,
         userChangelog: [],
         branchPreferences: {
           CRAFT: {},
@@ -180,17 +179,12 @@ class DataService {
         id: 'app',
         data: defaultSettings,
         db_version: this.DB_VERSION,
-        schema_version: this.SUPABASE_SCHEMA_VERSION,
       });
     } else {
       const updates: Partial<SettingsRow> = {};
       if (refreshedSettings.db_version !== this.DB_VERSION) updates.db_version = this.DB_VERSION;
-      if (refreshedSettings.schema_version !== this.SUPABASE_SCHEMA_VERSION) updates.schema_version = this.SUPABASE_SCHEMA_VERSION;
       if (Object.keys(updates).length > 0) {
         await client.from('app_settings').update(updates).eq('id', 'app');
-        if (updates.schema_version !== undefined) {
-          await this.applySecurityPolicies();
-        }
       }
     }
 
@@ -517,7 +511,7 @@ class DataService {
   async getSettings(): Promise<AppSettings> {
     await this.ensureReady();
     const client = this.ensureSupabaseClient();
-    const { data, error } = await client.from('app_settings').select('data, db_version, schema_version').eq('id', 'app').maybeSingle();
+    const { data, error } = await client.from('app_settings').select('data, db_version').eq('id', 'app').maybeSingle();
     if (error) throw error;
     const row = data as SettingsRow | null;
 
@@ -531,7 +525,6 @@ class DataService {
       lodgeName: '',
       lodgeNumber: '',
       province: '',
-      dbVersion: this.DB_VERSION,
       userChangelog: [],
       branchPreferences: defaultBranchPreferences,
     };
@@ -565,7 +558,6 @@ class DataService {
     const candidate: AppSettings = {
       ...defaultSettings,
       ...raw,
-      dbVersion: this.DB_VERSION,
       userChangelog: Array.isArray(raw.userChangelog) ? raw.userChangelog : [],
       branchPreferences: normalizedBranchPreferences,
     };
@@ -581,7 +573,7 @@ class DataService {
         id: 'app',
         data: parsed.data,
         db_version: this.DB_VERSION,
-        schema_version: this.SUPABASE_SCHEMA_VERSION,
+
       });
       if (upsertError) throw upsertError;
     }
@@ -594,7 +586,6 @@ class DataService {
     const client = this.ensureSupabaseClient();
     const settingsToSave: AppSettings = {
       ...settings,
-      dbVersion: this.DB_VERSION,
       userChangelog: (settings.userChangelog || []).slice(-100),
     };
 
@@ -607,7 +598,6 @@ class DataService {
       id: 'app',
       data: parsed.data,
       db_version: this.DB_VERSION,
-      schema_version: this.SUPABASE_SCHEMA_VERSION,
     });
     if (error) throw error;
     return parsed.data as unknown as AppSettings;
