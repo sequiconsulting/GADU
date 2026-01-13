@@ -63,9 +63,25 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   });
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterBranch, setFilterBranch] = useState<string>('ALL');
+  
+  // Load filter branch from localStorage with fallback to 'ALL'
+  const [filterBranch, setFilterBranch] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(`gadu_filterBranch_${glriNumber}`) || 'ALL';
+    }
+    return 'ALL';
+  });
+  
   const currentCivilYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState<number>(currentCivilYear);
+  
+  // Load selected year from localStorage with fallback to current civil year
+  const [selectedYear, setSelectedYear] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(`gadu_selectedYear_${glriNumber}`);
+      return stored ? parseInt(stored, 10) : currentCivilYear;
+    }
+    return currentCivilYear;
+  });
   const [yearOptions, setYearOptions] = useState<number[]>(Array.from({length: 8}, (_, i) => currentCivilYear - 5 + i));
   
   const [isMembersMenuOpen, setIsMembersMenuOpen] = useState(true);
@@ -98,6 +114,19 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
       openMenu(menu);
     }
   };
+
+  // Persist filter branch and selected year to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`gadu_filterBranch_${glriNumber}`, filterBranch);
+    }
+  }, [filterBranch, glriNumber]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`gadu_selectedYear_${glriNumber}`, selectedYear.toString());
+    }
+  }, [selectedYear, glriNumber]);
 
   // Check if user must change password on first login
   useEffect(() => {
@@ -287,6 +316,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     // Reset search/filter state (issue #19)
     setSearchTerm('');
     setFilterBranch('ALL');
+    setSelectedYear(new Date().getFullYear());
     
     // Redirect alla pagina iniziale (login)
     window.location.href = '/';
