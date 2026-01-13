@@ -901,10 +901,14 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
                                                 )}
                                               </td>
                                               <td className="px-1.5 py-1.5 align-top">
-                                                <span className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium ${event.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                  {event.status === 'ACTIVE' ? <CheckCircle2 size={9} /> : <AlertCircle size={9} />}
-                                                  {event.status === 'ACTIVE' ? 'Att.' : 'Inatt.'}
-                                                </span>
+                                                {editingStatusEvent?.branch === branch.type && editingStatusEvent?.eventIndex === originalIdx ? (
+                                                  <span className="text-[9px] text-slate-400 italic">Modifica...</span>
+                                                ) : (
+                                                  <span className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-medium ${event.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                    {event.status === 'ACTIVE' ? <CheckCircle2 size={9} /> : <AlertCircle size={9} />}
+                                                    {event.status === 'ACTIVE' ? 'Att.' : 'Inatt.'}
+                                                  </span>
+                                                )}
                                               </td>
                                               <td className="px-1.5 py-1.5 text-slate-700 align-top text-[11px]">
                                                 {event.reason || '—'}
