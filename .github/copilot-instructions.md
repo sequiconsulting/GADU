@@ -20,6 +20,12 @@ GADU (Gestione Associazioni Decisamente User-friendly) – Membership management
 
 ## Architecture
 
+**Multi-tenant with isolated databases:**
+- Each lodge = dedicated Supabase project = native database isolation
+- No cross-lodge data access possible (different DBs, different credentials)
+- RLS policies only separate anon from authenticated users within same lodge
+- Security simplified: no multi-tenancy logic needed at data layer
+
 **Files:**
 - `App.tsx` – 9 views, navigation, year selection, member/settings lifecycle
 - `types.ts` – Domain model (Member, AppSettings, StatusEvent, etc.)
