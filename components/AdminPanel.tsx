@@ -1,10 +1,93 @@
 
 import React, { useState, useEffect } from 'react';
+import { z } from 'zod';
 import { AppSettings, BranchType } from '../types';
 import { Save, Settings, X, Upload, Trash2, Database } from 'lucide-react';
 import { ITALIAN_PROVINCES, BRANCHES } from '../constants';
 import { UserManagement } from './UserManagement';
 import { dataService } from '../services/dataService';
+
+const MAX_LOGO_SIZE_BYTES = 200 * 1024;
+const ALLOWED_IMAGE_MIME = ['image/png', 'image/jpeg', 'image/webp'];
+const MAX_TEXT_LENGTH = 160;
+
+const sanitizeText = (value: unknown, label: string): string => {
+  const text = (value ?? '').toString().trim();
+  if (text.length > MAX_TEXT_LENGTH) {
+    throw new Error(`${label} troppo lungo (max ${MAX_TEXT_LENGTH} caratteri).`);
+  }
+  if (/</.test(text) || />/.test(text)) {
+    throw new Error(`${label} contiene caratteri non consentiti (< >).`);
+  }
+  return text;
+};
+
+const detectImageSignature = (buffer: ArrayBuffer): 'png' | 'jpeg' | 'webp' | null => {
+  const bytes = new Uint8Array(buffer.slice(0, 12));
+  const isPng = bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a;
+  if (isPng) return 'png';
+
+  const isJpeg = bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (isJpeg) return 'jpeg';
+
+  const isWebp = bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
+  if (isWebp) return 'webp';
+
+  return null;
+};
+
+const validateAndReadImage = async (file: File, fieldLabel: string): Promise<string> => {
+  const lowerType = (file.type || '').toLowerCase();
+  const isSvg = lowerType === 'image/svg+xml' || file.name?.toLowerCase().endsWith('.svg');
+  if (isSvg) {
+    throw new Error(`${fieldLabel}: SVG non consentito senza sanitizzazione.`);
+  }
+
+  if (file.size > MAX_LOGO_SIZE_BYTES) {
+    throw new Error(`${fieldLabel}: file troppo grande (${Math.round(file.size / 1024)} KB, max 200 KB).`);
+  }
+
+  if (!ALLOWED_IMAGE_MIME.includes(lowerType)) {
+    throw new Error(`${fieldLabel}: formato non supportato (${lowerType || 'sconosciuto'}). Usa PNG, JPEG o WEBP.`);
+  }
+
+  const buffer = await file.arrayBuffer();
+  const signature = detectImageSignature(buffer);
+  if (!signature) {
+    throw new Error(`${fieldLabel}: firma del file non valida (non è un PNG/JPEG/WEBP).`);
+  }
+
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error(`${fieldLabel}: lettura file fallita.`));
+    reader.readAsDataURL(file);
+  });
+
+  return dataUrl;
+};
+
+const branchPreferencesSchema = z.record(
+  z.enum(['CRAFT', 'MARK', 'ARCH', 'RAM']),
+  z
+    .object({
+      città: z.string().max(MAX_TEXT_LENGTH).optional(),
+      indirizzo: z.string().max(MAX_TEXT_LENGTH).optional(),
+      motto: z.string().max(MAX_TEXT_LENGTH).optional(),
+      logoObbedienzaUrl: z.string().optional(),
+      logoRegionaleUrl: z.string().optional(),
+      logoLoggiaUrl: z.string().optional(),
+      defaultQuote: z
+        .object({
+          quotaGLGC: z.record(z.string(), z.number().nonnegative()).optional(),
+          quotaRegionale: z.record(z.string(), z.number().nonnegative()).optional(),
+          quotaLoggia: z.record(z.string(), z.number().nonnegative()).optional(),
+          quotaCerimonia: z.record(z.string(), z.number().nonnegative()).optional(),
+        })
+        .optional(),
+    })
+    .optional()
+);
 
 interface AdminPanelProps {
   currentSettings: AppSettings;
@@ -39,6 +122,54 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
     setSettings(withDefaults(currentSettings));
   }, [currentSettings]);
 
+  const buildValidatedBranchPreferences = (): NonNullable<AppSettings['branchPreferences']> => {
+    const source = settings.branchPreferences || {};
+    const normalized: NonNullable<AppSettings['branchPreferences']> = {
+      CRAFT: {},
+      MARK: {},
+      ARCH: {},
+      RAM: {},
+    };
+
+    const coerceNumber = (value: unknown, label: string): number => {
+      if (value === undefined || value === null || value === '') return 0;
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 0) {
+        throw new Error(`${label} deve essere un numero >= 0.`);
+      }
+      return n;
+    };
+
+    (['CRAFT', 'MARK', 'ARCH', 'RAM'] as const).forEach(branch => {
+      const raw = source[branch] || {};
+      const sanitized: any = { ...raw };
+
+      if (raw.città !== undefined) sanitized.città = sanitizeText(raw.città, `Città ${branch}`);
+      if (raw.indirizzo !== undefined) sanitized.indirizzo = sanitizeText(raw.indirizzo, `Indirizzo ${branch}`);
+      if (raw.motto !== undefined) sanitized.motto = sanitizeText(raw.motto, `Motto ${branch}`);
+
+      if (raw.defaultQuote) {
+        const { defaultQuote } = raw;
+        sanitized.defaultQuote = {
+          quotaGLGC: Object.fromEntries(Object.entries(defaultQuote.quotaGLGC || {}).map(([k, v]) => [k, coerceNumber(v, `${branch} quotaGLGC ${k}`)])),
+          quotaRegionale: Object.fromEntries(Object.entries(defaultQuote.quotaRegionale || {}).map(([k, v]) => [k, coerceNumber(v, `${branch} quotaRegionale ${k}`)])),
+          quotaLoggia: Object.fromEntries(Object.entries(defaultQuote.quotaLoggia || {}).map(([k, v]) => [k, coerceNumber(v, `${branch} quotaLoggia ${k}`)])),
+          quotaCerimonia: Object.fromEntries(Object.entries(defaultQuote.quotaCerimonia || {}).map(([k, v]) => [k, coerceNumber(v, `${branch} quotaCerimonia ${k}`)])),
+        };
+      }
+
+      normalized[branch] = sanitized;
+    });
+
+    const parsed = branchPreferencesSchema.safeParse(normalized);
+    if (!parsed.success) {
+      const details = parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ');
+      throw new Error(`Preferenze rami non valide: ${details}`);
+    }
+
+    return normalized;
+  };
+
   const handleSave = async () => {
     // La tab "Generale" è sola lettura (dati dal registry), non salva nulla nel DB.
     if (activeMainTab === 'GENERALE') {
@@ -52,16 +183,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
     const base = withDefaults(currentSettings);
     let toSave: AppSettings = base;
 
-    if (activeMainTab === 'PREFERENZE_RAMI' || activeMainTab === 'DEFAULT_QUOTE') {
-      toSave = {
-        ...base,
-        branchPreferences: settings.branchPreferences,
-      };
-    }
+    try {
+      if (activeMainTab === 'PREFERENZE_RAMI' || activeMainTab === 'DEFAULT_QUOTE') {
+        toSave = {
+          ...base,
+          branchPreferences: buildValidatedBranchPreferences(),
+        };
+      }
 
-    await Promise.resolve(onSave(toSave));
-    setMessage('Impostazioni salvate con successo.');
-    setTimeout(() => setMessage(null), 3000);
+      await Promise.resolve(onSave(toSave));
+      setMessage('Impostazioni salvate con successo.');
+      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      const reason = error?.message || 'Errore durante il salvataggio delle impostazioni.';
+      setMessage(reason);
+      setTimeout(() => setMessage(null), 5000);
+      throw error;
+    }
   };
 
   const handleUserChangelogChange = async (changelog: any[]) => {
@@ -73,12 +211,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
     if (next) {
       // Persisti partendo dai settings del DB per evitare sovrascritture dei campi del registry.
       const base = withDefaults(currentSettings);
-      await Promise.resolve(
-        onSave({
-          ...base,
-          userChangelog: changelog,
-        })
-      );
+      try {
+        await Promise.resolve(
+          onSave({
+            ...base,
+            userChangelog: changelog,
+          })
+        );
+      } catch (error: any) {
+        const reason = error?.message || 'Errore durante il salvataggio del changelog utente.';
+        setMessage(reason);
+        setTimeout(() => setMessage(null), 5000);
+        throw error;
+      }
     }
   };
 
@@ -87,6 +232,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
   };
 
   const handleClearDatabase = async () => {
+    if (!isDemoLodge) {
+      const err = new Error('Cancellazione disponibile solo per la loggia demo (9999).');
+      setMessage(err.message);
+      setTimeout(() => setMessage(null), 5000);
+      throw err;
+    }
+
     setIsProcessing(true);
     try {
       await dataService.clearDatabase();
@@ -95,16 +247,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
       if (onDataChange) {
         await onDataChange();
       }
-    } catch (error) {
+    } catch (error: any) {
+      const reason = error?.message || 'Errore durante la cancellazione del database.';
       console.error('Errore nella cancellazione del database:', error);
-      setMessage("Errore durante la cancellazione del database.");
+      setMessage(reason);
+      setTimeout(() => setMessage(null), 5000);
+      throw error;
     } finally {
       setIsProcessing(false);
-      setTimeout(() => setMessage(null), 3000);
     }
   };
 
   const handleLoadDemoData = async () => {
+    if (!isDemoLodge) {
+      const err = new Error('Caricamento dati demo disponibile solo per la loggia demo (9999).');
+      setMessage(err.message);
+      setTimeout(() => setMessage(null), 5000);
+      throw err;
+    }
+
     setIsProcessing(true);
     try {
       await dataService.loadDemoData();
@@ -113,12 +274,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
       if (onDataChange) {
         await onDataChange();
       }
-    } catch (error) {
+    } catch (error: any) {
+      const reason = error?.message || 'Errore durante il caricamento dei dati di esempio.';
       console.error('Errore nel caricamento dei dati di esempio:', error);
-      setMessage("Errore durante il caricamento dei dati di esempio.");
+      setMessage(reason);
+      setTimeout(() => setMessage(null), 5000);
+      throw error;
     } finally {
       setIsProcessing(false);
-      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -138,15 +301,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
       }));
     };
 
-    const handleFileUpload = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = (field: string) => async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const dataUrl = event.target?.result as string;
+        try {
+          const dataUrl = await validateAndReadImage(file, `Upload ${field}`);
           handleBranchPrefChange(field, dataUrl);
-        };
-        reader.readAsDataURL(file);
+          setMessage('Logo caricato con successo.');
+          setTimeout(() => setMessage(null), 3000);
+        } catch (error: any) {
+          const reason = error?.message || 'Upload logo rifiutato.';
+          setMessage(reason);
+          console.error('Errore upload logo:', error);
+          setTimeout(() => setMessage(null), 5000);
+        }
       }
       // Reset input value so the same file can be selected again (issue #32)
       e.target.value = '';

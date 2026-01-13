@@ -39,7 +39,9 @@ class DataService {
   public initializeLodge(config: PublicLodgeConfig): void {
     this.currentLodgeConfig = config;
     
-    // Use service key if available (demo mode), otherwise use anon key
+    // SECURITY: Use service key ONLY in demo mode (glriNumber === '9999').
+    // Production lodges MUST use anonKey with proper RLS enforcement.
+    // Service key bypasses RLS and should never be exposed to client in production.
     const apiKey = config.supabaseServiceKey || config.supabaseAnonKey;
     this.useServiceKey = Boolean(config.supabaseServiceKey);
     
@@ -796,19 +798,29 @@ class DataService {
   async clearDatabase(): Promise<void> {
     await this.ensureReady();
     const client = this.ensureSupabaseClient();
+    if (this.currentLodgeConfig?.glriNumber !== '9999') {
+      throw new Error('Cancellazione database disponibile solo per la loggia demo (9999).');
+    }
     
     // Cancella tutti i membri (usa not IS NULL per evitare 400 con filter vuoto)
     const { error: membersError } = await client.from('members').delete().not('id', 'is', null);
-    if (membersError) throw membersError;
+    if (membersError) {
+      throw new Error(`Cancellazione membri fallita: ${membersError.message} (code: ${membersError.code})`);
+    }
     
     // Cancella tutte le convocazioni
     const { error: convocazioniError } = await client.from('convocazioni').delete().not('id', 'is', null);
-    if (convocazioniError) throw convocazioniError;
+    if (convocazioniError) {
+      throw new Error(`Cancellazione convocazioni fallita: ${convocazioniError.message} (code: ${convocazioniError.code})`);
+    }
   }
 
   async loadDemoData(): Promise<void> {
     await this.ensureReady();
     const client = this.ensureSupabaseClient();
+    if (this.currentLodgeConfig?.glriNumber !== '9999') {
+      throw new Error('Caricamento dati demo disponibile solo per la loggia demo (9999).');
+    }
     
     // Carica membri demo
     const demoMembers = this.buildDemoMembers();
@@ -819,7 +831,9 @@ class DataService {
         return { data };
       })
     );
-    if (membersError) throw membersError;
+    if (membersError) {
+      throw new Error(`Inserimento membri demo fallito: ${membersError.message} (code: ${membersError.code})`);
+    }
     
     // Carica convocazioni demo
     const demoConvocazioni = this.buildDemoConvocazioni();
@@ -830,7 +844,9 @@ class DataService {
         data: c,
       }))
     );
-    if (convocazioniError) throw convocazioniError;
+    if (convocazioniError) {
+      throw new Error(`Inserimento convocazioni demo fallito: ${convocazioniError.message} (code: ${convocazioniError.code})`);
+    }
   }
 }
 

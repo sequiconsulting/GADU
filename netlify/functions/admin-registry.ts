@@ -1,6 +1,8 @@
 import { Handler } from '@netlify/functions';
+import { z } from 'zod';
 import { initNetlifyBlobs, loadRegistry, saveRegistry, logAuditEvent } from './shared/registry';
 import { LodgeConfig, Registry } from '../../types/lodge';
+import { formatZodError } from '../../schemas/common';
 import { createCipheriv, randomBytes } from 'crypto';
 import { getStore } from '@netlify/blobs';
 
@@ -18,6 +20,24 @@ interface SetPrivateKeysPayload {
   kyberPrivate: string; // hex
   rsaPrivateB64: string; // base64(Pem)
 }
+
+const upsertPayloadSchema = z.object({
+  glriNumber: z.string().trim().min(1),
+  lodgeName: z.string().trim().min(1).optional(),
+  supabaseUrl: z.string().trim().regex(/^https:\/\/.+\.supabase\.co$/).optional(),
+  supabaseAnonKey: z.string().trim().min(1).optional(),
+  supabaseServiceKey: z.string().trim().min(1).optional(),
+  databasePassword: z.string().min(1).optional(),
+}).passthrough();
+
+const setPrivateKeysPayloadSchema = z.object({
+  kyberPrivate: z.string().regex(/^[0-9a-fA-F]+$/).min(100),
+  rsaPrivateB64: z.string().min(100),
+});
+
+const deletePayloadSchema = z.object({
+  glriNumber: z.string().trim().min(1),
+});
 
 function requireAuth(event: any) {
   const token = event.headers?.authorization?.replace('Bearer ', '').trim();
@@ -105,7 +125,8 @@ export const handler: Handler = async (event, context) => {
     requireAuth(event);
 
     initNetlifyBlobs(event);
-    const { action = 'list', lodge, keys } = event.body ? JSON.parse(event.body) : {} as { action?: string; lodge?: UpsertPayload; glriNumber?: string; keys?: SetPrivateKeysPayload };
+    const rawBody = event.body ? JSON.parse(event.body) : {};
+    const { action = 'list', lodge, keys } = rawBody as { action?: string; lodge?: UpsertPayload; glriNumber?: string; keys?: SetPrivateKeysPayload };
 
     if (action === 'list') {
       const registry = await loadRegistry();
@@ -113,10 +134,11 @@ export const handler: Handler = async (event, context) => {
     }
 
     if (action === 'delete') {
-      const glriNumber = lodge?.glriNumber;
-      if (!glriNumber) {
-        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'glriNumber richiesto' }) };
+      const parsed = deletePayloadSchema.safeParse(lodge || {});
+      if (!parsed.success) {
+        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: formatZodError(parsed.error) }) };
       }
+      const glriNumber = parsed.data.glriNumber;
       const registry = await loadRegistry();
       delete registry[glriNumber];
       await saveRegistry(registry);
@@ -133,11 +155,12 @@ export const handler: Handler = async (event, context) => {
       if (!masterKey) {
         return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: 'QUANTUM_MASTER_KEY non configurata' }) };
       }
-      if (!keys?.kyberPrivate || !keys?.rsaPrivateB64) {
-        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: 'Payload keys mancante' }) };
+      const parsedKeys = setPrivateKeysPayloadSchema.safeParse(keys || {});
+      if (!parsedKeys.success) {
+        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: formatZodError(parsedKeys.error) }) };
       }
 
-      const encryptedKeys = encryptPrivateKeysForBlob(keys, masterKey);
+      const encryptedKeys = encryptPrivateKeysForBlob(parsedKeys.data, masterKey);
       const keysStore = getStore('quantum-keys');
       await keysStore.set('private-keys', JSON.stringify(encryptedKeys), {
         metadata: { updatedAt: new Date().toISOString() },
@@ -187,21 +210,25 @@ export const handler: Handler = async (event, context) => {
     }
 
     if (action === 'upsert') {
-      const validationError = validateLodge(lodge || {} as any);
+      const parsedLodge = upsertPayloadSchema.safeParse(lodge || {});
+      if (!parsedLodge.success) {
+        return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: formatZodError(parsedLodge.error) }) };
+      }
+      const validationError = validateLodge(parsedLodge.data);
       if (validationError) {
         return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: validationError }) };
       }
       const registry: Registry = await loadRegistry();
-      const glri = lodge!.glriNumber;
+      const glri = parsedLodge.data.glriNumber;
       const now = new Date();
       const existing = registry[glri];
       registry[glri] = {
         ...(existing || {}),
-        ...lodge,
+        ...parsedLodge.data,
         glriNumber: glri,
         createdAt: existing?.createdAt || now,
         lastAccess: now,
-        isActive: lodge?.isActive ?? existing?.isActive ?? true,
+        isActive: parsedLodge.data.isActive ?? existing?.isActive ?? true,
       } as LodgeConfig;
       await saveRegistry(registry);
       try {

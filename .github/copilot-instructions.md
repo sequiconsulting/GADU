@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-GADU (Gestione Associazioni Decisamente User-friendly) – Membership management system for Masonic lodges. React + TypeScript + Supabase + Vite. Manages members across 4 branches (Craft, Mark, Chapter, RAM) with degree tracking, role assignments, and reporting.
+GADU (Gestione Associazioni Decisamente User-friendly) – Membership management system for Masonic lodges. React + TypeScript + Supabase + Vite. Manages members across 4 branches (Craft, Mark, Arch, RAM) with degree tracking, role assignments, and reporting.
 
 ## Core Principles
 
