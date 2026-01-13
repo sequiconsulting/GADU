@@ -722,8 +722,8 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
       exportData.push({});
     }
 
-    // Tabella 10: Situazione al 31 gennaio anno successivo
-    exportData.push({ 'Cognome': `TABELLA 10 - Situazione al 31 gennaio ${selectedYear + 1}` });
+    // Tabella 10: Situazione al 31 dicembre anno in corso (etichetta)
+    exportData.push({ 'Cognome': `TABELLA 10 - Situazione al 31 dicembre ${selectedYear}` });
     currentReport.activeAtJan31.forEach(ctx => {
       exportData.push({
         'Matricola': ctx.member.glriNumber || '—',
@@ -848,7 +848,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
         );
       })()}
 
-      {renderMembersTable(`Tabella 10 · Situazione al 31 gennaio ${selectedYear + 1}`, currentReport.activeAtJan31, { showCapitazione: true, showQuota: true, quotaGLGCOnly: true, showQuotaTotal: true })}
+      {renderMembersTable(`Tabella 10 · Situazione al 31 dicembre ${selectedYear}`, currentReport.activeAtJan31, { showCapitazione: true, showQuota: true, quotaGLGCOnly: true, showQuotaTotal: true })}
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm px-4 py-3 text-xs text-amber-700">
         La colonna "Quota" è calcolata in base alle preferenze del ramo e al "Tipo Capitazione" impostato per l'anno selezionato. Modifica gli importi in Impostazioni → Preferenze di Ramo.
