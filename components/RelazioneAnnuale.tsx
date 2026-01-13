@@ -131,22 +131,20 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
   const [activeBranch, setActiveBranch] = useState<BranchType>('CRAFT');
 
   const getCapitazioneForYear = (branchData: MasonicBranchData, year: number): string => {
-    const currentYear = new Date().getFullYear();
     const nextYear = year + 1;
-    // Prova prima anno successivo, poi anno corrente
-    const ev = branchData.capitazioni?.find(c => c.year === nextYear) 
-      || branchData.capitazioni?.find(c => c.year === currentYear);
+    // Prova prima anno successivo, poi anno in corso del report
+    const ev = branchData.capitazioni?.find(c => c.year === nextYear)
+      || branchData.capitazioni?.find(c => c.year === year);
     return ev?.tipo || '—';
   };
 
   const euroFmt = useMemo(() => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }), []);
 
   const getQuotaForYear = (branchData: MasonicBranchData, year: number): number | null => {
-    const currentYear = new Date().getFullYear();
     const nextYear = year + 1;
-    // Prova prima anno successivo, poi anno corrente
+    // Prova prima anno successivo, poi anno in corso del report
     const capitazione = branchData.capitazioni?.find(c => c.year === nextYear)
-      || branchData.capitazioni?.find(c => c.year === currentYear);
+      || branchData.capitazioni?.find(c => c.year === year);
     const tipo = capitazione?.tipo as CapitazioneTipo | undefined;
     const prefs = settings.branchPreferences?.[activeBranch]?.defaultQuote;
     if (!tipo || !prefs) return null;
@@ -158,11 +156,10 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
   };
 
   const getQuotaGLGCForYear = (branchData: MasonicBranchData, year: number): number | null => {
-    const currentYear = new Date().getFullYear();
     const nextYear = year + 1;
-    // Prova prima anno successivo, poi anno corrente
+    // Prova prima anno successivo, poi anno in corso del report
     const capitazione = branchData.capitazioni?.find(c => c.year === nextYear)
-      || branchData.capitazioni?.find(c => c.year === currentYear);
+      || branchData.capitazioni?.find(c => c.year === year);
     const tipo = capitazione?.tipo as CapitazioneTipo | undefined;
     const prefs = settings.branchPreferences?.[activeBranch]?.defaultQuote;
     if (!tipo || !prefs) return null;
@@ -172,6 +169,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
   const branchReports = useMemo(() => {
     const yearStart = `${selectedYear}-01-01`;
     const yearEnd = `${selectedYear}-12-31`;
+    const yearStartDeact = `${selectedYear}-02-01`;
     const previousYear = selectedYear - 1;
 
     return BRANCHES.reduce((acc, branch) => {
@@ -224,7 +222,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
       // Eventi estesi fino al 31/1 anno successivo per tabelle 4, 7, 8
       const eventsExtended: EventContext[] = branchMembers.flatMap(ctx =>
         (ctx.branchData.statusEvents || [])
-          .filter(event => event.date >= yearStart && event.date <= nextYearJan31)
+          .filter(event => event.date >= yearStartDeact && event.date <= nextYearJan31)
           .map(event => ({ ...ctx, event }))
       ).sort((a, b) => {
         const last = a.member.lastName.localeCompare(b.member.lastName);
@@ -233,7 +231,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
       });
 
       const activationEvents = events.filter(e => e.event.status === 'ACTIVE');
-      const deactivationEvents = events.filter(e => e.event.status === 'INACTIVE');
+      const deactivationEvents = events.filter(e => e.event.status === 'INACTIVE' && e.event.date >= yearStartDeact);
       const deactivationEventsExtended = eventsExtended.filter(e => e.event.status === 'INACTIVE');
 
       const config = branchReportConfig[branch.type];
@@ -820,10 +818,6 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
               <div className="flex justify-between">
                 <span className="text-slate-700">Totale decrementi (disattivazioni fino al 31/1/{selectedYear + 1}):</span>
                 <span className="font-semibold text-red-700">-{totaleDecrementi}</span>
-              </div>
-              <div className="flex justify-between border-t border-blue-200 pt-2 mt-2">
-                <span className="text-slate-700">Totale al 31/12/{selectedYear}:</span>
-                <span className="font-semibold text-slate-900">{totaleAnnoInCorso}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-700">Somma algebrica (inizio + incrementi - decrementi):</span>
