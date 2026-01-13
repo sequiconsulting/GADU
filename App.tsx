@@ -204,6 +204,21 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
     }
   };
 
+  const handlePrintDashboard = () => {
+    const originalTitle = document.title;
+    const filterLabel = filterBranch === 'ALL' ? 'Tutti' : 
+      filterBranch === 'CRAFT_ONLY_NO_MARK' ? 'Attivi_Craft_No_Mark' :
+      filterBranch === 'CRAFT_ONLY_NO_ARCH' ? 'Attivi_Craft_No_Arch' :
+      filterBranch === 'CRAFT_ONLY_NO_RAM' ? 'Attivi_Craft_No_RAM' :
+      filterBranch === 'INACTIVE_YEAR_ALL' ? 'Inattivi_Anno' :
+      filterBranch === 'INACTIVE_TOTAL_ALL' ? 'Inattivi_Totale' :
+      filterBranch === 'DB_ALL' ? 'Database_Completo' :
+      BRANCHES.find(b => b.type === filterBranch)?.label || filterBranch;
+    document.title = `GADU - ${appSettings.lodgeName || 'Loggia'} - Registro ${filterLabel} ${selectedYear}`;
+    window.print();
+    document.title = originalTitle;
+  };
+
   const handleSaveSettings = async (settings: AppSettings) => {
       await dataService.saveSettings(settings);
       // Reload fresh data from Supabase to ensure sync (especially for users and userChangelog)
@@ -730,7 +745,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
                     </optgroup>
                     <option value="DB_ALL">Tutto il Database (Nessun Filtro)</option>
                     </select>
-                    <button onClick={() => window.print()} className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 font-medium shadow-sm transition-colors flex items-center justify-center gap-2 whitespace-nowrap">
+                    <button onClick={handlePrintDashboard} className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-50 font-medium shadow-sm transition-colors flex items-center justify-center gap-2 whitespace-nowrap">
                         <Printer size={18} /> Stampa
                     </button>
                     <button onClick={handleCreateMember} className="bg-masonic-gold text-white px-6 py-2 rounded-lg hover:bg-yellow-600 font-medium shadow-sm transition-colors flex items-center justify-center gap-2 whitespace-nowrap"><PlusCircle size={18} /> Nuovo</button>

@@ -391,6 +391,14 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
 
   const { config } = currentReport;
 
+  const handlePrint = () => {
+    const originalTitle = document.title;
+    const branchLabel = BRANCHES.find(b => b.type === activeBranch)?.label || activeBranch;
+    document.title = `GADU - ${settings.lodgeName || 'Loggia'} - Relazione Annuale ${branchLabel} ${selectedYear}`;
+    window.print();
+    document.title = originalTitle;
+  };
+
   const handleExportExcel = () => {
     const exportData: any[] = [];
 
@@ -541,7 +549,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
     });
     exportData.push({ 'Cognome': `TOTALE: ${currentReport.activeAtEnd.length}` });
 
-    dataService.exportToExcel(exportData, `RelazioneAnnuale_${config.introLabel}_${selectedYear}`);
+    dataService.exportToExcel(exportData, `GADU_${settings.lodgeName || 'Loggia'}_Relazione_${config.introLabel.replace(/\s+/g, '_')}_${selectedYear}`);
   };
 
   return (
@@ -552,7 +560,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
           <p className="text-slate-500 mt-1">Report dettagliato per l'anno {selectedYear}</p>
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
-          <button onClick={() => window.print()} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md w-full md:w-auto justify-center">
+          <button onClick={handlePrint} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md w-full md:w-auto justify-center">
             <Printer size={18} /> Stampa
           </button>
           <button onClick={handleExportExcel} className="flex items-center gap-2 bg-green-700 text-white px-5 py-2.5 rounded-lg hover:bg-green-600 transition-colors shadow-md w-full md:w-auto justify-center">

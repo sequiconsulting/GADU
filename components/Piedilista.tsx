@@ -25,6 +25,13 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
     });
   };
 
+  const handlePrint = () => {
+    const originalTitle = document.title;
+    document.title = `GADU - ${lodgeName || 'Loggia'} - Piedilista ${selectedYear}`;
+    window.print();
+    document.title = originalTitle;
+  };
+
   const handleExportExcel = () => {
     const exportData: any[] = [];
     
@@ -90,7 +97,8 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
       });
     }
     
-    dataService.exportToExcel(exportData, `Piedilista_${selectedYear}-${selectedYear+1}`);
+    const viewLabel = viewMode === 'ALL' ? 'Tutti' : BRANCHES.find(b => b.type === viewMode)?.label || viewMode;
+    dataService.exportToExcel(exportData, `GADU_${lodgeName || 'Loggia'}_Piedilista_${viewLabel}_${selectedYear}`);
   };
 
   const formatDate = (isoString: string) => {
@@ -203,7 +211,7 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
     <div className="bg-white p-4 md:p-8 rounded-xl shadow-lg border border-slate-200 animate-fadeIn min-h-[800px] print:shadow-none print:border-none print:p-0">
       <div className="flex flex-col md:flex-row justify-between items-start mb-6 print:hidden gap-4">
         <div><h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-800">Piedilista</h2><p className="text-slate-500 mt-1">Elenco fratelli attivi per l'anno {selectedYear}.</p></div>
-        <div className="flex items-center gap-2"><button onClick={() => window.print()} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md w-full md:w-auto justify-center"><Printer size={18} /> Stampa Visualizzato</button><button onClick={handleExportExcel} className="flex items-center gap-2 bg-green-700 text-white px-5 py-2.5 rounded-lg hover:bg-green-600 transition-colors shadow-md w-full md:w-auto justify-center"><Download size={18} /> Esporta</button></div>
+        <div className="flex items-center gap-2"><button onClick={handlePrint} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md w-full md:w-auto justify-center"><Printer size={18} /> Stampa Visualizzato</button><button onClick={handleExportExcel} className="flex items-center gap-2 bg-green-700 text-white px-5 py-2.5 rounded-lg hover:bg-green-600 transition-colors shadow-md w-full md:w-auto justify-center"><Download size={18} /> Esporta</button></div>
       </div>
       <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto mb-8 print:hidden rounded-t-lg scrollbar-hide">
           <button onClick={() => setViewMode('ALL')} className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 flex items-center gap-2 flex-shrink-0 ${viewMode === 'ALL' ? 'border-slate-800 text-slate-900 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700'}`}><Layout size={16} /> Tutto</button>

@@ -28,9 +28,12 @@ export const RolesHistory: React.FC<RolesHistoryProps> = ({ members, selectedYea
   };
 
   const handlePrint = () => {
+    const originalTitle = document.title;
+    document.title = `GADU - ${appSettings.lodgeName || 'Loggia'} - Storico Ruoli ${selectedYear}`;
     setIsPrinting(true);
     setTimeout(() => {
       window.print();
+      document.title = originalTitle;
       setIsPrinting(false);
     }, 100);
   };

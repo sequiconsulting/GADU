@@ -51,6 +51,13 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
     return roleMap.sort((a, b) => a.sortIndex - b.sortIndex);
   };
 
+  const handlePrint = () => {
+    const originalTitle = document.title;
+    document.title = `GADU - ${lodgeName || 'Loggia'} - Organigramma ${selectedYear}`;
+    window.print();
+    document.title = originalTitle;
+  };
+
   const handleExportExcel = () => {
     const exportData: any[] = [];
     
@@ -65,7 +72,7 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
       });
     });
     
-    dataService.exportToExcel(exportData, `RolesReport_${selectedYear}-${selectedYear+1}`);
+    dataService.exportToExcel(exportData, `GADU_${lodgeName || 'Loggia'}_Organigramma_${selectedYear}`);
   };
 
   return (
@@ -77,7 +84,7 @@ export const RolesReport: React.FC<RolesReportProps> = ({ members, selectedYear,
         </div>
         <div className="flex items-center gap-2">
           <button 
-            onClick={() => window.print()} 
+            onClick={handlePrint} 
             className="flex items-center gap-2 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors"
           >
             <Printer size={18} /> Stampa Report
