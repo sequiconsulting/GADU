@@ -28,6 +28,7 @@ interface BranchReport {
   config: BranchReportConfig;
   activeAtStart: MemberBranchContext[];
   activeAtEnd: MemberBranchContext[];
+  activeAtJan31: MemberBranchContext[];
   events: EventContext[];
   primaryActivations: EventContext[];
   reAdmissions: EventContext[];
@@ -130,14 +131,23 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
   const [activeBranch, setActiveBranch] = useState<BranchType>('CRAFT');
 
   const getCapitazioneForYear = (branchData: MasonicBranchData, year: number): string => {
-    const ev = branchData.capitazioni?.find(c => c.year === year);
+    const currentYear = new Date().getFullYear();
+    const nextYear = year + 1;
+    // Prova prima anno successivo, poi anno corrente
+    const ev = branchData.capitazioni?.find(c => c.year === nextYear) 
+      || branchData.capitazioni?.find(c => c.year === currentYear);
     return ev?.tipo || '—';
   };
 
   const euroFmt = useMemo(() => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }), []);
 
   const getQuotaForYear = (branchData: MasonicBranchData, year: number): number | null => {
-    const tipo = branchData.capitazioni?.find(c => c.year === year)?.tipo as CapitazioneTipo | undefined;
+    const currentYear = new Date().getFullYear();
+    const nextYear = year + 1;
+    // Prova prima anno successivo, poi anno corrente
+    const capitazione = branchData.capitazioni?.find(c => c.year === nextYear)
+      || branchData.capitazioni?.find(c => c.year === currentYear);
+    const tipo = capitazione?.tipo as CapitazioneTipo | undefined;
     const prefs = settings.branchPreferences?.[activeBranch]?.defaultQuote;
     if (!tipo || !prefs) return null;
     const total = (prefs.quotaGLGC?.[tipo] ?? 0)
@@ -145,6 +155,18 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
       + (prefs.quotaLoggia?.[tipo] ?? 0)
       + (prefs.quotaCerimonia?.[tipo] ?? 0);
     return total || null;
+  };
+
+  const getQuotaGLGCForYear = (branchData: MasonicBranchData, year: number): number | null => {
+    const currentYear = new Date().getFullYear();
+    const nextYear = year + 1;
+    // Prova prima anno successivo, poi anno corrente
+    const capitazione = branchData.capitazioni?.find(c => c.year === nextYear)
+      || branchData.capitazioni?.find(c => c.year === currentYear);
+    const tipo = capitazione?.tipo as CapitazioneTipo | undefined;
+    const prefs = settings.branchPreferences?.[activeBranch]?.defaultQuote;
+    if (!tipo || !prefs) return null;
+    return prefs.quotaGLGC?.[tipo] ?? null;
   };
 
   const branchReports = useMemo(() => {
@@ -165,6 +187,30 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
         branchMembers.filter(ctx => isMemberActiveInYear(ctx.branchData, selectedYear))
       );
 
+      // Membri attivi al 31/1 anno successivo: partono da attivi al 31/12 anno selezionato,
+      // esclusi nuovi ingressi tra 1/1 e 31/1 anno successivo, incluse disattivazioni in quel periodo
+      const nextYearJan31 = `${selectedYear + 1}-01-31`;
+      const nextYearJan1 = `${selectedYear + 1}-01-01`;
+      const activeAtJan31 = sortByName(
+        branchMembers.filter(ctx => {
+          // Deve essere attivo al 31/12 anno selezionato
+          if (!isMemberActiveInYear(ctx.branchData, selectedYear)) return false;
+
+          // Verifica se c'è stata attivazione tra 1/1 e 31/1 anno successivo (escludiamo)
+          const hasActivationInJan = ctx.branchData.statusEvents?.some(e =>
+            e.status === 'ACTIVE' && e.date >= nextYearJan1 && e.date <= nextYearJan31
+          );
+          if (hasActivationInJan) return false;
+
+          // Verifica lo stato al 31/1 anno successivo considerando eventuali disattivazioni
+          const eventsUpToJan31 = [...(ctx.branchData.statusEvents || [])]
+            .filter(e => e.date <= nextYearJan31)
+            .sort((a, b) => a.date.localeCompare(b.date));
+          const lastEvent = eventsUpToJan31[eventsUpToJan31.length - 1];
+          return lastEvent?.status === 'ACTIVE';
+        })
+      );
+
       const events: EventContext[] = branchMembers.flatMap(ctx =>
         (ctx.branchData.statusEvents || [])
           .filter(event => event.date >= yearStart && event.date <= yearEnd)
@@ -175,8 +221,20 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
         return a.member.firstName.localeCompare(b.member.firstName);
       });
 
+      // Eventi estesi fino al 31/1 anno successivo per tabelle 4, 7, 8
+      const eventsExtended: EventContext[] = branchMembers.flatMap(ctx =>
+        (ctx.branchData.statusEvents || [])
+          .filter(event => event.date >= yearStart && event.date <= nextYearJan31)
+          .map(event => ({ ...ctx, event }))
+      ).sort((a, b) => {
+        const last = a.member.lastName.localeCompare(b.member.lastName);
+        if (last !== 0) return last;
+        return a.member.firstName.localeCompare(b.member.firstName);
+      });
+
       const activationEvents = events.filter(e => e.event.status === 'ACTIVE');
       const deactivationEvents = events.filter(e => e.event.status === 'INACTIVE');
+      const deactivationEventsExtended = eventsExtended.filter(e => e.event.status === 'INACTIVE');
 
       const config = branchReportConfig[branch.type];
 
@@ -194,10 +252,12 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
       );
 
       // Categorize deactivation events - mutually exclusive
-      const resignations = deactivationEvents.filter(e => e.event.reason === 'Dimissioni');
+      // Tabelle 7, 8: solo anno in corso
+      const resignations = deactivationEventsExtended.filter(e => e.event.reason === 'Dimissioni');
+      const deletions = deactivationEventsExtended.filter(e => e.event.reason === 'Depennamento');
       const deaths = deactivationEvents.filter(e => e.event.reason === 'Oriente Eterno');
-      const deletions = deactivationEvents.filter(e => e.event.reason === 'Depennamento');
-      const transfersOut = deactivationEvents.filter(e => 
+      // Tabella 4: fino al 31/1 anno successivo
+      const transfersOut = deactivationEventsExtended.filter(e => 
         e.event.reason && 
         e.event.reason.startsWith('Trasferimento') && 
         e.event.reason !== 'Dimissioni' && 
@@ -210,6 +270,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
         config,
         activeAtStart,
         activeAtEnd,
+        activeAtJan31,
         events,
         primaryActivations,
         reAdmissions,
@@ -228,11 +289,22 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
 
   const currentReport = branchReports[activeBranch];
 
-  const renderMembersTable = (title: string, rows: MemberBranchContext[]) => {
+  const renderMembersTable = (title: string, rows: MemberBranchContext[], options?: { showCapitazione?: boolean; showQuota?: boolean; quotaGLGCOnly?: boolean; showQuotaTotal?: boolean }) => {
     // Deduplicate by member ID
     const dedupedRows = Array.from(
       new Map(rows.map(row => [row.member.id, row])).values()
     );
+
+    const showCapitazione = options?.showCapitazione ?? false;
+    const showQuota = options?.showQuota ?? false;
+    const quotaGLGCOnly = options?.quotaGLGCOnly ?? false;
+    const showQuotaTotal = options?.showQuotaTotal ?? false;
+
+    // Calcola totale quote se richiesto
+    const quotaTotal = showQuotaTotal ? dedupedRows.reduce((sum, row) => {
+      const q = quotaGLGCOnly ? getQuotaGLGCForYear(row.branchData, selectedYear) : getQuotaForYear(row.branchData, selectedYear);
+      return sum + (q ?? 0);
+    }, 0) : 0;
 
     return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
@@ -242,34 +314,53 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
           <thead className="bg-slate-100">
             <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
               <th className="px-3 py-2 w-10">#</th>
+              <th className="px-3 py-2">Matricola</th>
               <th className="px-3 py-2">Cognome</th>
               <th className="px-3 py-2">Nome</th>
               <th className="px-3 py-2">Grado</th>
-              <th className="px-3 py-2">Tipo Capitazione</th>
-              <th className="px-3 py-2">Quota</th>
+              {showCapitazione && <th className="px-3 py-2">Tipo Capitazione</th>}
+              {showQuota && <th className="px-3 py-2">Quota GL/GC</th>}
             </tr>
           </thead>
           <tbody>
             {dedupedRows.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-4 text-center text-slate-400">Nessun dato disponibile</td>
+                <td colSpan={5 + (showCapitazione ? 1 : 0) + (showQuota ? 1 : 0)} className="px-3 py-4 text-center text-slate-400">Nessun dato disponibile</td>
               </tr>
             )}
             {dedupedRows.map((row, index) => (
               <tr key={row.member.id ? `member-${row.member.id}` : `fallback-${index}`} className="odd:bg-white even:bg-slate-50">
                 <td className="px-3 py-2 text-slate-500">{index + 1}</td>
+                <td className="px-3 py-2 text-slate-600">{row.member.glriNumber || '—'}</td>
                 <td className="px-3 py-2 font-medium">{row.member.lastName}</td>
                 <td className="px-3 py-2">{row.member.firstName}</td>
                 <td className="px-3 py-2">{getLatestDegree(row.branchData, activeBranch)}</td>
-                <td className="px-3 py-2">{getCapitazioneForYear(row.branchData, selectedYear)}</td>
-                <td className="px-3 py-2">{(() => { const q = getQuotaForYear(row.branchData, selectedYear); return q != null ? euroFmt.format(q) : '—'; })()}</td>
+                {showCapitazione && <td className="px-3 py-2">{getCapitazioneForYear(row.branchData, selectedYear)}</td>}
+                {showQuota && <td className="px-3 py-2">{(() => { 
+                  const q = quotaGLGCOnly ? getQuotaGLGCForYear(row.branchData, selectedYear) : getQuotaForYear(row.branchData, selectedYear); 
+                  return q != null ? euroFmt.format(q) : '—'; 
+                })()}</td>}
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="bg-slate-100 text-sm font-semibold text-slate-600">
-              <td className="px-3 py-2" colSpan={5}>Totale</td>
-              <td className="px-3 py-2">{dedupedRows.length}</td>
+              {showQuotaTotal ? (
+                <>
+                  <td className="px-3 py-2"></td>
+                  <td className="px-3 py-2"></td>
+                  <td className="px-3 py-2">Totale: {dedupedRows.length}</td>
+                  <td className="px-3 py-2"></td>
+                  <td className="px-3 py-2"></td>
+                  {showCapitazione && <td className="px-3 py-2"></td>}
+                  {showQuota && <td className="px-3 py-2">{euroFmt.format(quotaTotal)}</td>}
+                </>
+              ) : (
+                <>
+                  <td className="px-3 py-2" colSpan={4 + (showCapitazione ? 1 : 0) + (showQuota ? 1 : 0)}>Totale</td>
+                  <td className="px-3 py-2">{dedupedRows.length}</td>
+                </>
+              )}
             </tr>
           </tfoot>
         </table>
@@ -287,7 +378,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
     );
 
     const optionalColumns = (showDegree ? 1 : 0) + (showOrigin ? 1 : 0);
-    const totalColumns = 5 + optionalColumns;
+    const totalColumns = 6 + optionalColumns;
     const labelColSpan = totalColumns - 1;
 
     return (
@@ -298,6 +389,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
             <thead className="bg-slate-100">
               <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2 w-10">#</th>
+                <th className="px-3 py-2">Matricola</th>
                 <th className="px-3 py-2">Cognome</th>
                 <th className="px-3 py-2">Nome</th>
                 {showDegree && <th className="px-3 py-2">Grado</th>}
@@ -315,6 +407,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
               {dedupedRows.map((row, index) => (
                 <tr key={`${row.member.id}-${row.event.date}-${index}`} className="odd:bg-white even:bg-slate-50">
                   <td className="px-3 py-2 text-slate-500">{index + 1}</td>
+                  <td className="px-3 py-2 text-slate-600">{row.member.glriNumber || '—'}</td>
                   <td className="px-3 py-2 font-medium">{row.member.lastName}</td>
                   <td className="px-3 py-2">{row.member.firstName}</td>
                   {showDegree && <td className="px-3 py-2">{getLatestDegree(row.branchData, activeBranch)}</td>}
@@ -620,10 +713,11 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
       exportData.push({});
     }
 
-    // Tabella 10: Situazione al 31 dicembre
-    exportData.push({ 'Cognome': 'TABELLA 10 - Situazione al 31 dicembre' });
-    currentReport.activeAtEnd.forEach(ctx => {
+    // Tabella 10: Situazione al 31 gennaio anno successivo
+    exportData.push({ 'Cognome': `TABELLA 10 - Situazione al 31 gennaio ${selectedYear + 1}` });
+    currentReport.activeAtJan31.forEach(ctx => {
       exportData.push({
+        'Matricola': ctx.member.glriNumber || '—',
         'Cognome': ctx.member.lastName,
         'Nome': ctx.member.firstName,
         'Grado': getLatestDegree(ctx.branchData, activeBranch),
@@ -631,7 +725,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
         'Quota': '—'
       });
     });
-    exportData.push({ 'Cognome': `TOTALE: ${currentReport.activeAtEnd.length}` });
+    exportData.push({ 'Cognome': `TOTALE: ${currentReport.activeAtJan31.length}` });
 
     dataService.exportToExcel(exportData, `GADU_${settings.lodgeName || 'Loggia'}_Relazione_${config.introLabel.replace(/\s+/g, '_')}_${selectedYear}`);
   };
@@ -684,7 +778,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
 
       {renderSummary()}
 
-      {renderMembersTable('Tabella 1 · Situazione al 1° gennaio', currentReport.activeAtStart)}
+      {renderMembersTable('Tabella 1 · Situazione al 1° gennaio', currentReport.activeAtStart, { showCapitazione: false, showQuota: false, showQuotaTotal: true })}
 
       {renderSimpleList(`Tabella 2 · ${config.primaryActivationLabel}`, currentReport.primaryActivations)}
 
@@ -702,7 +796,54 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
 
       {renderRiscossioniTable()}
 
-      {renderMembersTable('Tabella 10 · Situazione al 31 dicembre', currentReport.activeAtEnd)}
+      {/* Riepilogo movimentazione */}
+      {(() => {
+        const totaleInizioAnno = currentReport.activeAtStart.length;
+        const totaleIncrementi = currentReport.primaryActivations.length + currentReport.reAdmissions.length + currentReport.transfersIn.length + currentReport.transfersForeign.length + currentReport.doubleAffiliations.length;
+        const totaleDecrementi = currentReport.transfersOut.length + currentReport.resignations.length + currentReport.deletions.length + currentReport.deaths.length;
+        const totaleAnnoInCorso = currentReport.activeAtEnd.length;
+        const sommaAlgebrica = totaleInizioAnno + totaleIncrementi - totaleDecrementi;
+        const totaleJan31 = currentReport.activeAtJan31.length;
+        
+        return (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-blue-200 bg-blue-100 font-semibold text-blue-800">Riepilogo Movimentazione</div>
+            <div className="p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-700">Totale inizio anno {selectedYear}:</span>
+                <span className="font-semibold text-slate-900">{totaleInizioAnno}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-700">Totale incrementi (attivazioni):</span>
+                <span className="font-semibold text-green-700">+{totaleIncrementi}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-700">Totale decrementi (disattivazioni fino al 31/1/{selectedYear + 1}):</span>
+                <span className="font-semibold text-red-700">-{totaleDecrementi}</span>
+              </div>
+              <div className="flex justify-between border-t border-blue-200 pt-2 mt-2">
+                <span className="text-slate-700">Totale al 31/12/{selectedYear}:</span>
+                <span className="font-semibold text-slate-900">{totaleAnnoInCorso}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-700">Somma algebrica (inizio + incrementi - decrementi):</span>
+                <span className="font-semibold text-blue-700">{sommaAlgebrica}</span>
+              </div>
+              <div className="flex justify-between border-t border-blue-300 pt-2 mt-2">
+                <span className="text-slate-700 font-semibold">Totale al 31/1/{selectedYear + 1} (Tabella 10):</span>
+                <span className="font-bold text-blue-900">{totaleJan31}</span>
+              </div>
+              {sommaAlgebrica !== totaleJan31 && (
+                <div className="bg-amber-100 border border-amber-300 rounded px-3 py-2 text-xs text-amber-800 mt-2">
+                  ⚠️ Attenzione: la somma algebrica ({sommaAlgebrica}) non corrisponde al totale Tabella 10 ({totaleJan31}). Verifica eventi tra 1/1 e 31/1/{selectedYear + 1}.
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {renderMembersTable(`Tabella 10 · Situazione al 31 gennaio ${selectedYear + 1}`, currentReport.activeAtJan31, { showCapitazione: true, showQuota: true, quotaGLGCOnly: true, showQuotaTotal: true })}
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm px-4 py-3 text-xs text-amber-700">
         La colonna "Quota" è calcolata in base alle preferenze del ramo e al "Tipo Capitazione" impostato per l'anno selezionato. Modifica gli importi in Impostazioni → Preferenze di Ramo.
