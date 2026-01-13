@@ -166,6 +166,15 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
     return prefs.quotaGLGC?.[tipo] ?? null;
   };
 
+  const isActiveOnDate = (branchData: MasonicBranchData | undefined, targetDate: string): boolean => {
+    if (!branchData?.statusEvents || branchData.statusEvents.length === 0) return false;
+    const lastEvent = [...branchData.statusEvents]
+      .filter(e => e.date <= targetDate)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .pop();
+    return lastEvent?.status === 'ACTIVE';
+  };
+
   const branchReports = useMemo(() => {
     const yearStart = `${selectedYear}-01-01`;
     const yearEnd = `${selectedYear}-12-31`;
@@ -178,8 +187,10 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
         .map(member => ({ member, branchData: member[branchKey] }))
         .filter(ctx => ctx.branchData && (ctx.branchData.statusEvents?.length || ctx.branchData.degrees?.length));
 
+      // Attivi al 1° gennaio dell'anno selezionato: valutiamo lo stato alla data esatta
+      const activeAtStartDate = `${selectedYear}-01-01`;
       const activeAtStart = sortByName(
-        branchMembers.filter(ctx => isMemberActiveInYear(ctx.branchData, previousYear))
+        branchMembers.filter(ctx => isActiveOnDate(ctx.branchData, activeAtStartDate))
       );
       const activeAtEnd = sortByName(
         branchMembers.filter(ctx => isMemberActiveInYear(ctx.branchData, selectedYear))
