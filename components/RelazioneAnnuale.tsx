@@ -133,8 +133,8 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
   const getCapitazioneForYear = (branchData: MasonicBranchData, year: number): string => {
     const nextYear = year + 1;
     // Prova prima anno successivo, poi anno in corso del report
-    const ev = branchData.capitazioni?.find(c => c.year === nextYear)
-      || branchData.capitazioni?.find(c => c.year === year);
+    const ev = branchData.capitazioni?.find(c => Number(c.year) === nextYear)
+      || branchData.capitazioni?.find(c => Number(c.year) === year);
     return ev?.tipo || '—';
   };
 
@@ -143,8 +143,8 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
   const getQuotaForYear = (branchData: MasonicBranchData, year: number): number | null => {
     const nextYear = year + 1;
     // Prova prima anno successivo, poi anno in corso del report
-    const capitazione = branchData.capitazioni?.find(c => c.year === nextYear)
-      || branchData.capitazioni?.find(c => c.year === year);
+    const capitazione = branchData.capitazioni?.find(c => Number(c.year) === nextYear)
+      || branchData.capitazioni?.find(c => Number(c.year) === year);
     const tipo = capitazione?.tipo as CapitazioneTipo | undefined;
     const prefs = settings.branchPreferences?.[activeBranch]?.defaultQuote;
     if (!tipo || !prefs) return null;
@@ -158,8 +158,8 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
   const getQuotaGLGCForYear = (branchData: MasonicBranchData, year: number): number | null => {
     const nextYear = year + 1;
     // Prova prima anno successivo, poi anno in corso del report
-    const capitazione = branchData.capitazioni?.find(c => c.year === nextYear)
-      || branchData.capitazioni?.find(c => c.year === year);
+    const capitazione = branchData.capitazioni?.find(c => Number(c.year) === nextYear)
+      || branchData.capitazioni?.find(c => Number(c.year) === year);
     const tipo = capitazione?.tipo as CapitazioneTipo | undefined;
     const prefs = settings.branchPreferences?.[activeBranch]?.defaultQuote;
     if (!tipo || !prefs) return null;
