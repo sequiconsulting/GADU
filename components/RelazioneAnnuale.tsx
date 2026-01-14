@@ -130,40 +130,92 @@ const sortByName = (items: MemberBranchContext[]) => {
 const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYear, settings }) => {
   const [activeBranch, setActiveBranch] = useState<BranchType>('CRAFT');
 
-  const getCapitazioneForYear = (branchData: MasonicBranchData, year: number): string => {
+  const getCapitazioneForYear = (branchData: MasonicBranchData, year: number): { value: string; error?: string } => {
     const nextYear = year + 1;
     // Prova prima anno successivo, poi anno in corso del report
     const ev = branchData.capitazioni?.find(c => Number(c.year) === nextYear)
       || branchData.capitazioni?.find(c => Number(c.year) === year);
-    return ev?.tipo || '—';
+    
+    if (!ev?.tipo) {
+      return {
+        value: '',
+        error: `⚠️ Tipo capitazione non trovato per anno ${nextYear} o ${year}`
+      };
+    }
+    
+    return { value: ev.tipo };
   };
 
   const euroFmt = useMemo(() => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }), []);
 
-  const getQuotaForYear = (branchData: MasonicBranchData, year: number): number | null => {
+  const getQuotaForYear = (branchData: MasonicBranchData, year: number): { value: number | null; error?: string } => {
     const nextYear = year + 1;
     // Prova prima anno successivo, poi anno in corso del report
     const capitazione = branchData.capitazioni?.find(c => Number(c.year) === nextYear)
       || branchData.capitazioni?.find(c => Number(c.year) === year);
     const tipo = capitazione?.tipo as CapitazioneTipo | undefined;
+    
+    if (!tipo) {
+      return {
+        value: null,
+        error: `⚠️ Tipo capitazione non trovato per anno ${nextYear} o ${year}`
+      };
+    }
+    
     const prefs = settings.branchPreferences?.[activeBranch]?.defaultQuote;
-    if (!tipo || !prefs) return null;
+    if (!prefs) {
+      return {
+        value: null,
+        error: `⚠️ Quote non configurate per il ramo ${activeBranch}`
+      };
+    }
+    
     const total = (prefs.quotaGLGC?.[tipo] ?? 0)
       + (prefs.quotaRegionale?.[tipo] ?? 0)
       + (prefs.quotaLoggia?.[tipo] ?? 0)
       + (prefs.quotaCerimonia?.[tipo] ?? 0);
-    return total || null;
+    
+    if (!total) {
+      return {
+        value: null,
+        error: `⚠️ Quote non configurate per tipo "${tipo}"`
+      };
+    }
+    
+    return { value: total };
   };
 
-  const getQuotaGLGCForYear = (branchData: MasonicBranchData, year: number): number | null => {
+  const getQuotaGLGCForYear = (branchData: MasonicBranchData, year: number): { value: number | null; error?: string } => {
     const nextYear = year + 1;
     // Prova prima anno successivo, poi anno in corso del report
     const capitazione = branchData.capitazioni?.find(c => Number(c.year) === nextYear)
       || branchData.capitazioni?.find(c => Number(c.year) === year);
     const tipo = capitazione?.tipo as CapitazioneTipo | undefined;
+    
+    if (!tipo) {
+      return {
+        value: null,
+        error: `⚠️ Tipo capitazione non trovato per anno ${nextYear} o ${year}`
+      };
+    }
+    
     const prefs = settings.branchPreferences?.[activeBranch]?.defaultQuote;
-    if (!tipo || !prefs) return null;
-    return prefs.quotaGLGC?.[tipo] ?? null;
+    if (!prefs) {
+      return {
+        value: null,
+        error: `⚠️ Quote non configurate per il ramo ${activeBranch}`
+      };
+    }
+    
+    const quotaValue = prefs.quotaGLGC?.[tipo] ?? null;
+    if (!quotaValue) {
+      return {
+        value: null,
+        error: `⚠️ Quota GL/GC non configurata per tipo "${tipo}"`
+      };
+    }
+    
+    return { value: quotaValue };
   };
 
   const isActiveOnDate = (branchData: MasonicBranchData | undefined, targetDate: string): boolean => {
@@ -185,7 +237,14 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
       const branchKey = branchKeys[branch.type];
       const branchMembers: MemberBranchContext[] = members
         .map(member => ({ member, branchData: member[branchKey] }))
-        .filter(ctx => ctx.branchData && (ctx.branchData.statusEvents?.length || ctx.branchData.degrees?.length));
+        .filter(ctx => ctx.branchData && (ctx.branchData.statusEvents?.length || ctx.branchData.degrees?.length))
+        .filter(ctx => {
+          // Per il ramo CRAFT, considerare solo i membri della loggia madre
+          if (branch.type === 'CRAFT') {
+            return ctx.branchData.isMotherLodgeMember === true;
+          }
+          return true;
+        });
 
       // Attivi al 1° gennaio dell'anno selezionato: valutiamo lo stato alla data esatta
       const activeAtStartDate = `${selectedYear}-01-01`;
@@ -311,8 +370,8 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
 
     // Calcola totale quote se richiesto
     const quotaTotal = showQuotaTotal ? dedupedRows.reduce((sum, row) => {
-      const q = quotaGLGCOnly ? getQuotaGLGCForYear(row.branchData, selectedYear) : getQuotaForYear(row.branchData, selectedYear);
-      return sum + (q ?? 0);
+      const result = quotaGLGCOnly ? getQuotaGLGCForYear(row.branchData, selectedYear) : getQuotaForYear(row.branchData, selectedYear);
+      return sum + (result.value ?? 0);
     }, 0) : 0;
 
     return (
@@ -344,10 +403,13 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
                 <td className="px-3 py-2 font-medium">{row.member.lastName}</td>
                 <td className="px-3 py-2">{row.member.firstName}</td>
                 <td className="px-3 py-2">{getLatestDegree(row.branchData, activeBranch)}</td>
-                {showCapitazione && <td className="px-3 py-2">{getCapitazioneForYear(row.branchData, selectedYear)}</td>}
+                {showCapitazione && <td className="px-3 py-2">{(() => {
+                  const result = getCapitazioneForYear(row.branchData, selectedYear);
+                  return result.error ? <span className="text-red-600 text-xs">{result.error}</span> : result.value;
+                })()}</td>}
                 {showQuota && <td className="px-3 py-2">{(() => { 
-                  const q = quotaGLGCOnly ? getQuotaGLGCForYear(row.branchData, selectedYear) : getQuotaForYear(row.branchData, selectedYear); 
-                  return q != null ? euroFmt.format(q) : '—'; 
+                  const result = quotaGLGCOnly ? getQuotaGLGCForYear(row.branchData, selectedYear) : getQuotaForYear(row.branchData, selectedYear); 
+                  return result.error ? <span className="text-red-600 text-xs">{result.error}</span> : (result.value != null ? euroFmt.format(result.value) : '—'); 
                 })()}</td>}
               </tr>
             ))}
@@ -601,12 +663,14 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
     // Tabella 1: Situazione al 1° gennaio
     exportData.push({ 'Cognome': 'TABELLA 1 - Situazione al 1° gennaio' });
     currentReport.activeAtStart.forEach(ctx => {
+      const capitazioneResult = getCapitazioneForYear(ctx.branchData, selectedYear);
+      const quotaResult = getQuotaForYear(ctx.branchData, selectedYear);
       exportData.push({
         'Cognome': ctx.member.lastName,
         'Nome': ctx.member.firstName,
         'Grado': getLatestDegree(ctx.branchData, activeBranch),
-        'Tipo Capitazione': getCapitazioneForYear(ctx.branchData, selectedYear),
-        'Quota': (() => { const q = getQuotaForYear(ctx.branchData, selectedYear); return q != null ? q : '—'; })()
+        'Tipo Capitazione': capitazioneResult.error || capitazioneResult.value,
+        'Quota': quotaResult.error || (quotaResult.value != null ? quotaResult.value : '—')
       });
     });
     exportData.push({ 'Cognome': `TOTALE: ${currentReport.activeAtStart.length}` });
@@ -725,13 +789,15 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
     // Tabella 10: Situazione al 31 dicembre anno in corso (etichetta)
     exportData.push({ 'Cognome': `TABELLA 10 - Situazione al 31 dicembre ${selectedYear}` });
     currentReport.activeAtJan31.forEach(ctx => {
+      const capitazioneResult = getCapitazioneForYear(ctx.branchData, selectedYear);
+      const quotaResult = getQuotaForYear(ctx.branchData, selectedYear);
       exportData.push({
         'Matricola': ctx.member.glriNumber || '—',
         'Cognome': ctx.member.lastName,
         'Nome': ctx.member.firstName,
         'Grado': getLatestDegree(ctx.branchData, activeBranch),
-        'Tipo Capitazione': getCapitazioneForYear(ctx.branchData, selectedYear),
-        'Quota': '—'
+        'Tipo Capitazione': capitazioneResult.error || capitazioneResult.value,
+        'Quota': quotaResult.error || (quotaResult.value != null ? quotaResult.value : '—')
       });
     });
     exportData.push({ 'Cognome': `TOTALE: ${currentReport.activeAtJan31.length}` });
