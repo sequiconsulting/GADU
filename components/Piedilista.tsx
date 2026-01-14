@@ -21,7 +21,15 @@ export const Piedilista: React.FC<PiedilistaProps> = ({ members, selectedYear, o
   const getMembersForBranch = (branch: BranchType) => {
     return sortedMembers.filter(m => {
         const branchKey = branch.toLowerCase() as keyof Member;
-        return isMemberActiveInYear(m[branchKey] as any, selectedYear);
+        const isActive = isMemberActiveInYear(m[branchKey] as any, selectedYear);
+        
+        // For CRAFT branch: only show mother lodge members or dual appartenance
+        if (branch === 'CRAFT' && isActive) {
+          const craftData = m.craft as any;
+          return craftData.isMotherLodgeMember === true || craftData.isDualAppartenance === true;
+        }
+        
+        return isActive;
     });
   };
 
