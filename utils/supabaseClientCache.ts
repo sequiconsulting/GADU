@@ -29,7 +29,8 @@ export const getCachedSupabaseClient = (
 
   const client = createClient(url, key, {
     auth: {
-      persistSession: true,
+      // SECURITY: persistSession=false ensures session is cleared when browser closes
+      persistSession: false,
       autoRefreshToken: true,
       ...(options?.auth || {}),
     },

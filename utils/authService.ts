@@ -33,7 +33,8 @@ const ensureSupabaseClient = (): SupabaseClient | null => {
   }
   supabase = createClient(url, anonKey, {
     auth: {
-      persistSession: true,
+      // SECURITY: persistSession=false ensures logout on browser close
+      persistSession: false,
       autoRefreshToken: true,
     },
   });

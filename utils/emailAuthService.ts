@@ -18,7 +18,8 @@ const STORAGE_KEY = 'gadu_auth_session';
 export function createAuthClient(supabaseUrl: string, supabaseAnonKey: string): SupabaseClient {
   return getCachedSupabaseClient(supabaseUrl, supabaseAnonKey, {
     auth: {
-      persistSession: true,
+      // SECURITY: persistSession=false ensures logout on browser close
+      persistSession: false,
       autoRefreshToken: true,
     },
   });
@@ -235,7 +236,8 @@ export async function clearSupabaseSession(
 
 export function saveSession(session: AuthSession): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    // SECURITY: sessionStorage clears on browser close (auto-logout)
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   } catch (err) {
     console.error('[EMAIL_AUTH] Failed to save session:', err);
   }
@@ -243,7 +245,8 @@ export function saveSession(session: AuthSession): void {
 
 export function getStoredSession(): AuthSession | null {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    // SECURITY: sessionStorage clears on browser close (auto-logout)
+    const stored = sessionStorage.getItem(STORAGE_KEY);
     if (!stored) return null;
     return JSON.parse(stored) as AuthSession;
   } catch (err) {
@@ -254,7 +257,7 @@ export function getStoredSession(): AuthSession | null {
 
 export function clearSession(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
   } catch (err) {
     console.error('[EMAIL_AUTH] Failed to clear session:', err);
   }
