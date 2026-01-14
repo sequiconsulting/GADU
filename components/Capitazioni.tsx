@@ -210,7 +210,19 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
   const getActiveMembersForBranch = () => {
     return members.filter(m => {
       const branchKey = activeBranch.toLowerCase() as keyof Member;
-      return isMemberActiveInYear(m[branchKey] as any, selectedYear);
+      const branchData = m[branchKey] as MasonicBranchData;
+      
+      // Verifica che il membro sia attivo in questo ramo per questo anno
+      if (!isMemberActiveInYear(branchData, selectedYear)) {
+        return false;
+      }
+      
+      // Per il ramo CRAFT, filtra per loggia madre o doppia appartenenza
+      if (activeBranch === 'CRAFT') {
+        return branchData.isMotherLodgeMember || branchData.isDualAppartenance;
+      }
+      
+      return true;
     }).slice().sort((a, b) => {
       const lastA = (a.lastName || '').trim();
       const lastB = (b.lastName || '').trim();
