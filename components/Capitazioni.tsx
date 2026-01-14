@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Member, BranchType, AppSettings, CapitazioneTipo, CapitazioneEvent } from '../types';
 import { BRANCHES, isMemberActiveInYear, CAPITAZIONE_TYPES } from '../constants';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Users } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 interface CapitazioniProps {
@@ -405,6 +405,8 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
                 <tr>
                   <th className="px-3 py-2 text-left font-semibold text-slate-700">Cognome</th>
                   <th className="px-3 py-2 text-left font-semibold text-slate-700">Nome</th>
+                  <th className="px-3 py-2 text-center font-semibold text-slate-700">Doppia</th>
+                  <th className="px-3 py-2 text-left font-semibold text-slate-700">Provenienza</th>
                   <th className="px-3 py-2 text-left font-semibold text-slate-700">Tipo Capitazione</th>
                   <th className="px-3 py-2 text-right font-semibold text-slate-700">{activeBranch === 'CRAFT' ? 'GL' : 'GC'} (€)</th>
                   <th className="px-3 py-2 text-right font-semibold text-slate-700">Reg. (€)</th>
@@ -428,6 +430,12 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
                     <tr key={member.id} className={`border-t border-slate-200 ${isDisabled ? 'bg-slate-100 opacity-50' : 'hover:bg-slate-50'}`}>
                       <td className="px-3 py-2 text-slate-700">{member.lastName}</td>
                       <td className="px-3 py-2 text-slate-700">{member.firstName}</td>
+                      <td className="px-3 py-2 text-center">
+                        {member.isDualAppartenance && <Users size={18} className="text-blue-600 mx-auto" />}
+                      </td>
+                      <td className="px-3 py-2 text-slate-700">
+                        {member.isMotherLodgeMember ? 'Madre' : (member.otherLodgeName || '—')}
+                      </td>
                       <td className="px-3 py-2">
                         <select
                           value={cap?.tipo || 'Ordinaria'}

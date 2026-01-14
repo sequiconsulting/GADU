@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Member, BranchType, MasonicBranchData, StatusEvent, AppSettings, CapitazioneTipo } from '../types';
 import { BRANCHES, calculateMasonicYearString, getDegreeAbbreviation, isMemberActiveInYear, CAPITAZIONI_CRAFT } from '../constants';
-import { Printer, Download } from 'lucide-react';
+import { Printer, Download, Users } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 interface RelazioneAnnualeProps {
@@ -436,6 +436,8 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
               <th className="px-3 py-2">Matricola</th>
               <th className="px-3 py-2">Cognome</th>
               <th className="px-3 py-2">Nome</th>
+              <th className="px-3 py-2 text-center">Doppia</th>
+              <th className="px-3 py-2">Provenienza</th>
               <th className="px-3 py-2">Grado</th>
               {showCapitazione && <th className="px-3 py-2">Tipo Capitazione</th>}
               {showQuota && <th className="px-3 py-2">Quota GL/GC</th>}
@@ -444,7 +446,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
           <tbody>
             {dedupedRows.length === 0 && (
               <tr>
-                <td colSpan={5 + (showCapitazione ? 1 : 0) + (showQuota ? 1 : 0)} className="px-3 py-4 text-center text-slate-400">Nessun dato disponibile</td>
+                <td colSpan={7 + (showCapitazione ? 1 : 0) + (showQuota ? 1 : 0)} className="px-3 py-4 text-center text-slate-400">Nessun dato disponibile</td>
               </tr>
             )}
             {dedupedRows.map((row, index) => (
@@ -453,6 +455,12 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
                 <td className="px-3 py-2 text-slate-600">{row.member.glriNumber || '—'}</td>
                 <td className="px-3 py-2 font-medium">{row.member.lastName}</td>
                 <td className="px-3 py-2">{row.member.firstName}</td>
+                <td className="px-3 py-2 text-center">
+                  {row.member.isDualAppartenance && <Users size={18} className="text-blue-600 mx-auto" />}
+                </td>
+                <td className="px-3 py-2">
+                  {row.member.isMotherLodgeMember ? 'Madre' : (row.member.otherLodgeName || '—')}
+                </td>
                 <td className="px-3 py-2">{getLatestDegree(row.branchData, activeBranch)}</td>
                 {showCapitazione && <td className="px-3 py-2">{editableCapitazione ? (() => {
                   const nextYear = selectedYear + 1;
