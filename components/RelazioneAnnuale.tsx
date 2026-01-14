@@ -456,10 +456,10 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
                 <td className="px-3 py-2 font-medium">{row.member.lastName}</td>
                 <td className="px-3 py-2">{row.member.firstName}</td>
                 <td className="px-3 py-2 text-center">
-                  {row.member.isDualAppartenance && <Users size={18} className="text-blue-600 mx-auto" />}
+                  {row.branchData.isDualAppartenance && <Users size={18} className="text-blue-600 mx-auto" />}
                 </td>
                 <td className="px-3 py-2">
-                  {row.member.isMotherLodgeMember ? 'Madre' : (row.member.otherLodgeName || '—')}
+                  {row.branchData.isMotherLodgeMember ? 'Madre' : (row.branchData.otherLodgeName || '—')}
                 </td>
                 <td className="px-3 py-2">{getLatestDegree(row.branchData, activeBranch)}</td>
                 {showCapitazione && <td className="px-3 py-2">{editableCapitazione ? (() => {

@@ -425,16 +425,18 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
                   const totale = q.quota_gl + q.quota_regionale + q.quota_loggia;
                   const pagato = getPaidAmountWithTotal(cap, totale);
                   const residuo = Math.max(0, totale - pagato);
+                  const branchKey = activeBranch.toLowerCase() as keyof Member;
+                  const branchData = member[branchKey] as MasonicBranchData;
 
                   return (
                     <tr key={member.id} className={`border-t border-slate-200 ${isDisabled ? 'bg-slate-100 opacity-50' : 'hover:bg-slate-50'}`}>
                       <td className="px-3 py-2 text-slate-700">{member.lastName}</td>
                       <td className="px-3 py-2 text-slate-700">{member.firstName}</td>
                       <td className="px-3 py-2 text-center">
-                        {member.isDualAppartenance && <Users size={18} className="text-blue-600 mx-auto" />}
+                        {branchData.isDualAppartenance && <Users size={18} className="text-blue-600 mx-auto" />}
                       </td>
                       <td className="px-3 py-2 text-slate-700">
-                        {member.isMotherLodgeMember ? 'Madre' : (member.otherLodgeName || '—')}
+                        {branchData.isMotherLodgeMember ? 'Madre' : (branchData.otherLodgeName || '—')}
                       </td>
                       <td className="px-3 py-2">
                         <select
