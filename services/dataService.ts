@@ -508,6 +508,47 @@ class DataService {
     if (error) throw error;
   }
 
+  /**
+   * Copia le capitazioni dall'anno precedente al nuovo anno per tutti i membri.
+   * Copia SOLO se la capitazione non esiste già per il nuovo anno (preserva le modifiche manuali).
+   */
+  async copyCapitazioniForNewYear(previousYear: number, newYear: number): Promise<void> {
+    const members = await this.getMembers();
+    const updatedMembers: Member[] = [];
+
+    members.forEach(member => {
+      let changed = false;
+      const updated = { ...member };
+
+      (['craft', 'mark', 'arch', 'ram'] as const).forEach(branchKey => {
+        const branchData = updated[branchKey];
+        if (!branchData.capitazioni) {
+          branchData.capitazioni = [];
+        }
+
+        // Verifica se esiste già una capitazione per il nuovo anno
+        const hasCapitazioneForNewYear = branchData.capitazioni.some(c => c.year === newYear);
+        if (!hasCapitazioneForNewYear) {
+          // Cerca la capitazione dell'anno precedente
+          const prevYearCapitazione = branchData.capitazioni.find(c => c.year === previousYear);
+          if (prevYearCapitazione) {
+            // Copia dall'anno precedente
+            branchData.capitazioni.push({ year: newYear, tipo: prevYearCapitazione.tipo });
+            changed = true;
+          }
+        }
+      });
+
+      if (changed) {
+        updatedMembers.push(updated);
+      }
+    });
+
+    // Salva i membri modificati
+    if (updatedMembers.length > 0) {
+      await Promise.allSettled(updatedMembers.map(m => this.saveMember(m)));
+    }
+  }
   async getSettings(): Promise<AppSettings> {
     await this.ensureReady();
     const client = this.ensureSupabaseClient();
@@ -697,6 +738,7 @@ class DataService {
       statusEvents: [],
       degrees: [],
       roles: [],
+      capitazioni: [],
       isMotherLodgeMember: true,
       otherLodgeName: '',
       isFounder: false,

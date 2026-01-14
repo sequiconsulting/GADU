@@ -279,6 +279,19 @@ export const MemberDetail: React.FC<MemberDetailProps> = ({ memberId, onBack, on
         });
       }
       
+      // Assicura che ogni ramo abbia una capitazione per defaultYear
+      (['craft', 'mark', 'arch', 'ram'] as const).forEach(branchKey => {
+        const branchData = member[branchKey];
+        if (!branchData.capitazioni) {
+          branchData.capitazioni = [];
+        }
+        // Se non esiste una capitazione per defaultYear, aggiungi quella di default
+        const hasCapitazioneForYear = branchData.capitazioni.some(c => c.year === defaultYear);
+        if (!hasCapitazioneForYear) {
+          branchData.capitazioni.push({ year: defaultYear, tipo: CAPITAZIONE_DEFAULT as CapitazioneTipo });
+        }
+      });
+      
       try {
         setIsSaving(true);  // Show loading feedback (issue #25)
         await dataService.saveMember(member);

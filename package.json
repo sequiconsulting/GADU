@@ -1,7 +1,7 @@
 {
   "name": "gadu",
   "private": true,
-  "version": "0.235",
+  "version": "0.235.0",
   "type": "module",
   "engines": {
     "node": ">=22.0.0 <24.0.0"

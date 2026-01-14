@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Member, BranchType, MasonicBranchData, StatusEvent, AppSettings, CapitazioneTipo } from '../types';
-import { BRANCHES, calculateMasonicYearString, getDegreeAbbreviation, isMemberActiveInYear } from '../constants';
+import { BRANCHES, calculateMasonicYearString, getDegreeAbbreviation, isMemberActiveInYear, CAPITAZIONI_CRAFT } from '../constants';
 import { Printer, Download } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
@@ -8,6 +8,7 @@ interface RelazioneAnnualeProps {
   members: Member[];
   selectedYear: number;
   settings: AppSettings;
+  onUpdate?: () => Promise<void>;
 }
 
 type BranchKey = 'craft' | 'mark' | 'arch' | 'ram';
@@ -127,8 +128,9 @@ const sortByName = (items: MemberBranchContext[]) => {
   });
 };
 
-const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYear, settings }) => {
+const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYear, settings, onUpdate }) => {
   const [activeBranch, setActiveBranch] = useState<BranchType>('CRAFT');
+  const [savingMemberIds, setSavingMemberIds] = useState<Set<string>>(new Set());
 
   const getCapitazioneForYear = (branchData: MasonicBranchData, year: number): { value: string; error?: string } => {
     const nextYear = year + 1;
@@ -357,7 +359,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
 
   const currentReport = branchReports[activeBranch];
 
-  const renderMembersTable = (title: string, rows: MemberBranchContext[], options?: { showCapitazione?: boolean; showQuota?: boolean; quotaGLGCOnly?: boolean; showQuotaTotal?: boolean }) => {
+  const renderMembersTable = (title: string, rows: MemberBranchContext[], options?: { showCapitazione?: boolean; showQuota?: boolean; quotaGLGCOnly?: boolean; showQuotaTotal?: boolean; editableCapitazione?: boolean }) => {
     // Deduplicate by member ID
     const dedupedRows = Array.from(
       new Map(rows.map(row => [row.member.id, row])).values()
@@ -367,6 +369,55 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
     const showQuota = options?.showQuota ?? false;
     const quotaGLGCOnly = options?.quotaGLGCOnly ?? false;
     const showQuotaTotal = options?.showQuotaTotal ?? false;
+    const editableCapitazione = options?.editableCapitazione ?? false;
+
+    // Funzione per salvare la capitazione per l'anno successivo
+    const handleCapitazioneChange = async (memberId: string, newTipo: CapitazioneTipo) => {
+      try {
+        // Indica che il membro sta siendo salvato
+        setSavingMemberIds(prev => new Set([...prev, memberId]));
+        
+        const member = members.find(m => m.id === memberId);
+        if (!member) return;
+
+        const nextYear = selectedYear + 1;
+        const branchKey = activeBranch.toLowerCase() as BranchKey;
+        const branchData = member[branchKey];
+
+        // Assicura che l'array capitazioni esista
+        if (!branchData.capitazioni) {
+          branchData.capitazioni = [];
+        }
+
+        // Cerca la capitazione per l'anno successivo
+        const existingIndex = branchData.capitazioni.findIndex(c => c.year === nextYear);
+        if (existingIndex >= 0) {
+          // Aggiorna quella esistente
+          branchData.capitazioni[existingIndex] = { year: nextYear, tipo: newTipo };
+        } else {
+          // Crea una nuova
+          branchData.capitazioni.push({ year: nextYear, tipo: newTipo });
+        }
+
+        // Salva il membro
+        await dataService.saveMember(member);
+        
+        // Ricarica i dati se disponibile una callback
+        if (onUpdate) {
+          await onUpdate();
+        }
+      } catch (err) {
+        console.error('Errore salvataggio capitazione:', err);
+        alert(`Errore salvataggio capitazione: ${err instanceof Error ? err.message : 'Errore sconosciuto'}`);
+      } finally {
+        // Rimuove il membro dal set di salvataggio
+        setSavingMemberIds(prev => {
+          const next = new Set(prev);
+          next.delete(memberId);
+          return next;
+        });
+      }
+    };
 
     // Calcola totale quote se richiesto
     const quotaTotal = showQuotaTotal ? dedupedRows.reduce((sum, row) => {
@@ -403,7 +454,28 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
                 <td className="px-3 py-2 font-medium">{row.member.lastName}</td>
                 <td className="px-3 py-2">{row.member.firstName}</td>
                 <td className="px-3 py-2">{getLatestDegree(row.branchData, activeBranch)}</td>
-                {showCapitazione && <td className="px-3 py-2">{(() => {
+                {showCapitazione && <td className="px-3 py-2">{editableCapitazione ? (() => {
+                  const nextYear = selectedYear + 1;
+                  const capitazione = row.branchData.capitazioni?.find(c => c.year === nextYear);
+                  const currentValue = capitazione?.tipo || 'Ordinaria';
+                  const isSaving = savingMemberIds.has(row.member.id);
+                  return (
+                    <select
+                      value={currentValue}
+                      onChange={(e) => handleCapitazioneChange(row.member.id, e.target.value as CapitazioneTipo)}
+                      disabled={isSaving}
+                      className={`px-2 py-1 border border-slate-300 rounded text-xs bg-white focus:ring-2 focus:ring-masonic-gold focus:border-transparent ${
+                        isSaving 
+                          ? 'opacity-60 cursor-not-allowed bg-slate-100' 
+                          : 'hover:border-masonic-gold cursor-pointer'
+                      }`}
+                    >
+                      {CAPITAZIONI_CRAFT.map(cap => (
+                        <option key={cap.tipo} value={cap.tipo}>{cap.tipo}</option>
+                      ))}
+                    </select>
+                  );
+                })() : (() => {
                   const result = getCapitazioneForYear(row.branchData, selectedYear);
                   return result.error ? <span className="text-red-600 text-xs">{result.error}</span> : result.value;
                 })()}</td>}
@@ -914,7 +986,7 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
         );
       })()}
 
-      {renderMembersTable(`Tabella 10 · Situazione al 31 dicembre ${selectedYear}`, currentReport.activeAtJan31, { showCapitazione: true, showQuota: true, quotaGLGCOnly: true, showQuotaTotal: true })}
+      {renderMembersTable(`Tabella 10 · Situazione al 31 dicembre ${selectedYear}`, currentReport.activeAtJan31, { showCapitazione: true, showQuota: true, quotaGLGCOnly: true, showQuotaTotal: true, editableCapitazione: true })}
 
       <div className="bg-amber-50 border border-amber-200 rounded-xl shadow-sm px-4 py-3 text-xs text-amber-700">
         La colonna "Quota" è calcolata in base alle preferenze del ramo e al "Tipo Capitazione" impostato per l'anno selezionato. Modifica gli importi in Impostazioni → Preferenze di Ramo.

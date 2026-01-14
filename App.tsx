@@ -254,19 +254,23 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
       await loadData();
   };
 
-  const handleAddFutureYear = () => {
+  const handleAddFutureYear = async () => {
     const nextYear = selectedYear + 1;
     if (!yearOptions.includes(nextYear)) {
       setYearOptions(prev => [...prev, nextYear]);
     }
+    // Copia capitazioni dall'anno precedente al nuovo anno (se non esistono già)
+    await dataService.copyCapitazioniForNewYear(selectedYear, nextYear);
     setSelectedYear(nextYear);
   };
 
-  const handleAddPastYear = () => {
+  const handleAddPastYear = async () => {
     const prevYear = selectedYear - 1;
     if (!yearOptions.includes(prevYear)) {
       setYearOptions(prev => [prevYear, ...prev]);
     }
+    // Copia capitazioni dall'anno precedente al nuovo anno (se non esistono già)
+    await dataService.copyCapitazioniForNewYear(prevYear, selectedYear);
     setSelectedYear(prevYear);
   };
 
@@ -919,7 +923,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
           )}
           {currentView === 'RELAZIONE_ANNUALE' && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento relazione...</div>}>
-              <RelazioneAnnuale members={members} selectedYear={selectedYear} settings={appSettings} />
+              <RelazioneAnnuale members={members} selectedYear={selectedYear} settings={appSettings} onUpdate={loadData} />
             </React.Suspense>
           )}
         </div>
