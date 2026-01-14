@@ -668,7 +668,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                       }`}
                     >
                       <div className={`w-2 h-2 rounded-full ${b.color}`} />
-                      {b.type === 'ARCH' ? 'Arch (Marchio + Arco Reale)' : b.label}
+                      {b.type === 'ARCH' ? 'Capitolo (Marchio + Arco Reale)' : b.label}
                     </button>
                   ))}
                 </div>

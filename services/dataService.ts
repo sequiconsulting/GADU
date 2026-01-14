@@ -530,7 +530,13 @@ class DataService {
         const hasCapitazioneForNewYear = branchData.capitazioni.some(c => c.year === newYear);
         if (!hasCapitazioneForNewYear) {
           // Cerca la capitazione dell'anno precedente
-          const prevYearCapitazione = branchData.capitazioni.find(c => c.year === previousYear);
+          let prevYearCapitazione = branchData.capitazioni.find(c => c.year === previousYear);
+          
+          // Se il ramo è ARCH e non ha capitazione, usa quella di MARK (stesso "Capitolo")
+          if (!prevYearCapitazione && branchKey === 'arch') {
+            prevYearCapitazione = updated.mark.capitazioni?.find(c => c.year === previousYear);
+          }
+          
           if (prevYearCapitazione) {
             // Copia dall'anno precedente
             branchData.capitazioni.push({ year: newYear, tipo: prevYearCapitazione.tipo });
