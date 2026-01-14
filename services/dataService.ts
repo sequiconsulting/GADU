@@ -16,13 +16,12 @@ type SettingsRow = { id: string; data: AppSettings; db_version: number };
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
 
 class DataService {
-  public APP_VERSION = '0.235';
+  public APP_VERSION = '0.236';
   public DB_VERSION = 19;
 
   private supabase: SupabaseClient | null = null;
   private initPromise: Promise<void> | null = null;
   private currentLodgeConfig: PublicLodgeConfig | null = null;
-  private useServiceKey = false;
   private schemaEnsured = false;
   private schemaEnsurePromise: Promise<void> | null = null;
 
@@ -38,14 +37,9 @@ class DataService {
   public initializeLodge(config: PublicLodgeConfig): void {
     this.currentLodgeConfig = config;
     
-    // SECURITY: Use service key ONLY in demo mode (glriNumber === '9999').
-    // Production lodges MUST use anonKey with proper RLS enforcement.
-    // Service key bypasses RLS and should never be exposed to client in production.
-    const apiKey = config.supabaseServiceKey || config.supabaseAnonKey;
-    this.useServiceKey = Boolean(config.supabaseServiceKey);
-    
-    // Usa client cachato per evitare istanze multiple
-    this.supabase = getCachedSupabaseClient(config.supabaseUrl, apiKey);
+    // SECURITY: Client ALWAYS uses anonKey. Service key exists ONLY server-side.
+    // RLS policies enforce access control. Never expose service key to browser.
+    this.supabase = getCachedSupabaseClient(config.supabaseUrl, config.supabaseAnonKey);
 
     this.schemaEnsured = false;
     this.schemaEnsurePromise = null;
@@ -125,14 +119,12 @@ class DataService {
   private async ensureSchemaAndSeed(): Promise<boolean> {
     const client = this.ensureSupabaseClient();
 
-    // Con anon key serve una sessione autenticata prima di toccare le tabelle protette da RLS
-    if (!this.useServiceKey) {
-      const { data: auth } = await client.auth.getSession();
-      const hasSession = Boolean(auth.session?.access_token);
-      if (!hasSession) {
-        console.log('[Schema] Skip ensureSchemaAndSeed: nessuna sessione attiva (anon key). Attendo login.');
-        return false;
-      }
+    // Client sempre usa anonKey: serve sessione autenticata per RLS
+    const { data: auth } = await client.auth.getSession();
+    const hasSession = Boolean(auth.session?.access_token);
+    if (!hasSession) {
+      console.log('[Schema] Skip ensureSchemaAndSeed: nessuna sessione attiva. Attendo login.');
+      return false;
     }
 
     const { data: settingsRow, error: settingsError } = await client

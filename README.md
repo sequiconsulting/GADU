@@ -182,7 +182,8 @@ Gli utenti vengono creati tramite **Supabase Admin API** (service key):
 ```
 
 Requisiti:
-- Variabili per ogni loggia nel registry Netlify: `supabaseUrl`, `supabaseAnonKey`, `supabaseServiceKey`.
+- Variabili per ogni loggia nel registry Netlify: `supabaseUrl`, `supabaseAnonKey`.
+- **SECURITY**: `supabaseServiceKey` e `databasePassword` esistono SOLO nel registry backend (Netlify Blobs), mai esposti al client.
 
 ---
 
@@ -237,8 +238,8 @@ Il sistema di autenticazione Supabase è **preparato ma disattivato** di default
 
 ### Attivazione (quando pronto)
 
-1. Imposta env: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_SERVICE_KEY`
-2. Crea utenti con Netlify Function `manage-supabase-users` (richiede service key)
+1. Imposta env: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+2. Crea utenti con Netlify Function `manage-supabase-users` (usa service key server-side)
 3. Login con email + password tramite `LoginInterface.tsx`
 4. Le sessioni vengono gestite automaticamente da Supabase Auth
 5. I privilegi sono verificati in `app_settings.users` dopo il login

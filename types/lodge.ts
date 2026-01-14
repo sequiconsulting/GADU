@@ -5,7 +5,7 @@ export interface PublicLodgeConfig {
   province: string;          // "MI"
   supabaseUrl: string;
   supabaseAnonKey: string;
-  supabaseServiceKey?: string;  // Only for demo mode!
+  // SECURITY: supabaseServiceKey NEVER sent to client - exists only in backend registry
   // Association data (from registry)
   associationName?: string;
   address?: string;
