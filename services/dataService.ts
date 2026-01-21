@@ -19,7 +19,7 @@ type RendicontoRow = { year_start: number; data: RendicontoFiscale };
 
 class DataService {
   public APP_VERSION = '0.237';
-  public DB_VERSION = 20;
+  public DB_VERSION = 21;
 
   private supabase: SupabaseClient | null = null;
   private initPromise: Promise<void> | null = null;

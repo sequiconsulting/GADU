@@ -138,7 +138,7 @@ import { initNetlifyBlobs, loadRegistry } from './shared/registry';
 import postgres from 'postgres';
 import { join } from 'path';
 
-const DB_VERSION = 20;
+const DB_VERSION = 21;
 
 // Database schema migrations (incremental changes only, not baseline)
 const DB_MIGRATIONS: Record<number, string> = {
@@ -230,6 +230,25 @@ const DB_MIGRATIONS: Record<number, string> = {
       updated_at timestamptz default now()
     );
 
+    ALTER TABLE public.rendiconto_fiscale ENABLE ROW LEVEL SECURITY;
+
+    DROP POLICY IF EXISTS "anon_deny_rendiconto_fiscale" ON public.rendiconto_fiscale;
+    CREATE POLICY "anon_deny_rendiconto_fiscale" 
+      ON public.rendiconto_fiscale 
+      FOR ALL 
+      USING (auth.role() != 'anon') 
+      WITH CHECK (auth.role() != 'anon');
+
+    DROP POLICY IF EXISTS "authenticated_all_rendiconto_fiscale" ON public.rendiconto_fiscale;
+    CREATE POLICY "authenticated_all_rendiconto_fiscale" 
+      ON public.rendiconto_fiscale 
+      FOR ALL 
+      USING (auth.role() = 'authenticated') 
+      WITH CHECK (auth.role() = 'authenticated');
+  `,
+
+  // v20 -> v21: riallinea policy RLS rendiconto_fiscale (fix inserimento)
+  20: `
     ALTER TABLE public.rendiconto_fiscale ENABLE ROW LEVEL SECURITY;
 
     DROP POLICY IF EXISTS "anon_deny_rendiconto_fiscale" ON public.rendiconto_fiscale;
