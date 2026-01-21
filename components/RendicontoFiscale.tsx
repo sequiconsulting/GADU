@@ -169,10 +169,24 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   }, [data]);
 
   const categoriesByType = useMemo(() => {
+    const build = (type: FiscalEntryType) => {
+      const bySection: Record<FiscalSection, typeof RENDICONTO_CATEGORIES> = {
+        A: [],
+        B: [],
+        C: [],
+        D: [],
+        E: [],
+      };
+      RENDICONTO_CATEGORIES.filter(c => c.type === type).forEach(category => {
+        bySection[category.section].push(category);
+      });
+      return bySection;
+    };
+
     return {
-      ENTRATA: RENDICONTO_CATEGORIES.filter(c => c.type === 'ENTRATA'),
-      USCITA: RENDICONTO_CATEGORIES.filter(c => c.type === 'USCITA'),
-    } as Record<FiscalEntryType, typeof RENDICONTO_CATEGORIES>;
+      ENTRATA: build('ENTRATA'),
+      USCITA: build('USCITA'),
+    } as Record<FiscalEntryType, Record<FiscalSection, typeof RENDICONTO_CATEGORIES>>;
   }, []);
 
   const categoryById = useMemo(() => {
@@ -610,12 +624,14 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   const handleEntryTypeChange = (tab: ActiveTab, entryId: string, type: EntryTypeOption) => {
     if (tab === 'CASSA') {
       const baseType: FiscalEntryType = type === 'USCITA' ? 'USCITA' : 'ENTRATA';
+      const sectionOrder: FiscalSection[] = ['A', 'B', 'C', 'D', 'E'];
       const categories = categoriesByType[baseType];
+      const defaultSection = sectionOrder.find(section => categories[section].length > 0) || 'A';
       handleEntryChange(tab, entryId, {
         type: baseType,
         categoryId: undefined,
         categoryLabel: '',
-        section: categories[0]?.section || 'A',
+        section: defaultSection,
       });
       return;
     }
@@ -698,7 +714,8 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   };
 
   const renderEntryRow = (tab: ActiveTab, entry: FiscalEntry, progressivo: number, accountName?: string) => {
-    const categories = categoriesByType[entry.type];
+    const sectionOrder: FiscalSection[] = ['A', 'B', 'C', 'D', 'E'];
+    const categoriesBySection = categoriesByType[entry.type];
     const isCashTransfer = Boolean(entry.cashTransfer);
     const isCashTabLocked = tab === 'CASSA' && isCashTransfer;
     const typeValue: EntryTypeOption = entry.cashTransfer
@@ -810,11 +827,22 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
             className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs disabled:bg-slate-100"
           >
             <option value="">Seleziona categoria...</option>
-            {categories.map(cat => (
-              <option key={cat.id} value={cat.id}>
-                {cat.label}
-              </option>
-            ))}
+            {sectionOrder.map(section => {
+              const categories = categoriesBySection[section];
+              if (!categories.length) return null;
+              return (
+                <React.Fragment key={section}>
+                  <option disabled value={`__section_${entry.type}_${section}`}>
+                    {`── ${section} · ${RENDICONTO_SECTION_LABELS[section]} ──`}
+                  </option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </React.Fragment>
+              );
+            })}
           </select>
         </td>
         <td className="px-2 py-1 text-xs text-slate-600">

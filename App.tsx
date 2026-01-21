@@ -99,6 +99,8 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
+  const isAdmin = currentUser?.privileges?.includes('AD') ?? false;
+
   const openMenu = (menu: 'members' | 'roles' | 'secretary' | 'accounting' | null) => {
     setIsMembersMenuOpen(menu === 'members');
     setIsRolesMenuOpen(menu === 'roles');
@@ -573,39 +575,43 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
             )}
           </div>
 
-          <div>
-            <button onClick={() => toggleMenu('secretary')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isSecretaryMenuOpen || ['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'CONVOCAZIONI'].includes(currentView) ? 'text-white' : ''}`}>
-               <div className="flex items-center gap-3"><FileText size={20} /> <span className="font-medium">Segreteria</span></div>
-               {isSecretaryMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
-            </button>
-            {isSecretaryMenuOpen && (
-                <div className="ml-8 mt-1 space-y-1 border-l border-slate-700 pl-2">
-                    <button onClick={() => handleViewChange('CAPITAZIONI')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'CAPITAZIONI' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
-                        <DollarSign size={16} /> Capitazioni
-                    </button>
-                    <button onClick={() => handleViewChange('RELAZIONE_ANNUALE')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'RELAZIONE_ANNUALE' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
-                        <ClipboardList size={16} /> Relazione Annuale
-                    </button>
-                </div>
-            )}
-          </div>
-
+          {isAdmin && (
             <div>
-            <button onClick={() => toggleMenu('accounting')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isAccountingMenuOpen || ['RICEVUTE', 'RENDICONTO_FISCALE'].includes(currentView) ? 'text-white' : ''}`}>
-               <div className="flex items-center gap-3"><ClipboardList size={20} /> <span className="font-medium">Contabilità</span></div>
-               {isAccountingMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>} 
-            </button>
-            {isAccountingMenuOpen && (
-              <div className="ml-8 mt-1 space-y-1 border-l border-slate-700 pl-2">
-                <button onClick={() => handleViewChange('RICEVUTE')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'RICEVUTE' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
-                  <FileText size={16} /> Ricevute di Cassa
-                </button>
-                <button onClick={() => handleViewChange('RENDICONTO_FISCALE')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'RENDICONTO_FISCALE' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
-                  <ClipboardList size={16} /> Rendiconto fiscale
-                </button>
-              </div>
-            )}
+              <button onClick={() => toggleMenu('secretary')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isSecretaryMenuOpen || ['PROCEDURES', 'CAPITAZIONI', 'RELAZIONE_ANNUALE', 'CONVOCAZIONI'].includes(currentView) ? 'text-white' : ''}`}>
+                 <div className="flex items-center gap-3"><FileText size={20} /> <span className="font-medium">Segreteria</span></div>
+                 {isSecretaryMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+              </button>
+              {isSecretaryMenuOpen && (
+                  <div className="ml-8 mt-1 space-y-1 border-l border-slate-700 pl-2">
+                      <button onClick={() => handleViewChange('CAPITAZIONI')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'CAPITAZIONI' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
+                          <DollarSign size={16} /> Capitazioni
+                      </button>
+                      <button onClick={() => handleViewChange('RELAZIONE_ANNUALE')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'RELAZIONE_ANNUALE' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
+                          <ClipboardList size={16} /> Relazione Annuale
+                      </button>
+                  </div>
+              )}
             </div>
+          )}
+
+          {isAdmin && (
+            <div>
+              <button onClick={() => toggleMenu('accounting')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isAccountingMenuOpen || ['RICEVUTE', 'RENDICONTO_FISCALE'].includes(currentView) ? 'text-white' : ''}`}>
+                 <div className="flex items-center gap-3"><ClipboardList size={20} /> <span className="font-medium">Contabilità</span></div>
+                 {isAccountingMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+              </button>
+              {isAccountingMenuOpen && (
+                <div className="ml-8 mt-1 space-y-1 border-l border-slate-700 pl-2">
+                  <button onClick={() => handleViewChange('RICEVUTE')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'RICEVUTE' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
+                    <FileText size={16} /> Ricevute di Cassa
+                  </button>
+                  <button onClick={() => handleViewChange('RENDICONTO_FISCALE')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'RENDICONTO_FISCALE' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
+                    <ClipboardList size={16} /> Rendiconto fiscale
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           
         </nav>
         <div className="p-4 border-t border-slate-800 space-y-2">
