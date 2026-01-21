@@ -1121,15 +1121,15 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           <div>Saldo iniziale: <span className="font-semibold">{formatEuro(initialBalance || 0)}</span></div>
           <div>Saldo finale: <span className="font-semibold">{formatEuro(finalBalance)}</span></div>
         </div>
-        <table className="w-full text-xs border border-slate-200">
-        <thead className="bg-slate-50">
+        <table className="w-full text-xs border border-slate-200 print:table-fixed">
+          <thead className="bg-slate-50">
           <tr>
-            <th className="px-2 py-1 text-left">Data</th>
-            <th className="px-2 py-1 text-left">Descrizione</th>
-            <th className="px-2 py-1 text-left">Categoria contabile</th>
-            <th className="px-2 py-1 text-left">Tipo</th>
-            <th className="px-2 py-1 text-right">Importo</th>
-            <th className="px-2 py-1 text-right">Saldo progressivo</th>
+              <th className="px-2 py-1 text-left print:px-1 print:w-[85px]">Data</th>
+              <th className="px-2 py-1 text-left print:px-1 print:w-[40%]">Descrizione</th>
+              <th className="px-2 py-1 text-left print:px-1 print:w-[22%]">Categoria contabile</th>
+              <th className="px-2 py-1 text-left print:px-1 print:w-[75px]">Tipo</th>
+              <th className="px-2 py-1 text-right print:px-1 print:w-[80px]">Importo</th>
+              <th className="px-2 py-1 text-right print:px-1 print:w-[85px]">Saldo progressivo</th>
           </tr>
         </thead>
         <tbody>
@@ -1155,12 +1155,12 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                 : entry.description;
             return (
               <tr key={entry.id} className="border-b border-slate-200">
-                <td className="px-2 py-1">{entry.date}</td>
-                  <td className="px-2 py-1">{description}</td>
-                  <td className="px-2 py-1">{categoryLabel}</td>
-                <td className="px-2 py-1">{typeLabel}</td>
-                <td className="px-2 py-1 text-right">{formatEuro(entry.amount)}</td>
-                <td className={`px-2 py-1 text-right font-medium ${saldoClass}`}>{formatEuro(running)}</td>
+                <td className="px-2 py-1 print:px-1">{entry.date}</td>
+                <td className="px-2 py-1 print:px-1 print:whitespace-nowrap">{description}</td>
+                <td className="px-2 py-1 print:px-1 print:whitespace-nowrap">{categoryLabel}</td>
+                <td className="px-2 py-1 print:px-1 print:whitespace-nowrap">{typeLabel}</td>
+                <td className="px-2 py-1 print:px-1 text-right">{formatEuro(entry.amount)}</td>
+                <td className={`px-2 py-1 print:px-1 text-right font-medium ${saldoClass}`}>{formatEuro(running)}</td>
               </tr>
             );
             });
