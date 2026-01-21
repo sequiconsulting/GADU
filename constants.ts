@@ -269,7 +269,7 @@ export const RENDICONTO_SECTION_LABELS: Record<FiscalSection, string> = {
 export const RENDICONTO_CATEGORIES: FiscalCategory[] = [
   // A - Interesse generale
   { id: 'A_ENT_QUOTE_ASSOCIATIVE', label: 'Quote associative e apporti da fondatori', section: 'A', type: 'ENTRATA' },
-  { id: 'A_ENT_ATTIVITA_MUTUALI', label: 'Conferimenti e Restituzioni associati per attività mutuali', section: 'A', type: 'ENTRATA' },
+  { id: 'A_ENT_ATTIVITA_MUTUALI', label: 'Conferimenti associati per attività mutuali', section: 'A', type: 'ENTRATA' },
   { id: 'A_ENT_PRESTAZIONI_ASSOCIATI', label: 'Entrate per prestazioni/cessioni ad associati/fondatori', section: 'A', type: 'ENTRATA' },
   { id: 'A_ENT_EROGAZIONI_LIBERALI', label: 'Erogazioni liberali', section: 'A', type: 'ENTRATA' },
   { id: 'A_ENT_CONTRIBUTI_PRIV_PUB', label: 'Contributi da privati/pubblici (a fondo perduto)', section: 'A', type: 'ENTRATA' },
@@ -278,7 +278,7 @@ export const RENDICONTO_CATEGORIES: FiscalCategory[] = [
   { id: 'A_USC_PERSONALE', label: 'Spese per il personale', section: 'A', type: 'USCITA' },
   { id: 'A_USC_RIMB_VOLONTARI', label: 'Rimborsi spese volontari', section: 'A', type: 'USCITA' },
   { id: 'A_USC_COSTI_DIRETTI', label: 'Costi diretti per attività di interesse generale', section: 'A', type: 'USCITA' },
-  { id: 'A_USC_ATTIVITA_MUTUALI', label: 'Conferimenti e Restituzioni associati per attività mutuali', section: 'A', type: 'USCITA' },
+  { id: 'A_USC_ATTIVITA_MUTUALI', label: 'Restituzione conferimenti associati per attività mutuali', section: 'A', type: 'USCITA' },
 
   // B - Attività diverse
   { id: 'B_ENT_PRESTAZIONI', label: 'Entrate da attività diverse (sponsorizzazioni/servizi)', section: 'B', type: 'ENTRATA' },
