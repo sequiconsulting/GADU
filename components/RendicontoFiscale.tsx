@@ -745,9 +745,10 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         ? getCashTransferDescription(accountName || 'Conto', entry.cashTransfer)
         : getAccountTransferDescription(accountName || 'Conto', entry.cashTransfer)
       : entry.description;
+    const needsAttention = !isCashTransfer && (!entry.description.trim() || !entry.categoryId);
     const saldoClass = progressivo >= 0 ? 'text-emerald-700' : 'text-red-600';
     return (
-      <tr key={entry.id} className="border-b border-slate-100 text-xs">
+      <tr key={entry.id} className={`border-b border-slate-100 text-xs ${needsAttention ? 'bg-yellow-50' : ''}`}>
         <td className="px-2 py-1">
           <div className="flex items-center gap-1">
             <input
