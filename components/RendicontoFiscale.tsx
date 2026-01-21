@@ -1050,6 +1050,40 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           </tr>
         </thead>
         <tbody>
+          {/* Saldi iniziali section */}
+          <tr className="border-b border-slate-100">
+            <td className={`${cellBase} ${cellCompact} ${descClass} ${descColClass} font-semibold text-slate-800`}>Saldi iniziali</td>
+            <td className={`${cellBase} ${cellCompact} ${amountColClass}`} />
+            <td className={`${cellBase} ${cellCompact} ${amountColClass}`} />
+            {isPrint && <td className={`${cellBase} ${cellCompact} ${amountColClass}`} />}
+          </tr>
+          {data.cash.initialBalance > 0 && (
+            <tr className="border-b border-slate-100">
+              <td className={`${cellBase} ${cellCompact} ${descClass} ${descColClass} text-slate-700 pl-8`}>Cassa</td>
+              <td className={`${cellBase} ${cellCompact} ${amountColClass} text-right text-emerald-700`}>{formatEuro(data.cash.initialBalance)}</td>
+              <td className={`${cellBase} ${cellCompact} ${amountColClass}`} />
+              {isPrint && <td className={`${cellBase} ${cellCompact} ${amountColClass}`} />}
+            </tr>
+          )}
+          {data.accounts.map((account, idx) => 
+            account.initialBalance > 0 ? (
+              <tr key={`init-${idx}`} className="border-b border-slate-100">
+                <td className={`${cellBase} ${cellCompact} ${descClass} ${descColClass} text-slate-700 pl-8`}>{account.name}</td>
+                <td className={`${cellBase} ${cellCompact} ${amountColClass} text-right text-emerald-700`}>{formatEuro(account.initialBalance)}</td>
+                <td className={`${cellBase} ${cellCompact} ${amountColClass}`} />
+                {isPrint && <td className={`${cellBase} ${cellCompact} ${amountColClass}`} />}
+              </tr>
+            ) : null
+          )}
+          {initialTotal > 0 && (
+            <tr className="border-b border-slate-100 bg-slate-50">
+              <td className={`${cellBase} ${cellCompact} ${descClass} ${descColClass} font-semibold text-slate-700 pl-8`}>Totale saldi iniziali</td>
+              <td className={`${cellBase} ${cellCompact} ${amountColClass} text-right font-semibold text-emerald-700`}>{formatEuro(initialTotal)}</td>
+              <td className={`${cellBase} ${cellCompact} ${amountColClass}`} />
+              {isPrint && <td className={`${cellBase} ${cellCompact} ${amountColClass}`} />}
+            </tr>
+          )}
+
           {(['A', 'B', 'C', 'D', 'E'] as FiscalSection[]).map(section => {
             const t = totalsBySection[section];
             const saldo = t.entrate - t.uscite;
@@ -1083,13 +1117,6 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                     <td className={`${cellBase} ${cellCompact} ${amountColClass} text-right font-semibold text-red-600`}>{formatEuro(t.uscite)}</td>
                     {isPrint && <td className={`${cellBase} ${cellCompact} ${amountColClass} text-right font-semibold text-slate-900`}>{formatEuro(saldo)}</td>}
                   </tr>
-                  {!isPrint && (
-                    <tr className="border-b border-slate-100">
-                      <td className={`${cellBase} ${cellCompact} ${descClass} ${descColClass} text-slate-500 pl-8`}>Saldo sezione</td>
-                      <td className={`${cellBase} ${cellCompact} ${amountColClass}`} />
-                      <td className={`${cellBase} ${cellCompact} ${amountColClass} text-right font-medium text-slate-900`}>{formatEuro(saldo)}</td>
-                    </tr>
-                  )}
                 </React.Fragment>
               );
             }
@@ -1108,13 +1135,6 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                   <td className={`${cellBase} ${cellCompact} ${amountColClass} text-right font-semibold text-red-600`}>{formatEuro(t.uscite)}</td>
                   {isPrint && <td className={`${cellBase} ${cellCompact} ${amountColClass} text-right font-semibold text-slate-900`}>{formatEuro(saldo)}</td>}
                 </tr>
-                {!isPrint && (
-                  <tr className="border-b border-slate-100">
-                    <td className={`${cellBase} ${cellCompact} ${descClass} ${descColClass} text-slate-500 pl-8`}>Saldo sezione</td>
-                    <td className={`${cellBase} ${cellCompact} ${amountColClass}`} />
-                    <td className={`${cellBase} ${cellCompact} ${amountColClass} text-right font-medium text-slate-900`}>{formatEuro(saldo)}</td>
-                  </tr>
-                )}
               </React.Fragment>
             );
           })}
