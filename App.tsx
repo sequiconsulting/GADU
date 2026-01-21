@@ -22,9 +22,10 @@ const RolesHistory = React.lazy(() => import('./components/RolesHistory').then(m
 const Convocazioni = React.lazy(() => import('./components/Tornate').then(m => ({ default: m.Tornate })));
 const SetupAdmin = React.lazy(() => import('./components/SetupAdmin').then(m => ({ default: m.SetupAdmin })));
 const SuperadminConsole = React.lazy(() => import('./components/AdminConsole').then(m => ({ default: m.default })));
+const Ricevute = React.lazy(() => import('./components/Ricevute').then(m => ({ default: m.Ricevute })));
 import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation, getDegreesByRitual } from './constants';
 
-type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'ROLES_HISTORY' | 'PIEDILISTA' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE' | 'CONVOCAZIONI';
+type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'ROLES_HISTORY' | 'PIEDILISTA' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE' | 'CONVOCAZIONI' | 'RICEVUTE';
 
 // Inner app component that uses URL params
 const AppContent: React.FC = () => {
@@ -87,6 +88,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   const [isMembersMenuOpen, setIsMembersMenuOpen] = useState(true);
   const [isRolesMenuOpen, setIsRolesMenuOpen] = useState(false);
   const [isSecretaryMenuOpen, setIsSecretaryMenuOpen] = useState(false);
+  const [isAccountingMenuOpen, setIsAccountingMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
@@ -96,17 +98,19 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState(false);
 
-  const openMenu = (menu: 'members' | 'roles' | 'secretary' | null) => {
+  const openMenu = (menu: 'members' | 'roles' | 'secretary' | 'accounting' | null) => {
     setIsMembersMenuOpen(menu === 'members');
     setIsRolesMenuOpen(menu === 'roles');
     setIsSecretaryMenuOpen(menu === 'secretary');
+    setIsAccountingMenuOpen(menu === 'accounting');
   };
 
-  const toggleMenu = (menu: 'members' | 'roles' | 'secretary') => {
+  const toggleMenu = (menu: 'members' | 'roles' | 'secretary' | 'accounting') => {
     const isOpen =
       (menu === 'members' && isMembersMenuOpen) ||
       (menu === 'roles' && isRolesMenuOpen) ||
-      (menu === 'secretary' && isSecretaryMenuOpen);
+      (menu === 'secretary' && isSecretaryMenuOpen) ||
+      (menu === 'accounting' && isAccountingMenuOpen);
 
     if (isOpen) {
       openMenu(null);
@@ -409,6 +413,10 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
         openMenu('secretary');
         return;
       }
+      if (['RICEVUTE'].includes(view)) {
+        openMenu('accounting');
+        return;
+      }
       openMenu(null);
     };
 
@@ -575,6 +583,20 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
                 </div>
             )}
           </div>
+
+            <div>
+            <button onClick={() => toggleMenu('accounting')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isAccountingMenuOpen || ['RICEVUTE'].includes(currentView) ? 'text-white' : ''}`}>
+               <div className="flex items-center gap-3"><ClipboardList size={20} /> <span className="font-medium">Contabilità</span></div>
+               {isAccountingMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>} 
+            </button>
+            {isAccountingMenuOpen && (
+              <div className="ml-8 mt-1 space-y-1 border-l border-slate-700 pl-2">
+                <button onClick={() => handleViewChange('RICEVUTE')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'RICEVUTE' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
+                  <FileText size={16} /> Ricevute di Cassa
+                </button>
+              </div>
+            )}
+            </div>
           
         </nav>
         <div className="p-4 border-t border-slate-800 space-y-2">
@@ -656,6 +678,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
                 {currentView === 'CONVOCAZIONI' && 'Convocazioni'}
                 {currentView === 'CAPITAZIONI' && 'Capitazioni'}
                 {currentView === 'RELAZIONE_ANNUALE' && 'Relazione Annuale'}
+                {currentView === 'RICEVUTE' && 'Ricevute'}
             </h2>
           </div>
 
@@ -919,6 +942,11 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
           {currentView === 'CONVOCAZIONI' && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento convocazioni...</div>}>
               <Convocazioni settings={appSettings} selectedYear={selectedYear} onUpdate={loadData} />
+            </React.Suspense>
+          )}
+          {currentView === 'RICEVUTE' && (
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento ricevute...</div>}>
+              <Ricevute members={members} selectedYear={selectedYear} lodge={currentLodge} />
             </React.Suspense>
           )}
           {currentView === 'RELAZIONE_ANNUALE' && (
