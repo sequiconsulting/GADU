@@ -736,6 +736,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           <tr>
             <th className="px-2 py-1 text-left">Data</th>
             <th className="px-2 py-1 text-left">Descrizione</th>
+            <th className="px-2 py-1 text-left">Categoria contabile</th>
             <th className="px-2 py-1 text-left">Tipo</th>
             <th className="px-2 py-1 text-right">Importo</th>
             <th className="px-2 py-1 text-right">Saldo progressivo</th>
@@ -750,6 +751,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                 ? PRINT_TYPE_LABELS.USCITA_CASSA
                 : PRINT_TYPE_LABELS.ENTRATA_CASSA
               : PRINT_TYPE_LABELS[entry.type] || entry.type;
+              const categoryLabel = entry.cashTransfer ? '-' : entry.categoryLabel || '-';
             const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
             running += delta;
             const saldoClass = running >= 0 ? 'text-emerald-700' : 'text-red-600';
@@ -757,6 +759,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
               <tr key={entry.id} className="border-b border-slate-200">
                 <td className="px-2 py-1">{entry.date}</td>
                 <td className="px-2 py-1">{entry.description}</td>
+                  <td className="px-2 py-1">{categoryLabel}</td>
                 <td className="px-2 py-1">{typeLabel}</td>
                 <td className="px-2 py-1 text-right">{formatEuro(entry.amount)}</td>
                 <td className={`px-2 py-1 text-right font-medium ${saldoClass}`}>{formatEuro(running)}</td>
@@ -1201,10 +1204,17 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
               </div>
             </div>
 
-            {data.accounts.map((account, idx) =>
-              renderMovimentiTable(account.entries, `Movimenti ${account.name || `Conto ${idx + 1}`}`, account.initialBalance || 0)
-            )}
-            {renderMovimentiTable(data.cash.entries, 'Movimenti Cassa', data.cash.initialBalance || 0)}
+            {data.accounts
+              .map((account, idx) => ({
+                label: `Movimenti ${account.name || `Conto ${idx + 1}`}`,
+                entries: account.entries,
+                initialBalance: account.initialBalance || 0,
+              }))
+              .filter(account => account.entries.length > 0)
+              .map(account => renderMovimentiTable(account.entries, account.label, account.initialBalance))}
+            {data.cash.entries.length > 0
+              ? renderMovimentiTable(data.cash.entries, 'Movimenti Cassa', data.cash.initialBalance || 0)
+              : null}
           </div>
         </div>
       )}
