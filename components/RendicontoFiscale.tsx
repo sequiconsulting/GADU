@@ -881,7 +881,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   );
 
   const renderMovimentiTable = (entries: FiscalEntry[], label: string, initialBalance: number, accountByEntryId: Map<string, string>) => (
-    <div className="print:break-before-page">
+    <div style={{ pageBreakBefore: 'always', breakBefore: 'page' }}>
       {renderPrintHeader()}
       <h2 className="text-lg font-semibold text-slate-900 mb-2">{label}</h2>
       <table className="w-full text-xs border border-slate-200">
@@ -1425,7 +1425,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           </div>
 
           <div className="hidden print:block">
-            <div>
+            <div style={{ pageBreakAfter: 'always', breakAfter: 'page' }}>
               {renderPrintHeader()}
               <h1 className="text-xl font-bold text-slate-900">Rendiconto per cassa (Modello D)</h1>
               <p className="text-sm text-slate-600 mb-4">Anno {selectedYear}</p>
