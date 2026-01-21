@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { PlusCircle, Printer, Trash2 } from 'lucide-react';
+import { Check, Copy, PlusCircle, Printer, Trash2, X } from 'lucide-react';
 import { PublicLodgeConfig } from '../types/lodge';
 import type { FiscalEntry, FiscalEntryType, FiscalSection, RendicontoFiscale as RendicontoFiscaleData } from '../types';
 import { dataService } from '../services/dataService';
@@ -146,6 +146,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
   const [dateDrafts, setDateDrafts] = useState<Record<string, string>>({});
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ tab: ActiveTab; entryId: string } | null>(null);
 
 
   useEffect(() => {
@@ -442,6 +443,8 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     setData(prev => (prev ? updater(prev) : prev));
   };
 
+  const generateEntryId = () => (crypto.randomUUID ? crypto.randomUUID() : `entry_${Date.now()}_${Math.random()}`);
+
   const handleAddEntry = (tab: ActiveTab) => {
     if (!data) return;
     if (tab === 'CASSA') {
@@ -494,6 +497,127 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         cash: {
           ...prev.cash,
           entries: cashEntries,
+        },
+      };
+    });
+    scheduleAutoSave();
+  };
+
+  const handleRequestDeleteEntry = (tab: ActiveTab, entryId: string) => {
+    setDeleteConfirmation({ tab, entryId });
+  };
+
+  const handleConfirmDeleteEntry = (tab: ActiveTab, entryId: string) => {
+    setDeleteConfirmation(null);
+    handleRemoveEntry(tab, entryId);
+  };
+
+  const handleCancelDeleteEntry = () => {
+    setDeleteConfirmation(null);
+  };
+
+  const handleDuplicateEntry = (tab: ActiveTab, entryId: string) => {
+    setData(prev => {
+      if (!prev) return prev;
+
+      if (tab === 'CASSA') {
+        const source = prev.cash.entries.find(entry => entry.id === entryId);
+        if (!source) return prev;
+
+        const nextCashEntries = [...prev.cash.entries];
+        const nextAccounts = prev.accounts.map(acc => ({ ...acc, entries: [...acc.entries] }));
+
+        if (source.cashTransfer && source.linkedAccountEntryId) {
+          const accountIndex = nextAccounts.findIndex(acc => acc.entries.some(entry => entry.id === source.linkedAccountEntryId));
+          if (accountIndex >= 0) {
+            const newAccountId = generateEntryId();
+            const newCashId = `cash_${newAccountId}`;
+            const accountEntries = nextAccounts[accountIndex].entries;
+            const linkedAccountEntry = accountEntries.find(entry => entry.id === source.linkedAccountEntryId);
+            if (linkedAccountEntry) {
+              accountEntries.push({
+                ...linkedAccountEntry,
+                id: newAccountId,
+                linkedCashEntryId: newCashId,
+              });
+              nextCashEntries.push({
+                ...source,
+                id: newCashId,
+                linkedAccountEntryId: newAccountId,
+              });
+            }
+          }
+        } else {
+          nextCashEntries.push({
+            ...source,
+            id: generateEntryId(),
+          });
+        }
+
+        return {
+          ...prev,
+          accounts: nextAccounts,
+          cash: {
+            ...prev.cash,
+            entries: nextCashEntries,
+          },
+        };
+      }
+
+      const accountId = tab === 'CONTO_1' ? '1' : tab === 'CONTO_2' ? '2' : '3';
+      const nextAccounts = prev.accounts.map(acc => ({ ...acc, entries: [...acc.entries] }));
+      const accountIndex = nextAccounts.findIndex(acc => acc.id === accountId);
+      if (accountIndex < 0) return prev;
+      const accountEntries = nextAccounts[accountIndex].entries;
+      const source = accountEntries.find(entry => entry.id === entryId);
+      if (!source) return prev;
+
+      const nextCashEntries = [...prev.cash.entries];
+
+      if (source.cashTransfer) {
+        const newAccountId = generateEntryId();
+        const newCashId = `cash_${newAccountId}`;
+        accountEntries.push({
+          ...source,
+          id: newAccountId,
+          linkedCashEntryId: newCashId,
+        });
+
+        const linkedCashEntry = source.linkedCashEntryId
+          ? prev.cash.entries.find(entry => entry.id === source.linkedCashEntryId)
+          : null;
+
+        if (linkedCashEntry) {
+          nextCashEntries.push({
+            ...linkedCashEntry,
+            id: newCashId,
+            linkedAccountEntryId: newAccountId,
+          });
+        } else {
+          nextCashEntries.push({
+            ...source,
+            id: newCashId,
+            type: source.cashTransfer === 'OUT' ? 'ENTRATA' : 'USCITA',
+            description: getCashTransferDescription(nextAccounts[accountIndex].name || `Conto ${accountIndex + 1}`, source.cashTransfer),
+            categoryId: undefined,
+            categoryLabel: '',
+            section: 'A',
+            linkedAccountEntryId: newAccountId,
+          });
+        }
+      } else {
+        accountEntries.push({
+          ...source,
+          id: generateEntryId(),
+        });
+      }
+
+      return {
+        ...prev,
+        accounts: nextAccounts,
+        cash: {
+          ...prev.cash,
+          entries: nextCashEntries,
         },
       };
     });
@@ -730,6 +854,8 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
       : entry.description;
     const needsAttention = !isCashTransfer && (!entry.description.trim() || !entry.categoryId);
     const saldoClass = progressivo >= 0 ? 'text-emerald-700' : 'text-red-600';
+    const isDeletePending =
+      deleteConfirmation?.tab === tab && deleteConfirmation.entryId === entry.id;
     return (
       <tr key={entry.id} className={`border-b border-slate-100 text-xs ${needsAttention ? 'bg-yellow-200' : ''}`}>
         <td className="px-2 py-1">
@@ -849,15 +975,46 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           {RENDICONTO_SECTION_LABELS[entry.section]}
         </td>
         <td className="px-2 py-1 text-right">
-          <button
-            onClick={() => handleRemoveEntry(tab, entry.id)}
-            onBlur={handleAutoSave}
-            disabled={isCashTabLocked}
-            className="text-red-600 hover:text-red-700 disabled:text-slate-300"
-            title="Rimuovi"
-          >
-            <Trash2 size={16} />
-          </button>
+          {isDeletePending ? (
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => handleConfirmDeleteEntry(tab, entry.id)}
+                disabled={isCashTabLocked}
+                className="text-emerald-600 hover:text-emerald-700 disabled:text-slate-300"
+                title="Sì"
+              >
+                <Check size={16} />
+              </button>
+              <button
+                onClick={handleCancelDeleteEntry}
+                disabled={isCashTabLocked}
+                className="text-slate-500 hover:text-slate-700 disabled:text-slate-300"
+                title="No"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => handleDuplicateEntry(tab, entry.id)}
+                disabled={isCashTabLocked}
+                className="text-slate-500 hover:text-slate-700 disabled:text-slate-300"
+                title="Duplica"
+              >
+                <Copy size={16} />
+              </button>
+              <button
+                onClick={() => handleRequestDeleteEntry(tab, entry.id)}
+                onBlur={handleAutoSave}
+                disabled={isCashTabLocked}
+                className="text-red-600 hover:text-red-700 disabled:text-slate-300"
+                title="Rimuovi"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          )}
         </td>
         <td className={`px-2 py-1 text-right font-medium ${saldoClass}`}>
           {formatEuro(progressivo)}
