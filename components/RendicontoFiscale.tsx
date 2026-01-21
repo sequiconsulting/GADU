@@ -25,6 +25,9 @@ const parseAmount = (value: string): number => {
   return num;
 };
 
+const formatAmount = (value: number): string =>
+  new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value || 0);
+
 const parseDate = (value: string): string => {
   const v = value.trim();
   if (!v) {
@@ -672,14 +675,14 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           <input
             type="text"
             inputMode="decimal"
-            value={entry.amount}
+            value={formatAmount(entry.amount)}
             onChange={e => {
               const amount = Number(e.target.value.replace(',', '.'));
               handleEntryChange(tab, entry.id, { amount: Number.isFinite(amount) ? amount : 0 });
             }}
             onBlur={handleAutoSave}
             disabled={isCashTabLocked}
-            className="w-28 border border-slate-200 rounded-md px-2 py-1 text-xs disabled:bg-slate-100"
+            className="w-20 border border-slate-200 rounded-md px-2 py-1 text-xs text-right disabled:bg-slate-100"
           />
         </td>
         <td className="px-2 py-1">
@@ -818,6 +821,16 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     (activeTab === 'CONTO_2' && acc.id === '2') ||
     (activeTab === 'CONTO_3' && acc.id === '3')
   );
+  const activeAccountFinalBalance = activeAccount
+    ? (activeAccount.initialBalance || 0) + activeAccount.entries.reduce((sum, entry) => {
+        const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
+        return sum + delta;
+      }, 0)
+    : 0;
+  const cashFinalBalance = (data.cash.initialBalance || 0) + data.cash.entries.reduce((sum, entry) => {
+    const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
+    return sum + delta;
+  }, 0);
 
   return (
     <div className="animate-fadeIn space-y-6">
@@ -888,7 +901,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
       {(activeTab === 'CONTO_1' || activeTab === 'CONTO_2' || activeTab === 'CONTO_3') && activeAccount && (
         <div className="space-y-4">
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4 print:hidden">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="text-sm font-medium text-slate-700">Nome conto</label>
                 <input
@@ -927,6 +940,15 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                   className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
                 />
               </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Saldo finale</label>
+                <input
+                  type="text"
+                  value={formatEuro(activeAccountFinalBalance)}
+                  disabled
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-slate-100 text-slate-700"
+                />
+              </div>
               <div className="flex items-end gap-2">
                 <button
                   onClick={() => handleAddEntry(activeTab)}
@@ -949,9 +971,9 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
                   <th className="px-2 py-1 text-left">Data</th>
-                  <th className="px-2 py-1 text-left">Descrizione</th>
+                  <th className="px-2 py-1 text-left w-2/5">Descrizione</th>
                   <th className="px-2 py-1 text-left">Tipo</th>
-                  <th className="px-2 py-1 text-left">Importo</th>
+                  <th className="px-2 py-1 text-right w-24">Importo</th>
                   <th className="px-2 py-1 text-left">Categoria</th>
                   <th className="px-2 py-1 text-left">Sezione</th>
                   <th className="px-2 py-1"></th>
@@ -1001,6 +1023,15 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                   className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
                 />
               </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Saldo finale</label>
+                <input
+                  type="text"
+                  value={formatEuro(cashFinalBalance)}
+                  disabled
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-slate-100 text-slate-700"
+                />
+              </div>
               <div className="flex items-end gap-2">
                 <button
                   onClick={() => handleAddEntry('CASSA')}
@@ -1017,9 +1048,9 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
                   <th className="px-2 py-1 text-left">Data</th>
-                  <th className="px-2 py-1 text-left">Descrizione</th>
+                  <th className="px-2 py-1 text-left w-2/5">Descrizione</th>
                   <th className="px-2 py-1 text-left">Tipo</th>
-                  <th className="px-2 py-1 text-left">Importo</th>
+                  <th className="px-2 py-1 text-right w-24">Importo</th>
                   <th className="px-2 py-1 text-left">Categoria</th>
                   <th className="px-2 py-1 text-left">Sezione</th>
                   <th className="px-2 py-1"></th>
