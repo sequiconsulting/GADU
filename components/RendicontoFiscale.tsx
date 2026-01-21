@@ -987,87 +987,116 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     </div>
   );
 
-  const renderRendicontoTable = (tableClassName: string, headClassName: string) => (
-    <table className={tableClassName}>
-      <thead className={headClassName}>
-        <tr>
-          <th className="px-3 py-2 text-left">Descrizione</th>
-          <th className="px-3 py-2 text-right">Entrate</th>
-          <th className="px-3 py-2 text-right">Uscite</th>
-        </tr>
-      </thead>
-      <tbody>
-        {(['A', 'B', 'C', 'D', 'E'] as FiscalSection[]).map(section => {
-          const t = totalsBySection[section];
-          const saldo = t.entrate - t.uscite;
-          const categoryRows = (Array.from(categoryTotalsBySection[section].values()) as CategoryTotals[]).sort(
-            (a, b) => a.label.localeCompare(b.label)
-          );
+  const renderRendicontoTable = (tableClassName: string, headClassName: string, options?: { isPrint?: boolean }) => {
+    const isPrint = options?.isPrint ?? false;
+    const cellBase = 'px-3 py-2';
+    const cellCompact = 'print:py-1 print:leading-tight';
+    const descClass = isPrint ? 'print:whitespace-normal print:break-words' : '';
 
-          if (categoryRows.length > 0) {
+    return (
+      <table className={tableClassName}>
+        <thead className={headClassName}>
+          <tr>
+            <th className={`${cellBase} ${cellCompact} text-left`}>Descrizione</th>
+            <th className={`${cellBase} ${cellCompact} text-right`}>Entrate</th>
+            <th className={`${cellBase} ${cellCompact} text-right`}>Uscite</th>
+            {isPrint && <th className={`${cellBase} ${cellCompact} text-right`}>Saldo</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {(['A', 'B', 'C', 'D', 'E'] as FiscalSection[]).map(section => {
+            const t = totalsBySection[section];
+            const saldo = t.entrate - t.uscite;
+            const categoryRows = (Array.from(categoryTotalsBySection[section].values()) as CategoryTotals[]).sort(
+              (a, b) => a.label.localeCompare(b.label)
+            );
+
+            if (categoryRows.length > 0) {
+              return (
+                <React.Fragment key={section}>
+                  <tr className="border-b border-slate-100">
+                    <td className={`${cellBase} ${cellCompact} ${descClass} font-semibold text-slate-800`}>{section} - {RENDICONTO_SECTION_LABELS[section]}</td>
+                    <td className={`${cellBase} ${cellCompact}`} />
+                    <td className={`${cellBase} ${cellCompact}`} />
+                    {isPrint && <td className={`${cellBase} ${cellCompact}`} />}
+                  </tr>
+                  {categoryRows.map(cat => {
+                    const catSaldo = cat.entrate - cat.uscite;
+                    return (
+                      <tr key={`${section}-${cat.label}`} className="border-b border-slate-100">
+                        <td className={`${cellBase} ${cellCompact} ${descClass} text-slate-700 pl-8`}>{cat.label}</td>
+                        <td className={`${cellBase} ${cellCompact} text-right text-emerald-700`}>{formatEuro(cat.entrate)}</td>
+                        <td className={`${cellBase} ${cellCompact} text-right text-red-600`}>{formatEuro(cat.uscite)}</td>
+                        {isPrint && <td className={`${cellBase} ${cellCompact} text-right text-slate-900`}>{formatEuro(catSaldo)}</td>}
+                      </tr>
+                    );
+                  })}
+                  <tr className="border-b border-slate-100 bg-slate-50">
+                    <td className={`${cellBase} ${cellCompact} ${descClass} font-semibold text-slate-700 pl-8`}>Totale sezione</td>
+                    <td className={`${cellBase} ${cellCompact} text-right font-semibold text-emerald-700`}>{formatEuro(t.entrate)}</td>
+                    <td className={`${cellBase} ${cellCompact} text-right font-semibold text-red-600`}>{formatEuro(t.uscite)}</td>
+                    {isPrint && <td className={`${cellBase} ${cellCompact} text-right font-semibold text-slate-900`}>{formatEuro(saldo)}</td>}
+                  </tr>
+                  {!isPrint && (
+                    <tr className="border-b border-slate-100">
+                      <td className={`${cellBase} ${cellCompact} ${descClass} text-slate-500 pl-8`}>Saldo sezione</td>
+                      <td className={`${cellBase} ${cellCompact}`} />
+                      <td className={`${cellBase} ${cellCompact} text-right font-medium text-slate-900`}>{formatEuro(saldo)}</td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            }
+
             return (
               <React.Fragment key={section}>
                 <tr className="border-b border-slate-100">
-                  <td className="px-3 py-2 font-semibold text-slate-800">{section} - {RENDICONTO_SECTION_LABELS[section]}</td>
-                  <td className="px-3 py-2" />
-                  <td className="px-3 py-2" />
+                  <td className={`${cellBase} ${cellCompact} ${descClass} font-semibold text-slate-800`}>{section} - {RENDICONTO_SECTION_LABELS[section]}</td>
+                  <td className={`${cellBase} ${cellCompact}`} />
+                  <td className={`${cellBase} ${cellCompact}`} />
+                  {isPrint && <td className={`${cellBase} ${cellCompact}`} />}
                 </tr>
-                {categoryRows.map(cat => (
-                  <tr key={`${section}-${cat.label}`} className="border-b border-slate-100">
-                    <td className="px-3 py-2 text-slate-700 pl-8">{cat.label}</td>
-                    <td className="px-3 py-2 text-right text-emerald-700">{formatEuro(cat.entrate)}</td>
-                    <td className="px-3 py-2 text-right text-red-600">{formatEuro(cat.uscite)}</td>
-                  </tr>
-                ))}
                 <tr className="border-b border-slate-100 bg-slate-50">
-                  <td className="px-3 py-2 font-semibold text-slate-700 pl-8">Totale sezione</td>
-                  <td className="px-3 py-2 text-right font-semibold text-emerald-700">{formatEuro(t.entrate)}</td>
-                  <td className="px-3 py-2 text-right font-semibold text-red-600">{formatEuro(t.uscite)}</td>
+                  <td className={`${cellBase} ${cellCompact} ${descClass} font-semibold text-slate-700 pl-8`}>Totale sezione</td>
+                  <td className={`${cellBase} ${cellCompact} text-right font-semibold text-emerald-700`}>{formatEuro(t.entrate)}</td>
+                  <td className={`${cellBase} ${cellCompact} text-right font-semibold text-red-600`}>{formatEuro(t.uscite)}</td>
+                  {isPrint && <td className={`${cellBase} ${cellCompact} text-right font-semibold text-slate-900`}>{formatEuro(saldo)}</td>}
                 </tr>
-                <tr className="border-b border-slate-100">
-                  <td className="px-3 py-2 text-slate-500 pl-8">Saldo sezione</td>
-                  <td className="px-3 py-2" />
-                  <td className="px-3 py-2 text-right font-medium text-slate-900">{formatEuro(saldo)}</td>
-                </tr>
+                {!isPrint && (
+                  <tr className="border-b border-slate-100">
+                    <td className={`${cellBase} ${cellCompact} ${descClass} text-slate-500 pl-8`}>Saldo sezione</td>
+                    <td className={`${cellBase} ${cellCompact}`} />
+                    <td className={`${cellBase} ${cellCompact} text-right font-medium text-slate-900`}>{formatEuro(saldo)}</td>
+                  </tr>
+                )}
               </React.Fragment>
             );
-          }
-
-          return (
-            <React.Fragment key={section}>
-              <tr className="border-b border-slate-100">
-                <td className="px-3 py-2 font-semibold text-slate-800">{section} - {RENDICONTO_SECTION_LABELS[section]}</td>
-                <td className="px-3 py-2" />
-                <td className="px-3 py-2" />
-              </tr>
-              <tr className="border-b border-slate-100 bg-slate-50">
-                <td className="px-3 py-2 font-semibold text-slate-700 pl-8">Totale sezione</td>
-                <td className="px-3 py-2 text-right font-semibold text-emerald-700">{formatEuro(t.entrate)}</td>
-                <td className="px-3 py-2 text-right font-semibold text-red-600">{formatEuro(t.uscite)}</td>
-              </tr>
-              <tr className="border-b border-slate-100">
-                <td className="px-3 py-2 text-slate-500 pl-8">Saldo sezione</td>
-                <td className="px-3 py-2" />
-                <td className="px-3 py-2 text-right font-medium text-slate-900">{formatEuro(saldo)}</td>
-              </tr>
-            </React.Fragment>
-          );
-        })}
-      </tbody>
-      <tfoot className="bg-slate-50">
-        <tr>
-          <td className="px-3 py-2 font-semibold">Totale complessivo</td>
-          <td className="px-3 py-2 text-right font-semibold text-emerald-700">{formatEuro(entriesTotals.entrate)}</td>
-          <td className="px-3 py-2 text-right font-semibold text-red-600">{formatEuro(entriesTotals.uscite)}</td>
-        </tr>
-        <tr className="bg-slate-50">
-          <td className="px-3 py-2 font-semibold">Saldo complessivo</td>
-          <td className="px-3 py-2" />
-          <td className="px-3 py-2 text-right font-semibold text-slate-900">{formatEuro(entriesTotals.entrate - entriesTotals.uscite)}</td>
-        </tr>
-      </tfoot>
-    </table>
-  );
+          })}
+        </tbody>
+        <tfoot className="bg-slate-50">
+          <tr>
+            <td className={`${cellBase} ${cellCompact} font-semibold`}>Totale complessivo</td>
+            <td className={`${cellBase} ${cellCompact} text-right font-semibold text-emerald-700`}>{formatEuro(entriesTotals.entrate)}</td>
+            <td className={`${cellBase} ${cellCompact} text-right font-semibold text-red-600`}>{formatEuro(entriesTotals.uscite)}</td>
+            {isPrint && (
+              <td className={`${cellBase} ${cellCompact} text-right font-semibold text-slate-900`}>
+                {formatEuro(entriesTotals.entrate - entriesTotals.uscite)}
+              </td>
+            )}
+          </tr>
+          {!isPrint && (
+            <tr className="bg-slate-50">
+              <td className={`${cellBase} ${cellCompact} font-semibold`}>Saldo complessivo</td>
+              <td className={`${cellBase} ${cellCompact}`} />
+              <td className={`${cellBase} ${cellCompact} text-right font-semibold text-slate-900`}>
+                {formatEuro(entriesTotals.entrate - entriesTotals.uscite)}
+              </td>
+            </tr>
+          )}
+        </tfoot>
+      </table>
+    );
+  };
 
   const renderMovimentiTable = (
     entries: FiscalEntry[],
@@ -1607,7 +1636,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
               {renderPrintHeader()}
               <h1 className="text-xl font-bold text-slate-900">Rendiconto per cassa (Modello D)</h1>
               <p className="text-sm text-slate-600 mb-4">Anno {selectedYear}</p>
-              {renderRendicontoTable('w-full text-sm border border-slate-200', 'bg-slate-50')}
+              {renderRendicontoTable('w-full text-sm print:text-xs border border-slate-200', 'bg-slate-50', { isPrint: true })}
 
               <div className="mt-6 text-sm">
                 <p><strong>Annotazioni attività diverse:</strong> {data.notes?.secondarietaAttivitaDiverse || '-'}</p>
