@@ -280,13 +280,18 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   };
 
   const handleLoginSuccess = (lodge: PublicLodgeConfig, session?: AuthSession) => {
-    lodgeRegistry.saveCurrentLodge(lodge);
-    dataService.initializeLodge(lodge);
-    setCurrentLodge(lodge);
-
     const hydrateSession = async () => {
       try {
-        const activeSession = session || (await loadActiveSession(lodge.supabaseUrl, lodge.supabaseAnonKey)) || getStoredSession();
+        const latestConfig = await lodgeRegistry.getLodgeConfig(lodge.glriNumber);
+        if (!latestConfig) {
+          throw new Error(`Loggia ${lodge.glriNumber} non trovata nel registry`);
+        }
+
+        lodgeRegistry.saveCurrentLodge(latestConfig);
+        dataService.initializeLodge(latestConfig);
+        setCurrentLodge(latestConfig);
+
+        const activeSession = session || (await loadActiveSession(latestConfig.supabaseUrl, latestConfig.supabaseAnonKey)) || getStoredSession();
         if (activeSession) {
           setCurrentUser(activeSession);
           console.log('[APP] User authenticated with privileges:', activeSession.privileges);
