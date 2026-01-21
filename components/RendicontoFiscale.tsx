@@ -28,19 +28,34 @@ const parseAmount = (value: string): number => {
 const formatAmount = (value: number): string =>
   new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value || 0);
 
-const parseDate = (value: string): string => {
+const parseDate = (value: string, selectedYear: number): string => {
   const v = value.trim();
   if (!v) {
     throw new Error('Data mancante');
   }
   const isoMatch = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (isoMatch) return v;
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    if (year !== selectedYear) {
+      throw new Error(`Data fuori anno selezionato (${selectedYear}): ${v}`);
+    }
+    return v;
+  }
   const slashMatch = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (slashMatch) {
     const day = slashMatch[1].padStart(2, '0');
     const month = slashMatch[2].padStart(2, '0');
-    const year = slashMatch[3];
+    const year = Number(slashMatch[3]);
+    if (year !== selectedYear) {
+      throw new Error(`Data fuori anno selezionato (${selectedYear}): ${v}`);
+    }
     return `${year}-${month}-${day}`;
+  }
+  const shortMatch = v.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+  if (shortMatch) {
+    const day = shortMatch[1].padStart(2, '0');
+    const month = shortMatch[2].padStart(2, '0');
+    return `${selectedYear}-${month}-${day}`;
   }
   throw new Error(`Formato data non riconosciuto: "${value}"`);
 };
@@ -101,6 +116,8 @@ const CASH_IN_LABEL = 'Versamento da cassa';
 const getAccountLabel = (name: string | undefined, fallback: string) => (name && name.trim() ? name.trim() : fallback);
 const getAccountTransferDescription = (accountName: string, transfer: 'OUT' | 'IN') =>
   transfer === 'OUT' ? CASH_OUT_LABEL : `Versamento su conto ${accountName}`;
+const getCashTransferDescription = (accountName: string, transfer: 'OUT' | 'IN') =>
+  transfer === 'OUT' ? `Prelievo da ${accountName}` : CASH_IN_LABEL;
 const PRINT_TYPE_LABELS: Record<string, string> = {
   ENTRATA: 'Entrata',
   USCITA: 'Uscita',
@@ -140,6 +157,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
+  const [dateDrafts, setDateDrafts] = useState<Record<string, string>>({});
 
   const [importTarget, setImportTarget] = useState<{ tab: ActiveTab; accountId?: string } | null>(null);
   const [importHeaders, setImportHeaders] = useState<string[]>([]);
@@ -221,6 +239,13 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     setSaving(true);
     setSaveMessage(null);
     try {
+      const accountByEntryId = new Map<string, string>();
+      current.accounts.forEach((account, index) => {
+        const accountName = getAccountLabel(account.name, `Conto ${index + 1}`);
+        account.entries.forEach(entry => {
+          accountByEntryId.set(entry.id, accountName);
+        });
+      });
       const normalized: RendicontoFiscale = {
         ...current,
         accounts: current.accounts.map((account, index) => ({
@@ -242,7 +267,10 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           ...current.cash,
           entries: current.cash.entries.map(entry => {
             if (!entry.cashTransfer) return entry;
-            const description = entry.cashTransfer === 'OUT' ? CASH_OUT_LABEL : CASH_IN_LABEL;
+            const accountName = entry.linkedAccountEntryId
+              ? accountByEntryId.get(entry.linkedAccountEntryId) || 'Conto'
+              : 'Conto';
+            const description = getCashTransferDescription(accountName, entry.cashTransfer);
             return {
               ...entry,
               description,
@@ -265,6 +293,10 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
 
   const updateDraft = (key: string, value: string) => {
     setAmountDrafts(prev => ({ ...prev, [key]: value }));
+  };
+
+  const updateDateDraft = (key: string, value: string) => {
+    setDateDrafts(prev => ({ ...prev, [key]: value }));
   };
 
   const commitDraft = (key: string, raw: string, onCommit: (value: number) => void) => {
@@ -292,6 +324,32 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
 
   const getDraftValue = (key: string, fallback: number) =>
     amountDrafts[key] ?? formatAmount(fallback);
+
+  const formatDayMonth = (isoDate: string): string => {
+    const parts = isoDate.split('-');
+    if (parts.length !== 3) return '';
+    const day = parts[2];
+    const month = parts[1];
+    return `${day}/${month}`;
+  };
+
+  const toIsoFromDayMonth = (value: string, year: number): string | null => {
+    const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
+    if (!match) return null;
+    const day = Number(match[1]);
+    const month = Number(match[2]);
+    if (!Number.isFinite(day) || !Number.isFinite(month)) return null;
+    const candidate = new Date(year, month - 1, day);
+    if (candidate.getFullYear() !== year || candidate.getMonth() !== month - 1 || candidate.getDate() !== day) {
+      return null;
+    }
+    const dayStr = String(day).padStart(2, '0');
+    const monthStr = String(month).padStart(2, '0');
+    return `${year}-${monthStr}-${dayStr}`;
+  };
+
+  const getDraftDayMonth = (key: string, isoDate: string) =>
+    dateDrafts[key] ?? formatDayMonth(isoDate);
 
   const scheduleAutoSave = () => {
     setTimeout(() => {
@@ -393,40 +451,53 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     const accountId = tab === 'CONTO_1' ? '1' : tab === 'CONTO_2' ? '2' : '3';
     updateAccount(accountId, prev => {
       let linkedCashEntryId: string | undefined;
+      let updatedEntry: FiscalEntry | null = null;
       const accounts = prev.accounts.map(acc => {
         if (acc.id !== accountId) return acc;
         const entries = acc.entries.map(entry => {
           if (entry.id !== entryId) return entry;
-          const next = { ...entry, ...patch };
+          const next = { ...entry, ...patch } as FiscalEntry;
+          if (next.cashTransfer && !next.linkedCashEntryId) {
+            next.linkedCashEntryId = `cash_${next.id}`;
+          }
           linkedCashEntryId = next.linkedCashEntryId;
+          updatedEntry = next;
           return next;
         });
         return { ...acc, entries };
       });
 
-      if (!linkedCashEntryId) {
+      if (!linkedCashEntryId || !updatedEntry?.cashTransfer) {
         return { ...prev, accounts };
       }
 
-      const cashEntries = prev.cash.entries.map(entry => {
-        if (entry.id !== linkedCashEntryId) return entry;
-        const source = accounts
-          .flatMap(a => a.entries)
-          .find(e => e.linkedCashEntryId === linkedCashEntryId);
-        if (!source) return entry;
-        const description = source.cashTransfer === 'OUT' ? CASH_OUT_LABEL : CASH_IN_LABEL;
-        const cashType = source.cashTransfer === 'OUT' ? 'ENTRATA' : 'USCITA';
-        return {
-          ...entry,
-          date: source.date,
-          amount: source.amount,
-          type: cashType,
-          description,
-          categoryId: undefined,
-          categoryLabel: '',
-          section: 'A',
-        };
-      });
+      const source = accounts
+        .flatMap(a => a.entries)
+        .find(e => e.linkedCashEntryId === linkedCashEntryId);
+      if (!source) {
+        return { ...prev, accounts };
+      }
+
+      const description = source.cashTransfer === 'OUT' ? CASH_OUT_LABEL : CASH_IN_LABEL;
+      const cashType = source.cashTransfer === 'OUT' ? 'ENTRATA' : 'USCITA';
+      const existing = prev.cash.entries.find(entry => entry.id === linkedCashEntryId);
+      const nextCashEntry: FiscalEntry = {
+        ...(existing || defaultEntry(selectedYear)),
+        id: linkedCashEntryId,
+        date: source.date,
+        amount: source.amount,
+        type: cashType,
+        description,
+        categoryId: undefined,
+        categoryLabel: '',
+        section: 'A',
+        cashTransfer: source.cashTransfer,
+        linkedAccountEntryId: source.id,
+      };
+
+      const cashEntries = existing
+        ? prev.cash.entries.map(entry => (entry.id === linkedCashEntryId ? nextCashEntry : entry))
+        : [...prev.cash.entries, nextCashEntry];
 
       return {
         ...prev,
@@ -512,7 +583,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
       if (updatedEntry?.cashTransfer) {
         const linkedId = updatedEntry.linkedCashEntryId || `cash_${updatedEntry.id}`;
         const cashType: FiscalEntryType = updatedEntry.cashTransfer === 'OUT' ? 'ENTRATA' : 'USCITA';
-        const cashDescription = updatedEntry.cashTransfer === 'OUT' ? CASH_OUT_LABEL : CASH_IN_LABEL;
+        const cashDescription = getCashTransferDescription(accountName, updatedEntry.cashTransfer);
         const existing = prev.cash.entries.find(e => e.id === linkedId);
         const nextCashEntry: FiscalEntry = {
           ...(existing || defaultEntry(selectedYear)),
@@ -574,7 +645,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           return idx >= 0 ? row[idx] || '' : '';
         };
         const parseOptionalAmount = (value: string) => (value.trim() ? parseAmount(value) : 0);
-        const dateValue = parseDate(find(importMap.date));
+        const dateValue = parseDate(find(importMap.date), selectedYear);
         const description = find(importMap.description);
         if (!description) {
           throw new Error(`Descrizione mancante alla riga ${index + 2}`);
@@ -669,23 +740,43 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
       : entry.type;
     const fixedDescription = entry.cashTransfer
       ? tab === 'CASSA'
-        ? entry.cashTransfer === 'OUT'
-          ? CASH_OUT_LABEL
-          : CASH_IN_LABEL
+        ? getCashTransferDescription(accountName || 'Conto', entry.cashTransfer)
         : getAccountTransferDescription(accountName || 'Conto', entry.cashTransfer)
       : entry.description;
     const saldoClass = progressivo >= 0 ? 'text-emerald-700' : 'text-red-600';
     return (
       <tr key={entry.id} className="border-b border-slate-100 text-xs">
         <td className="px-2 py-1">
-          <input
-            type="date"
-            value={entry.date}
-            onChange={e => handleEntryChange(tab, entry.id, { date: e.target.value })}
-            onBlur={handleAutoSave}
-            disabled={isCashTabLocked}
-            className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs disabled:bg-slate-100"
-          />
+          <div className="flex items-center gap-1">
+            <input
+              type="text"
+              placeholder="GG/MM"
+              value={getDraftDayMonth(`entry:${entry.id}:date`, entry.date)}
+              onChange={e => {
+                const raw = e.target.value;
+                updateDateDraft(`entry:${entry.id}:date`, raw);
+                const iso = toIsoFromDayMonth(raw, selectedYear);
+                if (iso) {
+                  handleEntryChange(tab, entry.id, { date: iso });
+                }
+              }}
+              onBlur={e => {
+                const raw = e.target.value;
+                const iso = toIsoFromDayMonth(raw, selectedYear);
+                if (iso) {
+                  handleEntryChange(tab, entry.id, { date: iso });
+                  updateDateDraft(`entry:${entry.id}:date`, formatDayMonth(iso));
+                } else {
+                  updateDateDraft(`entry:${entry.id}:date`, formatDayMonth(entry.date));
+                }
+                handleAutoSave();
+              }}
+              onFocus={e => e.currentTarget.select()}
+              disabled={isCashTabLocked}
+              className="w-16 border border-slate-200 rounded-md px-2 py-1 text-xs disabled:bg-slate-100"
+            />
+            <span className="text-[10px] text-slate-400">/{selectedYear}</span>
+          </div>
         </td>
         <td className="px-2 py-1">
           <input
@@ -720,7 +811,16 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
             type="text"
             inputMode="decimal"
             value={getDraftValue(`entry:${entry.id}:amount`, entry.amount)}
-            onChange={e => updateDraft(`entry:${entry.id}:amount`, e.target.value)}
+            onChange={e => {
+              const raw = e.target.value;
+              updateDraft(`entry:${entry.id}:amount`, raw);
+              try {
+                const value = parseAmount(raw);
+                handleEntryChange(tab, entry.id, { amount: value });
+              } catch {
+                // ignore invalid intermediate input
+              }
+            }}
             onBlur={e => {
               commitDraft(`entry:${entry.id}:amount`, e.target.value, (value) => {
                 handleEntryChange(tab, entry.id, { amount: value });
@@ -777,7 +877,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     </div>
   );
 
-  const renderMovimentiTable = (entries: FiscalEntry[], label: string, initialBalance: number) => (
+  const renderMovimentiTable = (entries: FiscalEntry[], label: string, initialBalance: number, accountByEntryId: Map<string, string>) => (
     <div className="print:break-before-page">
       {renderPrintHeader()}
       <h2 className="text-lg font-semibold text-slate-900 mb-2">{label}</h2>
@@ -801,14 +901,20 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                 ? PRINT_TYPE_LABELS.USCITA_CASSA
                 : PRINT_TYPE_LABELS.ENTRATA_CASSA
               : PRINT_TYPE_LABELS[entry.type] || entry.type;
+              const accountName = entry.linkedAccountEntryId
+                ? accountByEntryId.get(entry.linkedAccountEntryId) || 'Conto'
+                : 'Conto';
               const categoryLabel = entry.cashTransfer ? '-' : entry.categoryLabel || '-';
             const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
             running += delta;
             const saldoClass = running >= 0 ? 'text-emerald-700' : 'text-red-600';
+              const description = entry.cashTransfer
+                ? getCashTransferDescription(accountName, entry.cashTransfer)
+                : entry.description;
             return (
               <tr key={entry.id} className="border-b border-slate-200">
                 <td className="px-2 py-1">{entry.date}</td>
-                <td className="px-2 py-1">{entry.description}</td>
+                  <td className="px-2 py-1">{description}</td>
                   <td className="px-2 py-1">{categoryLabel}</td>
                 <td className="px-2 py-1">{typeLabel}</td>
                 <td className="px-2 py-1 text-right">{formatEuro(entry.amount)}</td>
@@ -883,7 +989,15 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     <div className="animate-fadeIn space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
-          <h3 className="text-xl font-serif font-bold text-slate-900">Rendiconto fiscale</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-xl font-serif font-bold text-slate-900">Rendiconto fiscale</h3>
+            {saving && (
+              <span className="text-xs text-amber-600 flex items-center gap-2">
+                <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                Salvataggio...
+              </span>
+            )}
+          </div>
           <p className="text-sm text-slate-500">Modello D (criterio di cassa) - anno {selectedYear}</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -896,12 +1010,6 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           </button>
         </div>
       </div>
-
-      {saving && (
-        <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg px-4 py-2 text-xs print:hidden">
-          Salvataggio in corso...
-        </div>
-      )}
 
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 print:hidden">
         {accountTabs.map(tab => (
@@ -937,12 +1045,6 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         >
           Rendiconto
         </button>
-        {saving && (
-          <span className="ml-2 text-xs text-slate-500 flex items-center gap-2">
-            <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-            Salvataggio...
-          </span>
-        )}
       </div>
 
       {(activeTab === 'CONTO_1' || activeTab === 'CONTO_2' || activeTab === 'CONTO_3') && activeAccount && (
@@ -955,12 +1057,13 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                   type="text"
                   value={activeAccount.name}
                   onChange={e =>
-                    updateAccount(activeAccount.id, prev => ({
-                      ...prev,
-                      accounts: prev.accounts.map((acc, index) => {
+                    updateAccount(activeAccount.id, prev => {
+                      let updatedAccountName = '';
+                      const accounts = prev.accounts.map((acc, index) => {
                         if (acc.id !== activeAccount.id) return acc;
                         const nextName = e.target.value;
                         const accountName = getAccountLabel(nextName, `Conto ${index + 1}`);
+                        updatedAccountName = accountName;
                         return {
                           ...acc,
                           name: nextName,
@@ -975,8 +1078,28 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                             };
                           }),
                         };
-                      }),
-                    }))
+                      });
+
+                      const cashEntries = prev.cash.entries.map(entry => {
+                        if (!entry.cashTransfer || !entry.linkedAccountEntryId) return entry;
+                        if (entry.linkedAccountEntryId && updatedAccountName) {
+                          if (entry.cashTransfer === 'OUT') {
+                            return { ...entry, description: getCashTransferDescription(updatedAccountName, 'OUT') };
+                          }
+                          return { ...entry, description: getCashTransferDescription(updatedAccountName, 'IN') };
+                        }
+                        return entry;
+                      });
+
+                      return {
+                        ...prev,
+                        accounts,
+                        cash: {
+                          ...prev.cash,
+                          entries: cashEntries,
+                        },
+                      };
+                    })
                   }
                   onBlur={handleAutoSave}
                   className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
@@ -988,7 +1111,23 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                   type="text"
                   inputMode="decimal"
                   value={getDraftValue(`account:${activeAccount.id}:initial`, activeAccount.initialBalance || 0)}
-                  onChange={e => updateDraft(`account:${activeAccount.id}:initial`, e.target.value)}
+                  onChange={e => {
+                    const raw = e.target.value;
+                    updateDraft(`account:${activeAccount.id}:initial`, raw);
+                    try {
+                      const value = parseAmount(raw);
+                      updateAccount(activeAccount.id, prev => ({
+                        ...prev,
+                        accounts: prev.accounts.map(acc =>
+                          acc.id === activeAccount.id
+                            ? { ...acc, initialBalance: value }
+                            : acc
+                        ),
+                      }));
+                    } catch {
+                      // ignore invalid intermediate input
+                    }
+                  }}
                   onBlur={e => {
                     commitDraft(`account:${activeAccount.id}:initial`, e.target.value, (value) => {
                       updateAccount(activeAccount.id, prev => ({
@@ -1079,7 +1218,19 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                   type="text"
                   inputMode="decimal"
                   value={getDraftValue('cash:initial', data.cash.initialBalance || 0)}
-                  onChange={e => updateDraft('cash:initial', e.target.value)}
+                  onChange={e => {
+                    const raw = e.target.value;
+                    updateDraft('cash:initial', raw);
+                    try {
+                      const value = parseAmount(raw);
+                      updateCash(prev => ({
+                        ...prev,
+                        cash: { ...prev.cash, initialBalance: value },
+                      }));
+                    } catch {
+                      // ignore invalid intermediate input
+                    }
+                  }}
                   onBlur={e => {
                     commitDraft('cash:initial', e.target.value, (value) => {
                       updateCash(prev => ({
@@ -1133,7 +1284,15 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                   return sortEntriesByDate(data.cash.entries).map(entry => {
                     const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
                     running += delta;
-                    return renderEntryRow('CASSA', entry, running);
+                    const accountName = entry.linkedAccountEntryId
+                      ? (() => {
+                          const found = data.accounts.find(acc => acc.entries.some(e => e.id === entry.linkedAccountEntryId));
+                          if (!found) return 'Conto';
+                          const idx = data.accounts.indexOf(found);
+                          return getAccountLabel(found.name, `Conto ${idx + 1}`);
+                        })()
+                      : 'Conto';
+                    return renderEntryRow('CASSA', entry, running, accountName);
                   });
                 })()}
                 {data.cash.entries.length === 0 && (
@@ -1305,17 +1464,30 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
               </div>
             </div>
 
-            {data.accounts
+            {(() => {
+              const accountByEntryId = new Map<string, string>();
+              data.accounts.forEach((account, index) => {
+                const accountName = getAccountLabel(account.name, `Conto ${index + 1}`);
+                account.entries.forEach(entry => {
+                  accountByEntryId.set(entry.id, accountName);
+                });
+              });
+              return (
+                <>
+                  {data.accounts
               .map((account, idx) => ({
                 label: `Movimenti ${account.name || `Conto ${idx + 1}`}`,
                 entries: account.entries,
                 initialBalance: account.initialBalance || 0,
               }))
               .filter(account => account.entries.length > 0)
-              .map(account => renderMovimentiTable(account.entries, account.label, account.initialBalance))}
-            {data.cash.entries.length > 0
-              ? renderMovimentiTable(data.cash.entries, 'Movimenti Cassa', data.cash.initialBalance || 0)
-              : null}
+              .map(account => renderMovimentiTable(account.entries, account.label, account.initialBalance, accountByEntryId))}
+                  {data.cash.entries.length > 0
+                    ? renderMovimentiTable(data.cash.entries, 'Movimenti Cassa', data.cash.initialBalance || 0, accountByEntryId)
+                    : null}
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
