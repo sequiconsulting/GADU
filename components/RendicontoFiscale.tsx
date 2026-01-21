@@ -556,9 +556,11 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
 
     updateAccount(tab === 'CONTO_1' ? '1' : tab === 'CONTO_2' ? '2' : '3', prev => {
       let updatedEntry: FiscalEntry | null = null;
+      let activeAccountName = 'Conto';
       const accounts = prev.accounts.map((acc, index) => {
         if (acc.id !== (tab === 'CONTO_1' ? '1' : tab === 'CONTO_2' ? '2' : '3')) return acc;
         const accountName = getAccountLabel(acc.name, `Conto ${index + 1}`);
+        activeAccountName = accountName;
         const entries = acc.entries.map(entry => {
           if (entry.id !== entryId) return entry;
           const next: FiscalEntry = {
@@ -583,7 +585,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
       if (updatedEntry?.cashTransfer) {
         const linkedId = updatedEntry.linkedCashEntryId || `cash_${updatedEntry.id}`;
         const cashType: FiscalEntryType = updatedEntry.cashTransfer === 'OUT' ? 'ENTRATA' : 'USCITA';
-        const cashDescription = getCashTransferDescription(accountName, updatedEntry.cashTransfer);
+        const cashDescription = getCashTransferDescription(activeAccountName, updatedEntry.cashTransfer);
         const existing = prev.cash.entries.find(e => e.id === linkedId);
         const nextCashEntry: FiscalEntry = {
           ...(existing || defaultEntry(selectedYear)),
