@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Download, PlusCircle, Printer, Save, Trash2, Upload } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Download, PlusCircle, Printer, Trash2, Upload } from 'lucide-react';
 import { PublicLodgeConfig } from '../types/lodge';
 import { FiscalEntry, FiscalEntryType, FiscalSection, RendicontoFiscale } from '../types';
 import { dataService } from '../services/dataService';
@@ -117,6 +117,7 @@ const defaultEntry = (): FiscalEntry => ({
 
 export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYear, lodge }) => {
   const [data, setData] = useState<RendicontoFiscale | null>(null);
+  const dataRef = useRef<RendicontoFiscale | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('CONTO_1');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -144,6 +145,10 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     };
     load();
   }, [selectedYear]);
+
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   const categoriesByType = useMemo(() => {
     return {
@@ -191,20 +196,26 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
 
   const finalTotal = initialTotal + entriesTotals.entrate - entriesTotals.uscite;
 
-  const handleSave = async () => {
-    if (!data) return;
+  const handleAutoSave = async () => {
+    const current = dataRef.current;
+    if (!current) return;
     setSaving(true);
     setSaveMessage(null);
     try {
-      const saved = await dataService.saveRendicontoFiscale(data);
+      const saved = await dataService.saveRendicontoFiscale(current);
       setData(saved);
-      setSaveMessage('Salvataggio completato');
     } catch (err: any) {
       setError(err?.message || 'Errore salvataggio rendiconto fiscale');
     } finally {
       setSaving(false);
-      setTimeout(() => setSaveMessage(null), 2500);
+      setTimeout(() => setSaveMessage(null), 2000);
     }
+  };
+
+  const scheduleAutoSave = () => {
+    setTimeout(() => {
+      void handleAutoSave();
+    }, 0);
   };
 
   const updateAccount = (accountId: string, updater: (draft: RendicontoFiscale) => RendicontoFiscale) => {
@@ -246,6 +257,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           entries: prev.cash.entries.filter(e => e.id !== entryId),
         },
       }));
+      scheduleAutoSave();
       return;
     }
     const accountId = tab === 'CONTO_1' ? '1' : tab === 'CONTO_2' ? '2' : '3';
@@ -255,6 +267,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         acc.id === accountId ? { ...acc, entries: acc.entries.filter(e => e.id !== entryId) } : acc
       ),
     }));
+    scheduleAutoSave();
   };
 
   const handleEntryChange = (
@@ -283,6 +296,17 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         acc.id === accountId ? { ...acc, entries: updater(acc.entries) } : acc
       ),
     }));
+  };
+
+  const sortEntriesByDate = (entries: FiscalEntry[]) => {
+    return entries
+      .map((entry, index) => ({ entry, index }))
+      .sort((a, b) => {
+        const dateCompare = a.entry.date.localeCompare(b.entry.date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.index - b.index;
+      })
+      .map(item => item.entry);
   };
 
   const handleCategoryChange = (tab: ActiveTab, entryId: string, categoryId: string) => {
@@ -412,6 +436,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     setImportRows([]);
     setImportMap({});
     setImportError(null);
+    scheduleAutoSave();
   };
 
   const handlePrint = () => {
@@ -424,34 +449,37 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   const renderEntryRow = (tab: ActiveTab, entry: FiscalEntry) => {
     const categories = categoriesByType[entry.type];
     return (
-      <tr key={entry.id} className="border-b border-slate-100">
-        <td className="px-3 py-2">
+      <tr key={entry.id} className="border-b border-slate-100 text-xs">
+        <td className="px-2 py-1">
           <input
             type="date"
             value={entry.date}
             onChange={e => handleEntryChange(tab, entry.id, { date: e.target.value })}
-            className="w-full border border-slate-200 rounded-md px-2 py-1 text-sm"
+            onBlur={handleAutoSave}
+            className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs"
           />
         </td>
-        <td className="px-3 py-2">
+        <td className="px-2 py-1">
           <input
             type="text"
             value={entry.description}
             onChange={e => handleEntryChange(tab, entry.id, { description: e.target.value })}
-            className="w-full border border-slate-200 rounded-md px-2 py-1 text-sm"
+            onBlur={handleAutoSave}
+            className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs"
           />
         </td>
-        <td className="px-3 py-2">
+        <td className="px-2 py-1">
           <select
             value={entry.type}
             onChange={e => handleEntryTypeChange(tab, entry.id, e.target.value as FiscalEntryType)}
-            className="w-full border border-slate-200 rounded-md px-2 py-1 text-sm"
+            onBlur={handleAutoSave}
+            className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs"
           >
             <option value="ENTRATA">Entrata</option>
             <option value="USCITA">Uscita</option>
           </select>
         </td>
-        <td className="px-3 py-2">
+        <td className="px-2 py-1">
           <input
             type="text"
             inputMode="decimal"
@@ -460,14 +488,16 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
               const amount = Number(e.target.value.replace(',', '.'));
               handleEntryChange(tab, entry.id, { amount: Number.isFinite(amount) ? amount : 0 });
             }}
-            className="w-full border border-slate-200 rounded-md px-2 py-1 text-sm"
+            onBlur={handleAutoSave}
+            className="w-28 border border-slate-200 rounded-md px-2 py-1 text-xs"
           />
         </td>
-        <td className="px-3 py-2">
+        <td className="px-2 py-1">
           <select
             value={entry.categoryId || ''}
             onChange={e => handleCategoryChange(tab, entry.id, e.target.value)}
-            className="w-full border border-slate-200 rounded-md px-2 py-1 text-sm"
+            onBlur={handleAutoSave}
+            className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs"
           >
             <option value="">Seleziona categoria...</option>
             {categories.map(cat => (
@@ -477,12 +507,13 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
             ))}
           </select>
         </td>
-        <td className="px-3 py-2 text-sm text-slate-600">
+        <td className="px-2 py-1 text-xs text-slate-600">
           {RENDICONTO_SECTION_LABELS[entry.section]}
         </td>
-        <td className="px-3 py-2 text-right">
+        <td className="px-2 py-1 text-right">
           <button
             onClick={() => handleRemoveEntry(tab, entry.id)}
+            onBlur={handleAutoSave}
             className="text-red-600 hover:text-red-700"
             title="Rimuovi"
           >
@@ -542,19 +573,12 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
 
   return (
     <div className="animate-fadeIn space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
           <h3 className="text-xl font-serif font-bold text-slate-900">Rendiconto fiscale</h3>
           <p className="text-sm text-slate-500">Modello D (criterio di cassa) - anno {selectedYear}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors flex items-center gap-2"
-          >
-            <Save size={16} /> {saving ? 'Salvataggio...' : 'Salva'}
-          </button>
           <button
             onClick={handlePrint}
             className="px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
@@ -564,13 +588,13 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         </div>
       </div>
 
-      {saveMessage && (
-        <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg px-4 py-2 text-sm">
-          {saveMessage}
+      {saving && (
+        <div className="bg-green-50 border border-green-200 text-green-700 rounded-lg px-4 py-2 text-xs print:hidden">
+          Salvataggio in corso...
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
         {accountTabs.map(tab => (
           <button
             key={tab.id}
@@ -604,11 +628,17 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         >
           Rendiconto
         </button>
+        {saving && (
+          <span className="ml-2 text-xs text-slate-500 flex items-center gap-2">
+            <span className="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+            Salvataggio...
+          </span>
+        )}
       </div>
 
       {(activeTab === 'CONTO_1' || activeTab === 'CONTO_2' || activeTab === 'CONTO_3') && activeAccount && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4 print:hidden">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="text-sm font-medium text-slate-700">Nome conto</label>
@@ -623,6 +653,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                       ),
                     }))
                   }
+                  onBlur={handleAutoSave}
                   className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
                 />
               </div>
@@ -643,6 +674,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                       ),
                     }));
                   }}
+                  onBlur={handleAutoSave}
                   className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
                 />
               </div>
@@ -663,24 +695,24 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto print:hidden">
+            <table className="w-full text-xs">
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
-                  <th className="px-3 py-2 text-left">Data</th>
-                  <th className="px-3 py-2 text-left">Descrizione</th>
-                  <th className="px-3 py-2 text-left">Tipo</th>
-                  <th className="px-3 py-2 text-left">Importo</th>
-                  <th className="px-3 py-2 text-left">Categoria</th>
-                  <th className="px-3 py-2 text-left">Sezione</th>
-                  <th className="px-3 py-2"></th>
+                  <th className="px-2 py-1 text-left">Data</th>
+                  <th className="px-2 py-1 text-left">Descrizione</th>
+                  <th className="px-2 py-1 text-left">Tipo</th>
+                  <th className="px-2 py-1 text-left">Importo</th>
+                  <th className="px-2 py-1 text-left">Categoria</th>
+                  <th className="px-2 py-1 text-left">Sezione</th>
+                  <th className="px-2 py-1"></th>
                 </tr>
               </thead>
               <tbody>
-                {activeAccount.entries.map(entry => renderEntryRow(activeTab, entry))}
+                {sortEntriesByDate(activeAccount.entries).map(entry => renderEntryRow(activeTab, entry))}
                 {activeAccount.entries.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
+                    <td colSpan={7} className="px-2 py-4 text-center text-slate-400 text-xs">
                       Nessuna riga presente.
                     </td>
                   </tr>
@@ -693,7 +725,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
 
       {activeTab === 'CASSA' && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4 print:hidden">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="text-sm font-medium text-slate-700">Saldo iniziale</label>
@@ -708,6 +740,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                       cash: { ...prev.cash, initialBalance: Number.isFinite(amount) ? amount : 0 },
                     }));
                   }}
+                  onBlur={handleAutoSave}
                   className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
                 />
               </div>
@@ -728,24 +761,24 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto print:hidden">
+            <table className="w-full text-xs">
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
-                  <th className="px-3 py-2 text-left">Data</th>
-                  <th className="px-3 py-2 text-left">Descrizione</th>
-                  <th className="px-3 py-2 text-left">Tipo</th>
-                  <th className="px-3 py-2 text-left">Importo</th>
-                  <th className="px-3 py-2 text-left">Categoria</th>
-                  <th className="px-3 py-2 text-left">Sezione</th>
-                  <th className="px-3 py-2"></th>
+                  <th className="px-2 py-1 text-left">Data</th>
+                  <th className="px-2 py-1 text-left">Descrizione</th>
+                  <th className="px-2 py-1 text-left">Tipo</th>
+                  <th className="px-2 py-1 text-left">Importo</th>
+                  <th className="px-2 py-1 text-left">Categoria</th>
+                  <th className="px-2 py-1 text-left">Sezione</th>
+                  <th className="px-2 py-1"></th>
                 </tr>
               </thead>
               <tbody>
-                {data.cash.entries.map(entry => renderEntryRow('CASSA', entry))}
+                {sortEntriesByDate(data.cash.entries).map(entry => renderEntryRow('CASSA', entry))}
                 {data.cash.entries.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
+                    <td colSpan={7} className="px-2 py-4 text-center text-slate-400 text-xs">
                       Nessuna riga presente.
                     </td>
                   </tr>
@@ -758,7 +791,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
 
       {activeTab === 'RENDICONTO' && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 grid grid-cols-1 md:grid-cols-3 gap-4 print:hidden">
             <div>
               <div className="text-sm text-slate-500">Saldo iniziale complessivo</div>
               <div className="text-lg font-semibold text-slate-900">{formatEuro(initialTotal)}</div>
@@ -777,7 +810,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto print:hidden">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-slate-600">
                 <tr>
@@ -812,7 +845,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
             </table>
           </div>
 
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4 print:hidden">
             <div>
               <label className="text-sm font-medium text-slate-700">Annotazione sul carattere secondario delle attività diverse</label>
               <textarea
@@ -831,6 +864,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                   )
                 }
                 rows={3}
+                onBlur={handleAutoSave}
                 className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
               />
             </div>
@@ -852,6 +886,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                   )
                 }
                 rows={3}
+                onBlur={handleAutoSave}
                 className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
               />
             </div>
@@ -861,6 +896,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                 type="text"
                 value={data.signatureName || ''}
                 onChange={e => setData(prev => (prev ? { ...prev, signatureName: e.target.value } : prev))}
+                onBlur={handleAutoSave}
                 className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm"
               />
             </div>
