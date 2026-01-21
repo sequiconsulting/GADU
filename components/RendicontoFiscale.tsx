@@ -1153,7 +1153,6 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   ) => {
     const orderedEntries = sortEntriesByDate(entries);
     const finalBalance = orderedEntries.reduce((sum, entry) => {
-      if (entry.cashTransfer) return sum;
       const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
       return sum + delta;
     }, initialBalance || 0);
@@ -1192,11 +1191,9 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                 ? accountByEntryId.get(entry.linkedAccountEntryId) || 'Conto'
                 : 'Conto';
               const categoryLabel = entry.cashTransfer ? '-' : entry.categoryLabel || '-';
-              if (!entry.cashTransfer) {
-                const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
-                running += delta;
-              }
-              const saldoClass = running >= 0 ? 'text-emerald-700' : 'text-red-600';
+            const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
+            running += delta;
+            const saldoClass = running >= 0 ? 'text-emerald-700' : 'text-red-600';
               const description = entry.cashTransfer
                 ? getCashTransferDescription(accountName, entry.cashTransfer)
                 : entry.description;
@@ -1275,6 +1272,18 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     return sum + delta;
   }, 0);
 
+  const accountFinalBalances = data.accounts.map(account => 
+    (account.initialBalance || 0) + account.entries.reduce((sum, entry) => {
+      const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
+      return sum + delta;
+    }, 0)
+  );
+  
+  const sumAccountsBalance = accountFinalBalances.reduce((sum, balance) => sum + balance, 0);
+  const totalAccountsAndCash = cashFinalBalance + sumAccountsBalance;
+  const balanceMatch = Math.abs(finalTotal - totalAccountsAndCash) < 0.01;
+  const balanceDiff = finalTotal - totalAccountsAndCash;
+
   return (
     <div className="animate-fadeIn space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
@@ -1300,6 +1309,17 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           </button>
         </div>
       </div>
+
+      {!balanceMatch && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm">
+          <div className="text-orange-900 font-medium">⚠️ Discrepanza bilancio</div>
+          <div className="text-orange-800 mt-1 text-xs space-y-1">
+            <div>Saldo Rendiconto: {formatEuro(finalTotal)}</div>
+            <div>Somma saldi (Cassa + Conti): {formatEuro(totalAccountsAndCash)}</div>
+            <div>Differenza: {formatEuro(balanceDiff)}</div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 print:hidden">
         {accountTabs.map(tab => (
