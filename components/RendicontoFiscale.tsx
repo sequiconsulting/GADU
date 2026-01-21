@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, PlusCircle, Printer, Trash2, Upload } from 'lucide-react';
 import { PublicLodgeConfig } from '../types/lodge';
-import { FiscalEntry, FiscalEntryType, FiscalSection, RendicontoFiscale } from '../types';
+import type { FiscalEntry, FiscalEntryType, FiscalSection, RendicontoFiscale } from '../types';
 import { dataService } from '../services/dataService';
 import { RENDICONTO_CATEGORIES, RENDICONTO_SECTION_LABELS } from '../constants';
 
@@ -892,7 +892,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   );
 
   const renderMovimentiTable = (entries: FiscalEntry[], label: string, initialBalance: number, accountByEntryId: Map<string, string>) => (
-    <div style={{ pageBreakBefore: 'always', breakBefore: 'page', pageBreakInside: 'avoid' }}>
+    <div className="print-page-break-before print-page-break-avoid">
       {renderPrintHeader()}
       <h2 className="text-lg font-semibold text-slate-900 mb-2">{label}</h2>
       <table className="w-full text-xs border border-slate-200">
@@ -1436,7 +1436,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           </div>
 
           <div className="hidden print:block">
-            <div style={{ pageBreakAfter: 'always', breakAfter: 'page', pageBreakInside: 'avoid' }}>
+            <div className="print-page-break-after print-page-break-avoid">
               {renderPrintHeader()}
               <h1 className="text-xl font-bold text-slate-900">Rendiconto per cassa (Modello D)</h1>
               <p className="text-sm text-slate-600 mb-4">Anno {selectedYear}</p>
