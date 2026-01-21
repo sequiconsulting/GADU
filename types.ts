@@ -169,6 +169,52 @@ export interface Convocazione {
   updatedAt: string;
 }
 
+export type FiscalEntryType = 'ENTRATA' | 'USCITA';
+export type FiscalSection = 'A' | 'B' | 'C' | 'D' | 'E';
+
+export interface FiscalCategory {
+  id: string;
+  label: string;
+  section: FiscalSection;
+  type: FiscalEntryType;
+}
+
+export interface FiscalEntry {
+  id: string;
+  date: string; // ISO YYYY-MM-DD
+  description: string;
+  amount: number;
+  type: FiscalEntryType;
+  section: FiscalSection;
+  categoryId?: string;
+  categoryLabel: string;
+  notes?: string;
+}
+
+export interface FiscalAccount {
+  id: string;
+  name: string;
+  initialBalance: number;
+  entries: FiscalEntry[];
+}
+
+export interface FiscalCash {
+  initialBalance: number;
+  entries: FiscalEntry[];
+}
+
+export interface RendicontoFiscale {
+  year: number;
+  accounts: FiscalAccount[];
+  cash: FiscalCash;
+  notes?: {
+    secondarietaAttivitaDiverse?: string;
+    costiProventiFigurativi?: string;
+  };
+  signatureName?: string;
+  updatedAt?: string;
+}
+
 export interface BranchPreferences {
   città?: string;
   indirizzo?: string;

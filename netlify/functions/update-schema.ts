@@ -37,6 +37,13 @@ create table if not exists public.convocazioni (
 create index if not exists convocazioni_branch_idx on public.convocazioni (branch_type);
 create index if not exists convocazioni_year_idx on public.convocazioni (year_start);
 
+create table if not exists public.rendiconto_fiscale (
+  year_start integer primary key,
+  data jsonb not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 create table if not exists public.capitazioni_quotes (
   id uuid primary key default gen_random_uuid(),
   year_start integer not null,
@@ -52,14 +59,17 @@ create index if not exists capitazioni_quotes_year_branch_idx on public.capitazi
 alter table public.capitazioni_quotes enable row level security;
 alter table public.members enable row level security;
 alter table public.convocazioni enable row level security;
+alter table public.rendiconto_fiscale enable row level security;
 
 drop policy if exists "anon_deny_app_settings" on public.app_settings;
 drop policy if exists "anon_deny_members" on public.members;
 drop policy if exists "anon_deny_convocazioni" on public.convocazioni;
+drop policy if exists "anon_deny_rendiconto_fiscale" on public.rendiconto_fiscale;
 
 drop policy if exists "authenticated_all_app_settings" on public.app_settings;
 drop policy if exists "authenticated_all_members" on public.members;
 drop policy if exists "authenticated_all_convocazioni" on public.convocazioni;
+drop policy if exists "authenticated_all_rendiconto_fiscale" on public.rendiconto_fiscale;
 
 create policy "anon_deny_app_settings" 
   on public.app_settings 
@@ -79,6 +89,12 @@ create policy "anon_deny_convocazioni"
   using (auth.role() != 'anon') 
   with check (auth.role() != 'anon');
 
+create policy "anon_deny_rendiconto_fiscale" 
+  on public.rendiconto_fiscale 
+  for all 
+  using (auth.role() != 'anon') 
+  with check (auth.role() != 'anon');
+
 create policy "authenticated_all_app_settings" 
   on public.app_settings 
   for all 
@@ -93,6 +109,12 @@ create policy "authenticated_all_members"
 
 create policy "authenticated_all_convocazioni" 
   on public.convocazioni 
+  for all 
+  using (auth.role() = 'authenticated') 
+  with check (auth.role() = 'authenticated');
+
+create policy "authenticated_all_rendiconto_fiscale" 
+  on public.rendiconto_fiscale 
   for all 
   using (auth.role() = 'authenticated') 
   with check (auth.role() = 'authenticated');
@@ -116,7 +138,7 @@ import { initNetlifyBlobs, loadRegistry } from './shared/registry';
 import postgres from 'postgres';
 import { join } from 'path';
 
-const DB_VERSION = 19;
+const DB_VERSION = 20;
 
 // Database schema migrations (incremental changes only, not baseline)
 const DB_MIGRATIONS: Record<number, string> = {
@@ -197,6 +219,32 @@ const DB_MIGRATIONS: Record<number, string> = {
   // v18 -> v19: cambio shape JSON lato app (Capitazioni: pagato numerico, rimozione data_pagamento). Nessun DDL.
   18: `
     SELECT 1;
+  `,
+
+  // v19 -> v20: aggiungi tabella rendiconto_fiscale
+  19: `
+    CREATE TABLE IF NOT EXISTS public.rendiconto_fiscale (
+      year_start integer primary key,
+      data jsonb not null,
+      created_at timestamptz default now(),
+      updated_at timestamptz default now()
+    );
+
+    ALTER TABLE public.rendiconto_fiscale ENABLE ROW LEVEL SECURITY;
+
+    DROP POLICY IF EXISTS "anon_deny_rendiconto_fiscale" ON public.rendiconto_fiscale;
+    CREATE POLICY "anon_deny_rendiconto_fiscale" 
+      ON public.rendiconto_fiscale 
+      FOR ALL 
+      USING (auth.role() != 'anon') 
+      WITH CHECK (auth.role() != 'anon');
+
+    DROP POLICY IF EXISTS "authenticated_all_rendiconto_fiscale" ON public.rendiconto_fiscale;
+    CREATE POLICY "authenticated_all_rendiconto_fiscale" 
+      ON public.rendiconto_fiscale 
+      FOR ALL 
+      USING (auth.role() = 'authenticated') 
+      WITH CHECK (auth.role() = 'authenticated');
   `
 };
 

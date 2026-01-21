@@ -23,9 +23,10 @@ const Convocazioni = React.lazy(() => import('./components/Tornate').then(m => (
 const SetupAdmin = React.lazy(() => import('./components/SetupAdmin').then(m => ({ default: m.SetupAdmin })));
 const SuperadminConsole = React.lazy(() => import('./components/AdminConsole').then(m => ({ default: m.default })));
 const Ricevute = React.lazy(() => import('./components/Ricevute').then(m => ({ default: m.Ricevute })));
+const RendicontoFiscale = React.lazy(() => import('./components/RendicontoFiscale').then(m => ({ default: m.RendicontoFiscale })));
 import { BRANCHES, getMasonicYear, isMemberActiveInYear, getDegreeAbbreviation, getDegreesByRitual } from './constants';
 
-type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'ROLES_HISTORY' | 'PIEDILISTA' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE' | 'CONVOCAZIONI' | 'RICEVUTE';
+type View = 'DASHBOARD' | 'MEMBERS' | 'MEMBER_DETAIL' | 'REPORT' | 'ROLE_ASSIGNMENT' | 'ROLES_HISTORY' | 'PIEDILISTA' | 'ADMIN' | 'LEGEND' | 'PROCEDURES' | 'CAPITAZIONI' | 'RELAZIONE_ANNUALE' | 'CONVOCAZIONI' | 'RICEVUTE' | 'RENDICONTO_FISCALE';
 
 // Inner app component that uses URL params
 const AppContent: React.FC = () => {
@@ -413,7 +414,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
         openMenu('secretary');
         return;
       }
-      if (['RICEVUTE'].includes(view)) {
+      if (['RICEVUTE', 'RENDICONTO_FISCALE'].includes(view)) {
         openMenu('accounting');
         return;
       }
@@ -585,7 +586,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
           </div>
 
             <div>
-            <button onClick={() => toggleMenu('accounting')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isAccountingMenuOpen || ['RICEVUTE'].includes(currentView) ? 'text-white' : ''}`}>
+            <button onClick={() => toggleMenu('accounting')} className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all hover:bg-slate-800 hover:text-white ${isAccountingMenuOpen || ['RICEVUTE', 'RENDICONTO_FISCALE'].includes(currentView) ? 'text-white' : ''}`}>
                <div className="flex items-center gap-3"><ClipboardList size={20} /> <span className="font-medium">Contabilità</span></div>
                {isAccountingMenuOpen ? <ChevronUp size={16}/> : <ChevronDown size={16}/>} 
             </button>
@@ -593,6 +594,9 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
               <div className="ml-8 mt-1 space-y-1 border-l border-slate-700 pl-2">
                 <button onClick={() => handleViewChange('RICEVUTE')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'RICEVUTE' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
                   <FileText size={16} /> Ricevute di Cassa
+                </button>
+                <button onClick={() => handleViewChange('RENDICONTO_FISCALE')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'RENDICONTO_FISCALE' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
+                  <ClipboardList size={16} /> Rendiconto fiscale
                 </button>
               </div>
             )}
@@ -679,6 +683,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
                 {currentView === 'CAPITAZIONI' && 'Capitazioni'}
                 {currentView === 'RELAZIONE_ANNUALE' && 'Relazione Annuale'}
                 {currentView === 'RICEVUTE' && 'Ricevute'}
+                {currentView === 'RENDICONTO_FISCALE' && 'Rendiconto fiscale'}
             </h2>
           </div>
 
@@ -947,6 +952,11 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
           {currentView === 'RICEVUTE' && (
             <React.Suspense fallback={<div className="text-center py-12">Caricamento ricevute...</div>}>
               <Ricevute members={members} selectedYear={selectedYear} lodge={currentLodge} />
+            </React.Suspense>
+          )}
+          {currentView === 'RENDICONTO_FISCALE' && (
+            <React.Suspense fallback={<div className="text-center py-12">Caricamento rendiconto...</div>}>
+              <RendicontoFiscale selectedYear={selectedYear} lodge={currentLodge} />
             </React.Suspense>
           )}
           {currentView === 'RELAZIONE_ANNUALE' && (

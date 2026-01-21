@@ -1,6 +1,6 @@
 
 import { type SupabaseClient } from '@supabase/supabase-js';
-import { Member, AppSettings, BranchType, Convocazione } from '../types';
+import { Member, AppSettings, BranchType, Convocazione, RendicontoFiscale } from '../types';
 import { PublicLodgeConfig } from '../types/lodge';
 import { faker } from '@faker-js/faker/locale/it';
 import { INITIATION_TERMS, DEGREES_CRAFT_EMULATION, CRAFT_EMULATION_ROLES, CAPITAZIONE_TYPES } from '../constants';
@@ -8,16 +8,18 @@ import { getCachedSupabaseClient } from '../utils/supabaseClientCache';
 import { memberDataSchema } from '../schemas/member';
 import { appSettingsSchema } from '../schemas/settings';
 import { convocazioneDataSchema, convocazioneSchema } from '../schemas/convocazione';
+import { rendicontoFiscaleSchema } from '../schemas/rendiconto';
 import { formatZodError } from '../schemas/common';
 
 type MemberData = Omit<Member, 'id'>;
 type MemberRow = { id: string; data: MemberData };
 type SettingsRow = { id: string; data: AppSettings; db_version: number };
 type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number; data: Convocazione };
+type RendicontoRow = { year_start: number; data: RendicontoFiscale };
 
 class DataService {
-  public APP_VERSION = '0.236';
-  public DB_VERSION = 19;
+  public APP_VERSION = '0.237';
+  public DB_VERSION = 20;
 
   private supabase: SupabaseClient | null = null;
   private initPromise: Promise<void> | null = null;
@@ -341,6 +343,25 @@ class DataService {
     await this.ensureSchemaEnsured();
   }
 
+  private buildDefaultRendiconto(year: number, accountNames?: string[]): RendicontoFiscale {
+    const names = accountNames && accountNames.length === 3 ? accountNames : ['Conto 1', 'Conto 2', 'Conto 3'];
+    return {
+      year,
+      accounts: [
+        { id: '1', name: names[0], initialBalance: 0, entries: [] },
+        { id: '2', name: names[1], initialBalance: 0, entries: [] },
+        { id: '3', name: names[2], initialBalance: 0, entries: [] },
+      ],
+      cash: { initialBalance: 0, entries: [] },
+      notes: {
+        secondarietaAttivitaDiverse: '',
+        costiProventiFigurativi: '',
+      },
+      signatureName: '',
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   async getMembers(): Promise<Member[]> {
     await this.ensureReady();
     const client = this.ensureSupabaseClient();
@@ -642,6 +663,91 @@ class DataService {
     return parsed.data as unknown as AppSettings;
   }
 
+  async getRendicontoFiscale(year: number): Promise<RendicontoFiscale> {
+    if (!Number.isFinite(year)) {
+      throw new Error('Anno rendiconto non valido: valore mancante o non numerico');
+    }
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+
+    const { data, error } = await client
+      .from('rendiconto_fiscale')
+      .select('year_start, data')
+      .eq('year_start', year)
+      .maybeSingle();
+    if (error) {
+      throw new Error(`Caricamento rendiconto fiscale fallito per ${year}: ${error.message}`);
+    }
+
+    if (data) {
+      const row = data as RendicontoRow;
+      const parsed = rendicontoFiscaleSchema.safeParse(row.data);
+      if (!parsed.success) {
+        throw new Error(`Rendiconto fiscale non valido (${year}).\n${formatZodError(parsed.error)}`);
+      }
+      return parsed.data as RendicontoFiscale;
+    }
+
+    const { data: lastRow, error: lastError } = await client
+      .from('rendiconto_fiscale')
+      .select('year_start, data')
+      .order('year_start', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastError) {
+      throw new Error(`Impossibile recuperare il template rendiconto: ${lastError.message}`);
+    }
+
+    let accountNames: string[] | undefined;
+    if (lastRow?.data) {
+      const parsedLast = rendicontoFiscaleSchema.safeParse((lastRow as RendicontoRow).data);
+      if (!parsedLast.success) {
+        throw new Error(`Template rendiconto non valido (${(lastRow as RendicontoRow).year_start}).\n${formatZodError(parsedLast.error)}`);
+      }
+      accountNames = parsedLast.data.accounts?.map(a => a.name);
+    }
+
+    const fresh = this.buildDefaultRendiconto(year, accountNames);
+    await this.saveRendicontoFiscale(fresh);
+    return fresh;
+  }
+
+  async saveRendicontoFiscale(rendiconto: RendicontoFiscale): Promise<RendicontoFiscale> {
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+
+    if (!Number.isFinite(rendiconto.year)) {
+      throw new Error('Impossibile salvare rendiconto: anno mancante o non valido');
+    }
+    if (!Array.isArray(rendiconto.accounts) || rendiconto.accounts.length !== 3) {
+      throw new Error('Impossibile salvare rendiconto: i conti correnti devono essere esattamente 3');
+    }
+
+    const toSave: RendicontoFiscale = {
+      ...rendiconto,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const parsed = rendicontoFiscaleSchema.safeParse(toSave);
+    if (!parsed.success) {
+      throw new Error(`Impossibile salvare rendiconto: dati non validi.\n${formatZodError(parsed.error)}`);
+    }
+
+    const row: RendicontoRow = {
+      year_start: parsed.data.year,
+      data: parsed.data,
+    };
+
+    const { error } = await client
+      .from('rendiconto_fiscale')
+      .upsert(row, { onConflict: 'year_start' });
+    if (error) {
+      throw new Error(`Salvataggio rendiconto fiscale fallito (${parsed.data.year}): ${error.message}`);
+    }
+
+    return parsed.data as RendicontoFiscale;
+  }
+
   async getConvocazioniForBranch(branch: BranchType): Promise<Convocazione[]> {
     await this.ensureReady();
     const client = this.ensureSupabaseClient();
@@ -845,6 +951,11 @@ class DataService {
     const { error: convocazioniError } = await client.from('convocazioni').delete().not('id', 'is', null);
     if (convocazioniError) {
       throw new Error(`Cancellazione convocazioni fallita: ${convocazioniError.message} (code: ${convocazioniError.code})`);
+    }
+
+    const { error: rendicontoError } = await client.from('rendiconto_fiscale').delete().not('year_start', 'is', null);
+    if (rendicontoError) {
+      throw new Error(`Cancellazione rendiconto fiscale fallita: ${rendicontoError.message} (code: ${rendicontoError.code})`);
     }
   }
 

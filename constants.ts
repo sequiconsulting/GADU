@@ -1,5 +1,5 @@
 
-import { BranchType, MasonicBranchData } from "./types";
+import { BranchType, FiscalCategory, FiscalSection, MasonicBranchData } from "./types";
 
 // ============================================================
 // CAPITAZIONI CRAFT (Membership Fees)
@@ -256,6 +256,55 @@ export const ARCH_ALDERSGATE_ROLES = [
   'Maestro del Velo',
   'Sovrintendente dei Lavori',
   'Hospitaliere'
+];
+
+export const RENDICONTO_SECTION_LABELS: Record<FiscalSection, string> = {
+  A: 'Attività di interesse generale',
+  B: 'Attività diverse',
+  C: 'Raccolta fondi',
+  D: 'Attività finanziarie e patrimoniali',
+  E: 'Supporto generale',
+};
+
+export const RENDICONTO_CATEGORIES: FiscalCategory[] = [
+  // A - Interesse generale
+  { id: 'A_ENT_QUOTE_ASSOCIATIVE', label: 'Quote associative e apporti da fondatori', section: 'A', type: 'ENTRATA' },
+  { id: 'A_ENT_ATTIVITA_MUTUALI', label: 'Entrate da associati per attività mutuali', section: 'A', type: 'ENTRATA' },
+  { id: 'A_ENT_PRESTAZIONI_ASSOCIATI', label: 'Entrate per prestazioni/cessioni ad associati/fondatori', section: 'A', type: 'ENTRATA' },
+  { id: 'A_ENT_EROGAZIONI_LIBERALI', label: 'Erogazioni liberali', section: 'A', type: 'ENTRATA' },
+  { id: 'A_ENT_CONTRIBUTI_PRIV_PUB', label: 'Contributi da privati/pubblici (a fondo perduto)', section: 'A', type: 'ENTRATA' },
+  { id: 'A_ENT_PRESTAZIONI_TERZI', label: 'Entrate per prestazioni/cessioni a terzi', section: 'A', type: 'ENTRATA' },
+  { id: 'A_ENT_CINQUE_PER_MILLE', label: '5 per mille', section: 'A', type: 'ENTRATA' },
+  { id: 'A_USC_PERSONALE', label: 'Spese per il personale', section: 'A', type: 'USCITA' },
+  { id: 'A_USC_RIMB_VOLONTARI', label: 'Rimborsi spese volontari', section: 'A', type: 'USCITA' },
+  { id: 'A_USC_COSTI_DIRETTI', label: 'Costi diretti per attività di interesse generale', section: 'A', type: 'USCITA' },
+
+  // B - Attività diverse
+  { id: 'B_ENT_PRESTAZIONI', label: 'Entrate da attività diverse (sponsorizzazioni/servizi)', section: 'B', type: 'ENTRATA' },
+  { id: 'B_ENT_APPORTI_SOSTEGNO', label: 'Apporti a titolo di sostegno economico', section: 'B', type: 'ENTRATA' },
+  { id: 'B_USC_COSTI_DIRETTI', label: 'Costi diretti attività diverse', section: 'B', type: 'USCITA' },
+  { id: 'B_USC_RIMB_VOLONTARI', label: 'Rimborsi spese volontari (attività diverse)', section: 'B', type: 'USCITA' },
+
+  // C - Raccolta fondi
+  { id: 'C_ENT_LIBERALITA', label: 'Liberalità raccolta fondi', section: 'C', type: 'ENTRATA' },
+  { id: 'C_ENT_ALTRI_PROVENTI', label: 'Altri proventi da raccolta fondi', section: 'C', type: 'ENTRATA' },
+  { id: 'C_USC_ACQUISTI_BENI_SERVIZI', label: 'Oneri per acquisto beni/servizi', section: 'C', type: 'USCITA' },
+  { id: 'C_USC_NOLEGGI', label: 'Oneri per noleggi', section: 'C', type: 'USCITA' },
+  { id: 'C_USC_PROMOZIONALI', label: 'Oneri promozionali raccolta fondi', section: 'C', type: 'USCITA' },
+  { id: 'C_USC_RIMB_VOLONTARI', label: 'Rimborsi volontari per raccolta fondi', section: 'C', type: 'USCITA' },
+
+  // D - Attività finanziarie e patrimoniali
+  { id: 'D_ENT_INTERESSI', label: 'Interessi attivi e proventi finanziari', section: 'D', type: 'ENTRATA' },
+  { id: 'D_ENT_DIVIDENDI', label: 'Dividendi e proventi da partecipazioni', section: 'D', type: 'ENTRATA' },
+  { id: 'D_ENT_LOCAZIONI', label: 'Proventi da locazioni', section: 'D', type: 'ENTRATA' },
+  { id: 'D_USC_ONERI_FINANZIARI', label: 'Oneri finanziari e bancari', section: 'D', type: 'USCITA' },
+  { id: 'D_USC_MANUT_PATRIMONIO', label: 'Manutenzione patrimonio', section: 'D', type: 'USCITA' },
+
+  // E - Supporto generale
+  { id: 'E_ENT_RIFUSIONE_ONERI', label: 'Rifusione oneri per personale distaccato', section: 'E', type: 'ENTRATA' },
+  { id: 'E_USC_AMMINISTRAZIONE', label: 'Spese amministrative e contabili', section: 'E', type: 'USCITA' },
+  { id: 'E_USC_SEDE_UTENZE', label: 'Spese sede e utenze', section: 'E', type: 'USCITA' },
+  { id: 'E_USC_CONSULENZE', label: 'Consulenze e servizi generali', section: 'E', type: 'USCITA' },
 ];
 
 // RAM - No ritual variants
