@@ -284,6 +284,9 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
       const saved = await dataService.saveRendicontoFiscale(normalized);
       setData(saved);
     } catch (err: any) {
+      if (err?.message?.includes('Sessione non attiva')) {
+        return;
+      }
       setError(err?.message || 'Errore salvataggio rendiconto fiscale');
     } finally {
       setSaving(false);

@@ -82,6 +82,12 @@ class DataService {
     return this.schemaEnsurePromise;
   }
 
+  private async hasActiveSession(): Promise<boolean> {
+    const client = this.ensureSupabaseClient();
+    const { data } = await client.auth.getSession();
+    return Boolean(data.session?.access_token);
+  }
+
   private mapSchemaError(error: any): never {
     const message = error?.message || '';
     if (message.includes('relation') || error?.code === 'PGRST116') {
@@ -715,6 +721,11 @@ class DataService {
   async saveRendicontoFiscale(rendiconto: RendicontoFiscale): Promise<RendicontoFiscale> {
     await this.ensureReady();
     const client = this.ensureSupabaseClient();
+
+    const hasSession = await this.hasActiveSession();
+    if (!hasSession) {
+      throw new Error('Sessione non attiva: salvataggio rendiconto fiscale annullato');
+    }
 
     if (!Number.isFinite(rendiconto.year)) {
       throw new Error('Impossibile salvare rendiconto: anno mancante o non valido');
