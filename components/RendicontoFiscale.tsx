@@ -12,6 +12,7 @@ interface RendicontoFiscaleProps {
 
 type ActiveTab = 'CONTO_1' | 'CONTO_2' | 'CONTO_3' | 'CASSA' | 'RENDICONTO';
 type EntryTypeOption = 'ENTRATA' | 'USCITA' | 'ENTRATA_CASSA' | 'USCITA_CASSA';
+type CategoryTotals = { label: string; entrate: number; uscite: number };
 
 const formatEuro = (value: number) =>
   new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value || 0);
@@ -232,6 +233,32 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
       if (entry.type === 'ENTRATA') totals[entry.section].entrate += entry.amount;
       else totals[entry.section].uscite += entry.amount;
     });
+    return totals;
+  }, [allEntries]);
+
+  const categoryTotalsBySection = useMemo(() => {
+    const totals: Record<FiscalSection, Map<string, CategoryTotals>> = {
+      A: new Map(),
+      B: new Map(),
+      C: new Map(),
+      D: new Map(),
+      E: new Map(),
+    };
+
+    allEntries.forEach(entry => {
+      if (entry.cashTransfer) return;
+      const section = entry.section;
+      const fallbackLabel = entry.categoryId
+        ? RENDICONTO_CATEGORIES.find(c => c.id === entry.categoryId)?.label
+        : undefined;
+      const label = entry.categoryLabel || fallbackLabel || 'Senza categoria';
+      const key = entry.categoryId || label;
+      const current = totals[section].get(key) || { label, entrate: 0, uscite: 0 };
+      if (entry.type === 'ENTRATA') current.entrate += entry.amount;
+      else current.uscite += entry.amount;
+      totals[section].set(key, current);
+    });
+
     return totals;
   }, [allEntries]);
 
@@ -921,6 +948,90 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     </div>
   );
 
+  const renderRendicontoTable = (tableClassName: string, headClassName: string) => (
+    <table className={tableClassName}>
+      <thead className={headClassName}>
+        <tr>
+          <th className="px-3 py-2 text-left">Sezione</th>
+          <th className="px-3 py-2 text-left">Sottovoce contabile</th>
+          <th className="px-3 py-2 text-right">Entrate</th>
+          <th className="px-3 py-2 text-right">Uscite</th>
+          <th className="px-3 py-2 text-right">Saldo</th>
+          <th className="px-3 py-2 text-right">Totale sezione Entrate</th>
+          <th className="px-3 py-2 text-right">Totale sezione Uscite</th>
+          <th className="px-3 py-2 text-right">Totale sezione Saldo</th>
+        </tr>
+      </thead>
+      <tbody>
+        {(['A', 'B', 'C', 'D', 'E'] as FiscalSection[]).map(section => {
+          const t = totalsBySection[section];
+          const saldo = t.entrate - t.uscite;
+          const categoryRows = (Array.from(categoryTotalsBySection[section].values()) as CategoryTotals[]).sort(
+            (a, b) => a.label.localeCompare(b.label)
+          );
+          const showDetails = section !== 'E';
+
+          if (showDetails && categoryRows.length > 0) {
+            return (
+              <React.Fragment key={section}>
+                {categoryRows.map((cat, idx) => {
+                  const catSaldo = cat.entrate - cat.uscite;
+                  return (
+                    <tr key={`${section}-${cat.label}`} className="border-b border-slate-100">
+                      {idx === 0 && (
+                        <td className="px-3 py-2 text-slate-700 align-top" rowSpan={categoryRows.length + 1}>
+                          {section} - {RENDICONTO_SECTION_LABELS[section]}
+                        </td>
+                      )}
+                      <td className="px-3 py-2 text-slate-700">{cat.label}</td>
+                      <td className="px-3 py-2 text-right text-emerald-700">{formatEuro(cat.entrate)}</td>
+                      <td className="px-3 py-2 text-right text-red-600">{formatEuro(cat.uscite)}</td>
+                      <td className="px-3 py-2 text-right text-slate-900">{formatEuro(catSaldo)}</td>
+                      <td className="px-3 py-2 text-right text-slate-400">-</td>
+                      <td className="px-3 py-2 text-right text-slate-400">-</td>
+                      <td className="px-3 py-2 text-right text-slate-400">-</td>
+                    </tr>
+                  );
+                })}
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  <td className="px-3 py-2 font-semibold text-slate-700">Totale sezione</td>
+                  <td className="px-3 py-2 text-right text-slate-400">-</td>
+                  <td className="px-3 py-2 text-right text-slate-400">-</td>
+                  <td className="px-3 py-2 text-right text-slate-400">-</td>
+                  <td className="px-3 py-2 text-right font-semibold text-emerald-700">{formatEuro(t.entrate)}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-red-600">{formatEuro(t.uscite)}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-slate-900">{formatEuro(saldo)}</td>
+                </tr>
+              </React.Fragment>
+            );
+          }
+
+          return (
+            <tr key={section} className="border-b border-slate-100">
+              <td className="px-3 py-2 text-slate-700">{section} - {RENDICONTO_SECTION_LABELS[section]}</td>
+              <td className="px-3 py-2 font-semibold text-slate-700">Totale sezione</td>
+              <td className="px-3 py-2 text-right text-slate-400">-</td>
+              <td className="px-3 py-2 text-right text-slate-400">-</td>
+              <td className="px-3 py-2 text-right text-slate-400">-</td>
+              <td className="px-3 py-2 text-right font-semibold text-emerald-700">{formatEuro(t.entrate)}</td>
+              <td className="px-3 py-2 text-right font-semibold text-red-600">{formatEuro(t.uscite)}</td>
+              <td className="px-3 py-2 text-right font-semibold text-slate-900">{formatEuro(saldo)}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+      <tfoot className="bg-slate-50">
+        <tr>
+          <td className="px-3 py-2 font-semibold" colSpan={2}>Totale complessivo</td>
+          <td className="px-3 py-2 text-right text-slate-400" colSpan={3}>-</td>
+          <td className="px-3 py-2 text-right font-semibold text-emerald-700">{formatEuro(entriesTotals.entrate)}</td>
+          <td className="px-3 py-2 text-right font-semibold text-red-600">{formatEuro(entriesTotals.uscite)}</td>
+          <td className="px-3 py-2 text-right font-semibold text-slate-900">{formatEuro(entriesTotals.entrate - entriesTotals.uscite)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  );
+
   const renderMovimentiTable = (
     entries: FiscalEntry[],
     label: string,
@@ -1394,38 +1505,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto print:hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-600">
-                <tr>
-                  <th className="px-3 py-2 text-left">Sezione</th>
-                  <th className="px-3 py-2 text-right">Entrate</th>
-                  <th className="px-3 py-2 text-right">Uscite</th>
-                  <th className="px-3 py-2 text-right">Saldo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(['A', 'B', 'C', 'D', 'E'] as FiscalSection[]).map(section => {
-                  const t = totalsBySection[section];
-                  const saldo = t.entrate - t.uscite;
-                  return (
-                    <tr key={section} className="border-b border-slate-100">
-                      <td className="px-3 py-2 text-slate-700">{section} - {RENDICONTO_SECTION_LABELS[section]}</td>
-                      <td className="px-3 py-2 text-right text-emerald-700">{formatEuro(t.entrate)}</td>
-                      <td className="px-3 py-2 text-right text-red-600">{formatEuro(t.uscite)}</td>
-                      <td className="px-3 py-2 text-right font-medium text-slate-900">{formatEuro(saldo)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot className="bg-slate-50">
-                <tr>
-                  <td className="px-3 py-2 font-semibold">Totale</td>
-                  <td className="px-3 py-2 text-right font-semibold text-emerald-700">{formatEuro(entriesTotals.entrate)}</td>
-                  <td className="px-3 py-2 text-right font-semibold text-red-600">{formatEuro(entriesTotals.uscite)}</td>
-                  <td className="px-3 py-2 text-right font-semibold text-slate-900">{formatEuro(entriesTotals.entrate - entriesTotals.uscite)}</td>
-                </tr>
-              </tfoot>
-            </table>
+            {renderRendicontoTable('w-full text-sm', 'bg-slate-50 text-slate-600')}
           </div>
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4 print:hidden">
@@ -1490,30 +1570,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
               {renderPrintHeader()}
               <h1 className="text-xl font-bold text-slate-900">Rendiconto per cassa (Modello D)</h1>
               <p className="text-sm text-slate-600 mb-4">Anno {selectedYear}</p>
-              <table className="w-full text-sm border border-slate-200">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Sezione</th>
-                    <th className="px-3 py-2 text-right">Entrate</th>
-                    <th className="px-3 py-2 text-right">Uscite</th>
-                    <th className="px-3 py-2 text-right">Saldo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(['A', 'B', 'C', 'D', 'E'] as FiscalSection[]).map(section => {
-                    const t = totalsBySection[section];
-                    const saldo = t.entrate - t.uscite;
-                    return (
-                      <tr key={section} className="border-b border-slate-200">
-                        <td className="px-3 py-2">{section} - {RENDICONTO_SECTION_LABELS[section]}</td>
-                        <td className="px-3 py-2 text-right">{formatEuro(t.entrate)}</td>
-                        <td className="px-3 py-2 text-right">{formatEuro(t.uscite)}</td>
-                        <td className="px-3 py-2 text-right">{formatEuro(saldo)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              {renderRendicontoTable('w-full text-sm border border-slate-200', 'bg-slate-50')}
 
               <div className="mt-6 text-sm">
                 <p><strong>Annotazioni attività diverse:</strong> {data.notes?.secondarietaAttivitaDiverse || '-'}</p>
