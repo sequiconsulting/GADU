@@ -1126,7 +1126,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
             <td className={`${cellBase} ${cellCompact} ${amountColClass} text-right font-semibold text-red-600`}>{formatEuro(entriesTotals.uscite)}</td>
             {isPrint && (
               <td className={`${cellBase} ${cellCompact} ${amountColClass} text-right font-semibold text-slate-900`}>
-                {formatEuro(entriesTotals.entrate - entriesTotals.uscite)}
+                {formatEuro(finalTotal)}
               </td>
             )}
           </tr>
@@ -1135,7 +1135,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
               <td className={`${cellBase} ${cellCompact} ${descColClass} font-semibold`}>Saldo complessivo</td>
               <td className={`${cellBase} ${cellCompact} ${amountColClass}`} />
               <td className={`${cellBase} ${cellCompact} ${amountColClass} text-right font-semibold text-slate-900`}>
-                {formatEuro(entriesTotals.entrate - entriesTotals.uscite)}
+                {formatEuro(finalTotal)}
               </td>
             </tr>
           )}
