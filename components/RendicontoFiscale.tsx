@@ -510,11 +510,19 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     });
   };
 
+  const dateKey = (value: string) => {
+    const parts = value.split('-');
+    if (parts.length !== 3) return Number.MAX_SAFE_INTEGER;
+    const [y, m, d] = parts.map(n => Number(n));
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return Number.MAX_SAFE_INTEGER;
+    return y * 10000 + m * 100 + d;
+  };
+
   const sortEntriesByDate = (entries: FiscalEntry[]) => {
     return entries
       .map((entry, index) => ({ entry, index }))
       .sort((a, b) => {
-        const dateCompare = a.entry.date.localeCompare(b.entry.date);
+        const dateCompare = dateKey(a.entry.date) - dateKey(b.entry.date);
         if (dateCompare !== 0) return dateCompare;
         return a.index - b.index;
       })
@@ -881,7 +889,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   );
 
   const renderMovimentiTable = (entries: FiscalEntry[], label: string, initialBalance: number, accountByEntryId: Map<string, string>) => (
-    <div style={{ pageBreakBefore: 'always', breakBefore: 'page' }}>
+    <div style={{ pageBreakBefore: 'always', breakBefore: 'page', pageBreakInside: 'avoid' }}>
       {renderPrintHeader()}
       <h2 className="text-lg font-semibold text-slate-900 mb-2">{label}</h2>
       <table className="w-full text-xs border border-slate-200">
@@ -1425,7 +1433,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           </div>
 
           <div className="hidden print:block">
-            <div style={{ pageBreakAfter: 'always', breakAfter: 'page' }}>
+            <div style={{ pageBreakAfter: 'always', breakAfter: 'page', pageBreakInside: 'avoid' }}>
               {renderPrintHeader()}
               <h1 className="text-xl font-bold text-slate-900">Rendiconto per cassa (Modello D)</h1>
               <p className="text-sm text-slate-600 mb-4">Anno {selectedYear}</p>
