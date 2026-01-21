@@ -349,6 +349,56 @@ class DataService {
     await this.ensureSchemaEnsured();
   }
 
+  async exportNativeDatabase(): Promise<{
+    exportedAt: string;
+    version: string;
+    dbVersion: number;
+    lodge: PublicLodgeConfig | null;
+    tables: string[];
+    data: Record<string, any[]>;
+  }> {
+    await this.ensureReady();
+    const client = this.ensureSupabaseClient();
+
+    const { data: members, error: membersError } = await client.from('members').select('id, data, created_at, updated_at');
+    if (membersError) throw new Error(`Export members fallito: ${membersError.message}`);
+
+    const { data: settings, error: settingsError } = await client
+      .from('app_settings')
+      .select('id, data, db_version, created_at, updated_at');
+    if (settingsError) throw new Error(`Export app_settings fallito: ${settingsError.message}`);
+
+    const { data: convocazioni, error: convocazioniError } = await client
+      .from('convocazioni')
+      .select('id, branch_type, year_start, data, created_at, updated_at');
+    if (convocazioniError) throw new Error(`Export convocazioni fallito: ${convocazioniError.message}`);
+
+    const { data: rendiconto, error: rendicontoError } = await client
+      .from('rendiconto_fiscale')
+      .select('year_start, data, created_at, updated_at');
+    if (rendicontoError) throw new Error(`Export rendiconto_fiscale fallito: ${rendicontoError.message}`);
+
+    const { data: capitazioni, error: capitazioniError } = await client
+      .from('capitazioni_quotes')
+      .select('id, year_start, branch_type, by_tipo, created_at, updated_at');
+    if (capitazioniError) throw new Error(`Export capitazioni_quotes fallito: ${capitazioniError.message}`);
+
+    return {
+      exportedAt: new Date().toISOString(),
+      version: this.APP_VERSION,
+      dbVersion: this.DB_VERSION,
+      lodge: this.currentLodgeConfig,
+      tables: ['app_settings', 'members', 'convocazioni', 'rendiconto_fiscale', 'capitazioni_quotes'],
+      data: {
+        app_settings: (settings || []) as any[],
+        members: (members || []) as any[],
+        convocazioni: (convocazioni || []) as any[],
+        rendiconto_fiscale: (rendiconto || []) as any[],
+        capitazioni_quotes: (capitazioni || []) as any[],
+      },
+    };
+  }
+
   private buildDefaultRendiconto(year: number, accountNames?: string[]): RendicontoFiscale {
     const names = accountNames && accountNames.length === 3 ? accountNames : ['Conto 1', 'Conto 2', 'Conto 3'];
     return {

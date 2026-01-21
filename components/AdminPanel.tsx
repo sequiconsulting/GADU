@@ -113,6 +113,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
   const [showClearDbConfirm, setShowClearDbConfirm] = useState<boolean>(false);
   const [showLoadDemoConfirm, setShowLoadDemoConfirm] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
   
   // Verifica se la loggia corrente è la demo (9999)
   const isDemoLodge = dataService.getCurrentLodgeConfig()?.glriNumber === '9999';
@@ -199,6 +200,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
       setMessage(reason);
       setTimeout(() => setMessage(null), 5000);
       throw error;
+    }
+  };
+
+  const handleExportDatabase = async () => {
+    setExportMessage(null);
+    setIsProcessing(true);
+    try {
+      const payload = await dataService.exportNativeDatabase();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const lodgeNumber = dataService.getCurrentLodgeConfig()?.glriNumber || 'lodge';
+      link.href = url;
+      link.download = `gadu_export_${lodgeNumber}_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setExportMessage('Export completato.');
+    } catch (err: any) {
+      setExportMessage(err?.message || 'Export fallito.');
+    } finally {
+      setIsProcessing(false);
+      setTimeout(() => setExportMessage(null), 4000);
     }
   };
 
@@ -508,7 +533,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
 
       <div className="p-6">
         <div className="flex gap-2 mb-6 border-b border-slate-200 flex-wrap">
-          {['GENERALE', 'PREFERENZE_RAMI', 'DEFAULT_QUOTE', 'GESTIONE_UTENTI', ...(isDemoLodge ? ['EXTRA'] : [])].map((tab) => (
+          {['GENERALE', 'PREFERENZE_RAMI', 'DEFAULT_QUOTE', 'GESTIONE_UTENTI', 'EXTRA'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveMainTab(tab as MainTab)}
@@ -869,7 +894,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
                 >
                   <Trash2 size={18} /> Cancella Database
                 </button>
+                <button
+                  onClick={handleExportDatabase}
+                  disabled={isProcessing}
+                  className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
+                >
+                  <Database size={18} /> Export integrale DB
+                </button>
               </div>
+              {exportMessage && (
+                <div className="mt-4 text-sm text-slate-700">{exportMessage}</div>
+              )}
             </div>
           </>
         )}
@@ -877,6 +912,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentSettings, onSave,
         {activeMainTab === 'EXTRA' && !isDemoLodge && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
             <p className="text-slate-600">Il tab Extra è disponibile solo per la loggia demo (numero 9999).</p>
+            <div className="mt-4">
+              <button
+                onClick={handleExportDatabase}
+                disabled={isProcessing}
+                className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white px-4 py-2 rounded-lg font-semibold shadow-md flex items-center gap-2 transition-colors"
+              >
+                <Database size={18} /> Export integrale DB
+              </button>
+              {exportMessage && (
+                <div className="mt-3 text-sm text-slate-700">{exportMessage}</div>
+              )}
+            </div>
           </div>
         )}
       </div>

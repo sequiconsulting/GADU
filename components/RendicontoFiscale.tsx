@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, PlusCircle, Printer, Trash2, Upload } from 'lucide-react';
+import { PlusCircle, Printer, Trash2 } from 'lucide-react';
 import { PublicLodgeConfig } from '../types/lodge';
 import type { FiscalEntry, FiscalEntryType, FiscalSection, RendicontoFiscale as RendicontoFiscaleData } from '../types';
 import { dataService } from '../services/dataService';
@@ -82,56 +82,6 @@ const normalizeDateStrict = (value: string, selectedYear: number, context?: stri
   throw new Error(`${label}Formato data non riconosciuto: "${value}"`);
 };
 
-const detectDelimiter = (line: string): string => {
-  const semicolon = (line.match(/;/g) || []).length;
-  const comma = (line.match(/,/g) || []).length;
-  const tab = (line.match(/\t/g) || []).length;
-  if (tab >= semicolon && tab >= comma) return '\t';
-  if (semicolon >= comma) return ';';
-  return ',';
-};
-
-const parseCsv = (content: string) => {
-  const lines = content.split(/\r?\n/).filter(l => l.trim().length > 0);
-  if (!lines.length) {
-    throw new Error('CSV vuoto o senza righe leggibili');
-  }
-  const delimiter = detectDelimiter(lines[0]);
-  const rows: string[][] = [];
-
-  lines.forEach(line => {
-    const row: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i += 1) {
-      const char = line[i];
-      if (char === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"';
-          i += 1;
-        } else {
-          inQuotes = !inQuotes;
-        }
-        continue;
-      }
-      if (!inQuotes && char === delimiter) {
-        row.push(current.trim());
-        current = '';
-        continue;
-      }
-      current += char;
-    }
-    row.push(current.trim());
-    rows.push(row);
-  });
-
-  if (!rows.length) {
-    throw new Error('CSV senza righe utili');
-  }
-  const headers = rows[0].map(h => h.trim());
-  const dataRows = rows.slice(1);
-  return { headers, rows: dataRows };
-};
 
 const CASH_OUT_LABEL = 'Prelievo per cassa';
 const CASH_IN_LABEL = 'Versamento da cassa';
@@ -147,18 +97,6 @@ const PRINT_TYPE_LABELS: Record<string, string> = {
   USCITA_CASSA: 'Uscita per cassa',
 };
 
-const guessHeader = (headers: string[], variants: string[]) => {
-  const lower = headers.map(h => h.toLowerCase());
-  const idx = lower.findIndex(h => variants.some(v => h.includes(v)));
-  return idx >= 0 ? headers[idx] : '';
-};
-
-const normalizeType = (value: string): FiscalEntryType | null => {
-  const v = value.toLowerCase();
-  if (v.includes('dare') || v.includes('uscita') || v.includes('addebito') || v.includes('debit')) return 'USCITA';
-  if (v.includes('avere') || v.includes('entrata') || v.includes('accredito') || v.includes('credit')) return 'ENTRATA';
-  return null;
-};
 
 const defaultEntry = (year: number): FiscalEntry => ({
   id: crypto.randomUUID ? crypto.randomUUID() : `entry_${Date.now()}_${Math.random()}`,
@@ -181,11 +119,6 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
   const [dateDrafts, setDateDrafts] = useState<Record<string, string>>({});
 
-  const [importTarget, setImportTarget] = useState<{ tab: ActiveTab; accountId?: string } | null>(null);
-  const [importHeaders, setImportHeaders] = useState<string[]>([]);
-  const [importRows, setImportRows] = useState<string[][]>([]);
-  const [importError, setImportError] = useState<string | null>(null);
-  const [importMap, setImportMap] = useState<{ date?: string; description?: string; amount?: string; debit?: string; credit?: string; type?: string }>({});
 
   useEffect(() => {
     const load = async () => {
@@ -723,112 +656,6 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         },
       };
     });
-  };
-
-  const handleImportFile = (tab: ActiveTab, accountId?: string) => {
-    setImportError(null);
-    setImportHeaders([]);
-    setImportRows([]);
-    setImportMap({});
-    setImportTarget({ tab, accountId });
-  };
-
-  const applyImport = () => {
-    if (!data || !importTarget) return;
-    if (!importMap.date || !importMap.description) {
-      setImportError('Seleziona almeno Data e Descrizione per l\'import');
-      return;
-    }
-    if (!importMap.amount && !importMap.debit && !importMap.credit) {
-      setImportError('Seleziona un campo Importo o le colonne Dare/Avere');
-      return;
-    }
-
-    const entries: FiscalEntry[] = [];
-
-    importRows.forEach((row, index) => {
-      try {
-        const find = (header?: string) => {
-          if (!header) return '';
-          const idx = importHeaders.indexOf(header);
-          return idx >= 0 ? row[idx] || '' : '';
-        };
-        const parseOptionalAmount = (value: string) => (value.trim() ? parseAmount(value) : 0);
-        const dateValue = normalizeDateStrict(find(importMap.date), selectedYear, `Riga ${index + 2}`);
-        const description = find(importMap.description);
-        if (!description) {
-          throw new Error(`Descrizione mancante alla riga ${index + 2}`);
-        }
-
-        let type: FiscalEntryType = 'ENTRATA';
-        let amount = 0;
-
-        if (importMap.amount) {
-          const amountCell = find(importMap.amount);
-          if (!amountCell.trim()) {
-            throw new Error(`Importo mancante alla riga ${index + 2}`);
-          }
-          const rawAmount = parseAmount(amountCell);
-          const explicitType = importMap.type ? normalizeType(find(importMap.type)) : null;
-          if (explicitType) {
-            type = explicitType;
-            amount = Math.abs(rawAmount);
-          } else {
-            type = rawAmount < 0 ? 'USCITA' : 'ENTRATA';
-            amount = Math.abs(rawAmount);
-          }
-        } else {
-          const debitRaw = importMap.debit ? parseOptionalAmount(find(importMap.debit)) : 0;
-          const creditRaw = importMap.credit ? parseOptionalAmount(find(importMap.credit)) : 0;
-          if (creditRaw > 0) {
-            type = 'ENTRATA';
-            amount = Math.abs(creditRaw);
-          } else if (debitRaw > 0) {
-            type = 'USCITA';
-            amount = Math.abs(debitRaw);
-          } else {
-            throw new Error(`Importo nullo alla riga ${index + 2}`);
-          }
-        }
-
-        entries.push({
-          id: crypto.randomUUID ? crypto.randomUUID() : `entry_${Date.now()}_${index}`,
-          date: dateValue,
-          description,
-          amount,
-          type,
-          section: 'A',
-          categoryLabel: '',
-        });
-      } catch (err: any) {
-        throw new Error(err?.message || `Errore importazione riga ${index + 2}`);
-      }
-    });
-
-    if (importTarget.tab === 'CASSA') {
-      updateCash(prev => ({
-        ...prev,
-        cash: {
-          ...prev.cash,
-          entries: [...prev.cash.entries, ...entries],
-        },
-      }));
-    } else {
-      const accountId = importTarget.accountId || (importTarget.tab === 'CONTO_1' ? '1' : importTarget.tab === 'CONTO_2' ? '2' : '3');
-      updateAccount(accountId, prev => ({
-        ...prev,
-        accounts: prev.accounts.map(acc =>
-          acc.id === accountId ? { ...acc, entries: [...acc.entries, ...entries] } : acc
-        ),
-      }));
-    }
-
-    setImportTarget(null);
-    setImportHeaders([]);
-    setImportRows([]);
-    setImportMap({});
-    setImportError(null);
-    scheduleAutoSave();
   };
 
   const handlePrint = () => {
@@ -1404,12 +1231,6 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                 >
                   <PlusCircle size={16} /> Nuova riga
                 </button>
-                <button
-                  onClick={() => handleImportFile(activeTab, activeAccount.id)}
-                  className="px-3 py-2 rounded-md bg-white border border-slate-300 text-slate-700 text-sm flex items-center gap-2"
-                >
-                  <Upload size={16} /> Importa CSV
-                </button>
               </div>
             </div>
           </div>
@@ -1681,100 +1502,6 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         </div>
       )}
 
-      {importTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h4 className="text-lg font-semibold text-slate-900">Importa CSV</h4>
-              <button onClick={() => setImportTarget(null)} className="text-slate-500">✕</button>
-            </div>
-
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              onChange={e => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = evt => {
-                  try {
-                    const content = String(evt.target?.result || '');
-                    const parsed = parseCsv(content);
-                    setImportHeaders(parsed.headers);
-                    setImportRows(parsed.rows);
-                    setImportError(null);
-                    const dateGuess = guessHeader(parsed.headers, ['data', 'valuta', 'operazione']);
-                    const descGuess = guessHeader(parsed.headers, ['descrizione', 'causale', 'dettaglio', 'operazione']);
-                    const amountGuess = guessHeader(parsed.headers, ['importo', 'importo eur', 'importo€', 'ammontare', 'totale']);
-                    const debitGuess = guessHeader(parsed.headers, ['dare', 'addebito', 'uscita', 'debit']);
-                    const creditGuess = guessHeader(parsed.headers, ['avere', 'accredito', 'entrata', 'credit']);
-                    const typeGuess = guessHeader(parsed.headers, ['segno', 'tipo', 'dare/avere', 'operazione']);
-                    setImportMap({
-                      date: dateGuess,
-                      description: descGuess,
-                      amount: amountGuess,
-                      debit: debitGuess,
-                      credit: creditGuess,
-                      type: typeGuess,
-                    });
-                  } catch (err: any) {
-                    setImportError(err?.message || 'Errore lettura CSV');
-                  }
-                };
-                reader.readAsText(file, 'utf-8');
-              }}
-            />
-
-            {importError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">
-                {importError}
-              </div>
-            )}
-
-            {importHeaders.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {([
-                  { key: 'date', label: 'Data' },
-                  { key: 'description', label: 'Descrizione' },
-                  { key: 'amount', label: 'Importo (con segno)' },
-                  { key: 'debit', label: 'Dare (uscite)' },
-                  { key: 'credit', label: 'Avere (entrate)' },
-                  { key: 'type', label: 'Tipo (opzionale)' },
-                ] as const).map(field => (
-                  <label key={field.key} className="text-sm text-slate-600">
-                    <span className="block mb-1">{field.label}</span>
-                    <select
-                      value={(importMap as any)[field.key] || ''}
-                      onChange={e => setImportMap(prev => ({ ...prev, [field.key]: e.target.value || undefined }))}
-                      className="w-full border border-slate-200 rounded-md px-2 py-1 text-sm"
-                    >
-                      <option value="">Non usare</option>
-                      {importHeaders.map(h => (
-                        <option key={h} value={h}>{h}</option>
-                      ))}
-                    </select>
-                  </label>
-                ))}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setImportTarget(null)}
-                className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={applyImport}
-                className="px-4 py-2 rounded-lg bg-slate-900 text-white flex items-center gap-2"
-              >
-                <Download size={16} /> Importa righe
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
