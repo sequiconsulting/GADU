@@ -189,6 +189,9 @@ export interface FiscalEntry {
   categoryId?: string;
   categoryLabel: string;
   notes?: string;
+  cashTransfer?: 'OUT' | 'IN';
+  linkedCashEntryId?: string;
+  linkedAccountEntryId?: string;
 }
 
 export interface FiscalAccount {

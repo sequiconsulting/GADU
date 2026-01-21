@@ -11,6 +11,7 @@ interface RendicontoFiscaleProps {
 }
 
 type ActiveTab = 'CONTO_1' | 'CONTO_2' | 'CONTO_3' | 'CASSA' | 'RENDICONTO';
+type EntryTypeOption = 'ENTRATA' | 'USCITA' | 'ENTRATA_CASSA' | 'USCITA_CASSA';
 
 const formatEuro = (value: number) =>
   new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value || 0);
@@ -92,6 +93,15 @@ const parseCsv = (content: string) => {
   return { headers, rows: dataRows };
 };
 
+const CASH_OUT_LABEL = 'Prelievo per cassa';
+const CASH_IN_LABEL = 'Versamento da cassa';
+const PRINT_TYPE_LABELS: Record<string, string> = {
+  ENTRATA: 'Entrata',
+  USCITA: 'Uscita',
+  ENTRATA_CASSA: 'Entrata per cassa',
+  USCITA_CASSA: 'Uscita per cassa',
+};
+
 const guessHeader = (headers: string[], variants: string[]) => {
   const lower = headers.map(h => h.toLowerCase());
   const idx = lower.findIndex(h => variants.some(v => h.includes(v)));
@@ -105,9 +115,9 @@ const normalizeType = (value: string): FiscalEntryType | null => {
   return null;
 };
 
-const defaultEntry = (): FiscalEntry => ({
+const defaultEntry = (year: number): FiscalEntry => ({
   id: crypto.randomUUID ? crypto.randomUUID() : `entry_${Date.now()}_${Math.random()}`,
-  date: new Date().toISOString().split('T')[0],
+  date: `${year}-01-01`,
   description: '',
   amount: 0,
   type: 'ENTRATA',
@@ -172,6 +182,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
       E: { entrate: 0, uscite: 0 },
     };
     allEntries.forEach(entry => {
+      if (entry.cashTransfer) return;
       if (entry.type === 'ENTRATA') totals[entry.section].entrate += entry.amount;
       else totals[entry.section].uscite += entry.amount;
     });
@@ -188,6 +199,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     let entrate = 0;
     let uscite = 0;
     allEntries.forEach(entry => {
+      if (entry.cashTransfer) return;
       if (entry.type === 'ENTRATA') entrate += entry.amount;
       else uscite += entry.amount;
     });
@@ -202,7 +214,38 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     setSaving(true);
     setSaveMessage(null);
     try {
-      const saved = await dataService.saveRendicontoFiscale(current);
+      const normalized: RendicontoFiscale = {
+        ...current,
+        accounts: current.accounts.map(account => ({
+          ...account,
+          entries: account.entries.map(entry => {
+            if (!entry.cashTransfer) return entry;
+            const description = entry.cashTransfer === 'OUT' ? CASH_OUT_LABEL : CASH_IN_LABEL;
+            return {
+              ...entry,
+              description,
+              categoryId: undefined,
+              categoryLabel: '',
+              section: 'A',
+            };
+          }),
+        })),
+        cash: {
+          ...current.cash,
+          entries: current.cash.entries.map(entry => {
+            if (!entry.cashTransfer) return entry;
+            const description = entry.cashTransfer === 'OUT' ? CASH_OUT_LABEL : CASH_IN_LABEL;
+            return {
+              ...entry,
+              description,
+              categoryId: undefined,
+              categoryLabel: '',
+              section: 'A',
+            };
+          }),
+        },
+      };
+      const saved = await dataService.saveRendicontoFiscale(normalized);
       setData(saved);
     } catch (err: any) {
       setError(err?.message || 'Errore salvataggio rendiconto fiscale');
@@ -233,7 +276,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         ...prev,
         cash: {
           ...prev.cash,
-          entries: [...prev.cash.entries, defaultEntry()],
+          entries: [...prev.cash.entries, defaultEntry(selectedYear)],
         },
       }));
       return;
@@ -242,7 +285,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     updateAccount(accountId, prev => ({
       ...prev,
       accounts: prev.accounts.map(acc =>
-        acc.id === accountId ? { ...acc, entries: [...acc.entries, defaultEntry()] } : acc
+        acc.id === accountId ? { ...acc, entries: [...acc.entries, defaultEntry(selectedYear)] } : acc
       ),
     }));
   };
@@ -261,12 +304,26 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
       return;
     }
     const accountId = tab === 'CONTO_1' ? '1' : tab === 'CONTO_2' ? '2' : '3';
-    updateAccount(accountId, prev => ({
-      ...prev,
-      accounts: prev.accounts.map(acc =>
+    updateAccount(accountId, prev => {
+      const entryToRemove = prev.accounts
+        .find(acc => acc.id === accountId)
+        ?.entries.find(e => e.id === entryId);
+      const linkedCashEntryId = entryToRemove?.linkedCashEntryId;
+      const accounts = prev.accounts.map(acc =>
         acc.id === accountId ? { ...acc, entries: acc.entries.filter(e => e.id !== entryId) } : acc
-      ),
-    }));
+      );
+      const cashEntries = linkedCashEntryId
+        ? prev.cash.entries.filter(e => e.id !== linkedCashEntryId)
+        : prev.cash.entries;
+      return {
+        ...prev,
+        accounts,
+        cash: {
+          ...prev.cash,
+          entries: cashEntries,
+        },
+      };
+    });
     scheduleAutoSave();
   };
 
@@ -276,26 +333,72 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     patch: Partial<FiscalEntry>
   ) => {
     if (!data) return;
-    const updater = (entries: FiscalEntry[]) =>
-      entries.map(e => (e.id === entryId ? { ...e, ...patch } : e));
 
     if (tab === 'CASSA') {
-      updateCash(prev => ({
-        ...prev,
-        cash: {
-          ...prev.cash,
-          entries: updater(prev.cash.entries),
-        },
-      }));
+      updateCash(prev => {
+        const entries = prev.cash.entries.map(e => {
+          if (e.id !== entryId) return e;
+          if (e.cashTransfer) return e;
+          return { ...e, ...patch };
+        });
+        return {
+          ...prev,
+          cash: {
+            ...prev.cash,
+            entries,
+          },
+        };
+      });
       return;
     }
+
     const accountId = tab === 'CONTO_1' ? '1' : tab === 'CONTO_2' ? '2' : '3';
-    updateAccount(accountId, prev => ({
-      ...prev,
-      accounts: prev.accounts.map(acc =>
-        acc.id === accountId ? { ...acc, entries: updater(acc.entries) } : acc
-      ),
-    }));
+    updateAccount(accountId, prev => {
+      let linkedCashEntryId: string | undefined;
+      const accounts = prev.accounts.map(acc => {
+        if (acc.id !== accountId) return acc;
+        const entries = acc.entries.map(entry => {
+          if (entry.id !== entryId) return entry;
+          const next = { ...entry, ...patch };
+          linkedCashEntryId = next.linkedCashEntryId;
+          return next;
+        });
+        return { ...acc, entries };
+      });
+
+      if (!linkedCashEntryId) {
+        return { ...prev, accounts };
+      }
+
+      const cashEntries = prev.cash.entries.map(entry => {
+        if (entry.id !== linkedCashEntryId) return entry;
+        const source = accounts
+          .flatMap(a => a.entries)
+          .find(e => e.linkedCashEntryId === linkedCashEntryId);
+        if (!source) return entry;
+        const description = source.cashTransfer === 'OUT' ? CASH_OUT_LABEL : CASH_IN_LABEL;
+        const cashType = source.cashTransfer === 'OUT' ? 'ENTRATA' : 'USCITA';
+        return {
+          ...entry,
+          date: source.date,
+          amount: source.amount,
+          type: cashType,
+          description,
+          categoryId: undefined,
+          categoryLabel: '',
+          section: 'A',
+        };
+      });
+
+      return {
+        ...prev,
+        accounts,
+        cash: {
+          ...prev.cash,
+          entries: cashEntries,
+        },
+      };
+    });
   };
 
   const sortEntriesByDate = (entries: FiscalEntry[]) => {
@@ -323,13 +426,81 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     });
   };
 
-  const handleEntryTypeChange = (tab: ActiveTab, entryId: string, type: FiscalEntryType) => {
-    const categories = categoriesByType[type];
-    handleEntryChange(tab, entryId, {
-      type,
-      categoryId: undefined,
-      categoryLabel: '',
-      section: categories[0]?.section || 'A',
+  const handleEntryTypeChange = (tab: ActiveTab, entryId: string, type: EntryTypeOption) => {
+    if (tab === 'CASSA') {
+      const baseType: FiscalEntryType = type === 'USCITA' ? 'USCITA' : 'ENTRATA';
+      const categories = categoriesByType[baseType];
+      handleEntryChange(tab, entryId, {
+        type: baseType,
+        categoryId: undefined,
+        categoryLabel: '',
+        section: categories[0]?.section || 'A',
+      });
+      return;
+    }
+
+    const isCashOut = type === 'USCITA_CASSA';
+    const isCashIn = type === 'ENTRATA_CASSA';
+    const isCashTransfer = isCashOut || isCashIn;
+    const baseType: FiscalEntryType = isCashOut ? 'USCITA' : isCashIn ? 'ENTRATA' : (type as FiscalEntryType);
+    const description = isCashOut ? CASH_OUT_LABEL : isCashIn ? CASH_IN_LABEL : '';
+
+    updateAccount(tab === 'CONTO_1' ? '1' : tab === 'CONTO_2' ? '2' : '3', prev => {
+      let updatedEntry: FiscalEntry | null = null;
+      const accounts = prev.accounts.map(acc => {
+        if (acc.id !== (tab === 'CONTO_1' ? '1' : tab === 'CONTO_2' ? '2' : '3')) return acc;
+        const entries = acc.entries.map(entry => {
+          if (entry.id !== entryId) return entry;
+          const next: FiscalEntry = {
+            ...entry,
+            type: baseType,
+            cashTransfer: isCashTransfer ? (isCashOut ? 'OUT' : 'IN') : undefined,
+            linkedCashEntryId: isCashTransfer ? entry.linkedCashEntryId || `cash_${entry.id}` : undefined,
+            categoryId: isCashTransfer ? undefined : entry.categoryId,
+            categoryLabel: isCashTransfer ? '' : entry.categoryLabel,
+            section: isCashTransfer ? 'A' : entry.section,
+            description: isCashTransfer ? description : entry.description,
+          };
+          updatedEntry = next;
+          return next;
+        });
+        return { ...acc, entries };
+      });
+
+      let cashEntries = prev.cash.entries;
+      if (updatedEntry?.cashTransfer) {
+        const linkedId = updatedEntry.linkedCashEntryId || `cash_${updatedEntry.id}`;
+        const cashType: FiscalEntryType = updatedEntry.cashTransfer === 'OUT' ? 'ENTRATA' : 'USCITA';
+        const cashDescription = updatedEntry.cashTransfer === 'OUT' ? CASH_OUT_LABEL : CASH_IN_LABEL;
+        const existing = prev.cash.entries.find(e => e.id === linkedId);
+        const nextCashEntry: FiscalEntry = {
+          ...(existing || defaultEntry(selectedYear)),
+          id: linkedId,
+          date: updatedEntry.date,
+          description: cashDescription,
+          amount: updatedEntry.amount,
+          type: cashType,
+          section: 'A',
+          categoryId: undefined,
+          categoryLabel: '',
+          cashTransfer: updatedEntry.cashTransfer,
+          linkedAccountEntryId: updatedEntry.id,
+        };
+        cashEntries = existing
+          ? prev.cash.entries.map(entry => (entry.id === linkedId ? nextCashEntry : entry))
+          : [...prev.cash.entries, nextCashEntry];
+      } else if (updatedEntry && updatedEntry.linkedCashEntryId) {
+        cashEntries = prev.cash.entries.filter(e => e.id !== updatedEntry.linkedCashEntryId);
+      }
+
+      return {
+        ...prev,
+        accounts,
+        cash: {
+          ...prev.cash,
+          entries: cashEntries,
+        },
+      };
     });
   };
 
@@ -446,8 +617,17 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     document.title = originalTitle;
   };
 
-  const renderEntryRow = (tab: ActiveTab, entry: FiscalEntry) => {
+  const renderEntryRow = (tab: ActiveTab, entry: FiscalEntry, progressivo: number) => {
     const categories = categoriesByType[entry.type];
+    const isCashTransfer = Boolean(entry.cashTransfer);
+    const isCashTabLocked = tab === 'CASSA' && isCashTransfer;
+    const typeValue: EntryTypeOption = entry.cashTransfer
+      ? entry.cashTransfer === 'OUT'
+        ? 'USCITA_CASSA'
+        : 'ENTRATA_CASSA'
+      : entry.type;
+    const fixedDescription = entry.cashTransfer === 'OUT' ? CASH_OUT_LABEL : entry.cashTransfer === 'IN' ? CASH_IN_LABEL : entry.description;
+    const saldoClass = progressivo >= 0 ? 'text-emerald-700' : 'text-red-600';
     return (
       <tr key={entry.id} className="border-b border-slate-100 text-xs">
         <td className="px-2 py-1">
@@ -456,27 +636,36 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
             value={entry.date}
             onChange={e => handleEntryChange(tab, entry.id, { date: e.target.value })}
             onBlur={handleAutoSave}
-            className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs"
+            disabled={isCashTabLocked}
+            className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs disabled:bg-slate-100"
           />
         </td>
         <td className="px-2 py-1">
           <input
             type="text"
-            value={entry.description}
+            value={fixedDescription}
             onChange={e => handleEntryChange(tab, entry.id, { description: e.target.value })}
             onBlur={handleAutoSave}
-            className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs"
+            disabled={isCashTransfer || isCashTabLocked}
+            className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs disabled:bg-slate-100"
           />
         </td>
         <td className="px-2 py-1">
           <select
-            value={entry.type}
-            onChange={e => handleEntryTypeChange(tab, entry.id, e.target.value as FiscalEntryType)}
+            value={typeValue}
+            onChange={e => handleEntryTypeChange(tab, entry.id, e.target.value as EntryTypeOption)}
             onBlur={handleAutoSave}
-            className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs"
+            disabled={isCashTabLocked}
+            className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs disabled:bg-slate-100"
           >
             <option value="ENTRATA">Entrata</option>
             <option value="USCITA">Uscita</option>
+            {tab !== 'CASSA' && (
+              <>
+                <option value="ENTRATA_CASSA">Entrata per cassa</option>
+                <option value="USCITA_CASSA">Uscita per cassa</option>
+              </>
+            )}
           </select>
         </td>
         <td className="px-2 py-1">
@@ -489,7 +678,8 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
               handleEntryChange(tab, entry.id, { amount: Number.isFinite(amount) ? amount : 0 });
             }}
             onBlur={handleAutoSave}
-            className="w-28 border border-slate-200 rounded-md px-2 py-1 text-xs"
+            disabled={isCashTabLocked}
+            className="w-28 border border-slate-200 rounded-md px-2 py-1 text-xs disabled:bg-slate-100"
           />
         </td>
         <td className="px-2 py-1">
@@ -497,7 +687,8 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
             value={entry.categoryId || ''}
             onChange={e => handleCategoryChange(tab, entry.id, e.target.value)}
             onBlur={handleAutoSave}
-            className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs"
+            disabled={isCashTransfer || isCashTabLocked}
+            className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs disabled:bg-slate-100"
           >
             <option value="">Seleziona categoria...</option>
             {categories.map(cat => (
@@ -514,15 +705,69 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           <button
             onClick={() => handleRemoveEntry(tab, entry.id)}
             onBlur={handleAutoSave}
-            className="text-red-600 hover:text-red-700"
+            disabled={isCashTabLocked}
+            className="text-red-600 hover:text-red-700 disabled:text-slate-300"
             title="Rimuovi"
           >
             <Trash2 size={16} />
           </button>
         </td>
+        <td className={`px-2 py-1 text-right font-medium ${saldoClass}`}>
+          {formatEuro(progressivo)}
+        </td>
       </tr>
     );
   };
+
+  const renderPrintHeader = () => (
+    <div className="text-sm text-slate-600 mb-4">
+      <div className="font-semibold">{lodge?.associationName}</div>
+      <div>{[lodge?.address, [lodge?.zipCode, lodge?.city].filter(Boolean).join(' ')].filter(Boolean).join(' - ')}</div>
+      <div>CF: {lodge?.taxCode}</div>
+    </div>
+  );
+
+  const renderMovimentiTable = (entries: FiscalEntry[], label: string, initialBalance: number) => (
+    <div className="print:break-before-page">
+      {renderPrintHeader()}
+      <h2 className="text-lg font-semibold text-slate-900 mb-2">{label}</h2>
+      <table className="w-full text-xs border border-slate-200">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className="px-2 py-1 text-left">Data</th>
+            <th className="px-2 py-1 text-left">Descrizione</th>
+            <th className="px-2 py-1 text-left">Tipo</th>
+            <th className="px-2 py-1 text-right">Importo</th>
+            <th className="px-2 py-1 text-right">Saldo progressivo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(() => {
+            let running = initialBalance || 0;
+            return sortEntriesByDate(entries).map(entry => {
+            const typeLabel = entry.cashTransfer
+              ? entry.cashTransfer === 'OUT'
+                ? PRINT_TYPE_LABELS.USCITA_CASSA
+                : PRINT_TYPE_LABELS.ENTRATA_CASSA
+              : PRINT_TYPE_LABELS[entry.type] || entry.type;
+            const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
+            running += delta;
+            const saldoClass = running >= 0 ? 'text-emerald-700' : 'text-red-600';
+            return (
+              <tr key={entry.id} className="border-b border-slate-200">
+                <td className="px-2 py-1">{entry.date}</td>
+                <td className="px-2 py-1">{entry.description}</td>
+                <td className="px-2 py-1">{typeLabel}</td>
+                <td className="px-2 py-1 text-right">{formatEuro(entry.amount)}</td>
+                <td className={`px-2 py-1 text-right font-medium ${saldoClass}`}>{formatEuro(running)}</td>
+              </tr>
+            );
+            });
+          })()}
+        </tbody>
+      </table>
+    </div>
+  );
 
   if (loading) {
     return <div className="text-center py-12">Caricamento rendiconto fiscale...</div>;
@@ -581,7 +826,8 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         <div className="flex flex-wrap gap-2">
           <button
             onClick={handlePrint}
-            className="px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2"
+            disabled={activeTab !== 'RENDICONTO'}
+            className="px-4 py-2 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
           >
             <Printer size={16} /> Stampa
           </button>
@@ -594,15 +840,15 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 print:hidden">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 print:hidden">
         {accountTabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium border ${
+            className={`px-4 md:px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
               activeTab === tab.id
-                ? 'bg-slate-900 text-white border-slate-900'
-                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                ? 'border-slate-800 text-slate-900 bg-white'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
             }`}
           >
             {tab.label}
@@ -610,20 +856,20 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         ))}
         <button
           onClick={() => setActiveTab('CASSA')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium border ${
+          className={`px-4 md:px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
             activeTab === 'CASSA'
-              ? 'bg-slate-900 text-white border-slate-900'
-              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              ? 'border-slate-800 text-slate-900 bg-white'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
           Cassa
         </button>
         <button
           onClick={() => setActiveTab('RENDICONTO')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium border ${
+          className={`px-4 md:px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
             activeTab === 'RENDICONTO'
-              ? 'bg-slate-900 text-white border-slate-900'
-              : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              ? 'border-slate-800 text-slate-900 bg-white'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
           Rendiconto
@@ -706,13 +952,21 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                   <th className="px-2 py-1 text-left">Categoria</th>
                   <th className="px-2 py-1 text-left">Sezione</th>
                   <th className="px-2 py-1"></th>
+                  <th className="px-2 py-1 text-right">Saldo progressivo</th>
                 </tr>
               </thead>
               <tbody>
-                {sortEntriesByDate(activeAccount.entries).map(entry => renderEntryRow(activeTab, entry))}
+                {(() => {
+                  let running = activeAccount.initialBalance || 0;
+                  return sortEntriesByDate(activeAccount.entries).map(entry => {
+                    const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
+                    running += delta;
+                    return renderEntryRow(activeTab, entry, running);
+                  });
+                })()}
                 {activeAccount.entries.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-2 py-4 text-center text-slate-400 text-xs">
+                    <td colSpan={8} className="px-2 py-4 text-center text-slate-400 text-xs">
                       Nessuna riga presente.
                     </td>
                   </tr>
@@ -751,12 +1005,6 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                 >
                   <PlusCircle size={16} /> Nuova riga
                 </button>
-                <button
-                  onClick={() => handleImportFile('CASSA')}
-                  className="px-3 py-2 rounded-md bg-white border border-slate-300 text-slate-700 text-sm flex items-center gap-2"
-                >
-                  <Upload size={16} /> Importa CSV
-                </button>
               </div>
             </div>
           </div>
@@ -772,13 +1020,21 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                   <th className="px-2 py-1 text-left">Categoria</th>
                   <th className="px-2 py-1 text-left">Sezione</th>
                   <th className="px-2 py-1"></th>
+                  <th className="px-2 py-1 text-right">Saldo progressivo</th>
                 </tr>
               </thead>
               <tbody>
-                {sortEntriesByDate(data.cash.entries).map(entry => renderEntryRow('CASSA', entry))}
+                {(() => {
+                  let running = data.cash.initialBalance || 0;
+                  return sortEntriesByDate(data.cash.entries).map(entry => {
+                    const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
+                    running += delta;
+                    return renderEntryRow('CASSA', entry, running);
+                  });
+                })()}
                 {data.cash.entries.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-2 py-4 text-center text-slate-400 text-xs">
+                    <td colSpan={8} className="px-2 py-4 text-center text-slate-400 text-xs">
                       Nessuna riga presente.
                     </td>
                   </tr>
@@ -903,14 +1159,8 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           </div>
 
           <div className="hidden print:block">
-            <div className="print:fixed print:top-0 print:left-0 print:right-0 bg-white border-b border-slate-200 px-6 py-4">
-              <div className="text-sm text-slate-600">
-                <div className="font-semibold">{lodge?.associationName}</div>
-                <div>{[lodge?.address, [lodge?.zipCode, lodge?.city].filter(Boolean).join(' ')].filter(Boolean).join(' - ')}</div>
-                <div>CF: {lodge?.taxCode}</div>
-              </div>
-            </div>
-            <div className="pt-28">
+            <div>
+              {renderPrintHeader()}
               <h1 className="text-xl font-bold text-slate-900">Rendiconto per cassa (Modello D)</h1>
               <p className="text-sm text-slate-600 mb-4">Anno {selectedYear}</p>
               <table className="w-full text-sm border border-slate-200">
@@ -950,6 +1200,11 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                 </div>
               </div>
             </div>
+
+            {data.accounts.map((account, idx) =>
+              renderMovimentiTable(account.entries, `Movimenti ${account.name || `Conto ${idx + 1}`}`, account.initialBalance || 0)
+            )}
+            {renderMovimentiTable(data.cash.entries, 'Movimenti Cassa', data.cash.initialBalance || 0)}
           </div>
         </div>
       )}

@@ -15,6 +15,9 @@ export const fiscalEntrySchema = z
     categoryId: z.string().optional(),
     categoryLabel: z.string(),
     notes: z.string().optional(),
+    cashTransfer: z.enum(['OUT', 'IN']).optional(),
+    linkedCashEntryId: z.string().optional(),
+    linkedAccountEntryId: z.string().optional(),
   })
   .passthrough();
 
