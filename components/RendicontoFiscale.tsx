@@ -1153,6 +1153,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   ) => {
     const orderedEntries = sortEntriesByDate(entries);
     const finalBalance = orderedEntries.reduce((sum, entry) => {
+      if (entry.cashTransfer) return sum;
       const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
       return sum + delta;
     }, initialBalance || 0);
@@ -1191,9 +1192,11 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                 ? accountByEntryId.get(entry.linkedAccountEntryId) || 'Conto'
                 : 'Conto';
               const categoryLabel = entry.cashTransfer ? '-' : entry.categoryLabel || '-';
-            const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
-            running += delta;
-            const saldoClass = running >= 0 ? 'text-emerald-700' : 'text-red-600';
+              if (!entry.cashTransfer) {
+                const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
+                running += delta;
+              }
+              const saldoClass = running >= 0 ? 'text-emerald-700' : 'text-red-600';
               const description = entry.cashTransfer
                 ? getCashTransferDescription(accountName, entry.cashTransfer)
                 : entry.description;
