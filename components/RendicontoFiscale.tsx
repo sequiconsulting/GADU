@@ -18,8 +18,36 @@ const formatEuro = (value: number) =>
   new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(value || 0);
 
 const parseAmount = (value: string): number => {
-  const cleaned = value.replace(/\./g, '').replace(',', '.').replace(/[^0-9\-\.]/g, '').trim();
-  const num = Number(cleaned);
+  const sanitized = value.replace(/[^0-9,\.\-]/g, '').trim();
+  if (!sanitized || sanitized === '-' || sanitized === ',' || sanitized === '.') {
+    throw new Error(`Importo non valido: "${value}"`);
+  }
+
+  const sign = sanitized.startsWith('-') ? '-' : '';
+  const unsigned = sanitized.replace(/-/g, '');
+  const lastComma = unsigned.lastIndexOf(',');
+  const lastDot = unsigned.lastIndexOf('.');
+  let decimalSep: ',' | '.' | null = null;
+
+  if (lastComma >= 0 && lastDot >= 0) {
+    decimalSep = lastComma > lastDot ? ',' : '.';
+  } else if (lastComma >= 0) {
+    decimalSep = ',';
+  } else if (lastDot >= 0) {
+    decimalSep = '.';
+  }
+
+  let normalized = '';
+  if (decimalSep) {
+    const splitIndex = unsigned.lastIndexOf(decimalSep);
+    const left = unsigned.slice(0, splitIndex).replace(/[.,]/g, '');
+    const right = unsigned.slice(splitIndex + 1).replace(/[.,]/g, '');
+    normalized = `${left}.${right}`;
+  } else {
+    normalized = unsigned.replace(/[.,]/g, '');
+  }
+
+  const num = Number(`${sign}${normalized}`);
   if (!Number.isFinite(num)) {
     throw new Error(`Importo non valido: "${value}"`);
   }
@@ -341,16 +369,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     const value = parseAmount(trimmed);
     onCommit(value);
 
-    const cleaned = trimmed.replace(/\s/g, '');
-    if (cleaned.includes(',') || cleaned.includes('.')) {
-      const display = cleaned.includes(',')
-        ? cleaned.replace(/\./g, '')
-        : cleaned.replace(/,/g, '').replace(/\./g, ',');
-      updateDraft(key, display);
-      return;
-    }
-
-    updateDraft(key, `${cleaned.replace(/\./g, '')},00`);
+    updateDraft(key, formatAmount(value));
   };
 
   const getDraftValue = (key: string, fallback: number) =>
@@ -365,11 +384,24 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   };
 
   const toIsoFromDayMonth = (value: string, year: number): string | null => {
-    const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
-    if (!match) return null;
-    const day = Number(match[1]);
-    const month = Number(match[2]);
-    if (!Number.isFinite(day) || !Number.isFinite(month)) return null;
+    const raw = value.trim();
+    let day: number | null = null;
+    let month: number | null = null;
+
+    const slashOrDash = raw.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+    if (slashOrDash) {
+      day = Number(slashOrDash[1]);
+      month = Number(slashOrDash[2]);
+    } else {
+      const compact = raw.match(/^(\d{2})(\d{2})$/);
+      if (compact) {
+        day = Number(compact[1]);
+        month = Number(compact[2]);
+      }
+    }
+
+    if (day === null || month === null || !Number.isFinite(day) || !Number.isFinite(month)) return null;
+
     const candidate = new Date(year, month - 1, day);
     if (candidate.getFullYear() !== year || candidate.getMonth() !== month - 1 || candidate.getDate() !== day) {
       return null;
