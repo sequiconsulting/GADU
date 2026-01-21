@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, PlusCircle, Printer, Trash2, Upload } from 'lucide-react';
 import { PublicLodgeConfig } from '../types/lodge';
-import type { FiscalEntry, FiscalEntryType, FiscalSection, RendicontoFiscale } from '../types';
+import type { FiscalEntry, FiscalEntryType, FiscalSection, RendicontoFiscale as RendicontoFiscaleData } from '../types';
 import { dataService } from '../services/dataService';
 import { RENDICONTO_CATEGORIES, RENDICONTO_SECTION_LABELS } from '../constants';
 
@@ -28,36 +28,57 @@ const parseAmount = (value: string): number => {
 const formatAmount = (value: number): string =>
   new Intl.NumberFormat('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value || 0);
 
-const parseDate = (value: string, selectedYear: number): string => {
+const isValidDate = (year: number, month: number, day: number) => {
+  const candidate = new Date(year, month - 1, day);
+  return candidate.getFullYear() === year && candidate.getMonth() === month - 1 && candidate.getDate() === day;
+};
+
+const normalizeDateStrict = (value: string, selectedYear: number, context?: string): string => {
   const v = value.trim();
+  const label = context ? `${context}: ` : '';
   if (!v) {
-    throw new Error('Data mancante');
+    throw new Error(`${label}Data mancante`);
   }
-  const isoMatch = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  const isoMatch = v.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s].*)?$/);
   if (isoMatch) {
     const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
     if (year !== selectedYear) {
-      throw new Error(`Data fuori anno selezionato (${selectedYear}): ${v}`);
+      throw new Error(`${label}Data fuori anno selezionato (${selectedYear}): ${v}`);
     }
-    return v;
+    if (!isValidDate(year, month, day)) {
+      throw new Error(`${label}Data non valida: ${v}`);
+    }
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
+
   const slashMatch = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (slashMatch) {
-    const day = slashMatch[1].padStart(2, '0');
-    const month = slashMatch[2].padStart(2, '0');
+    const day = Number(slashMatch[1]);
+    const month = Number(slashMatch[2]);
     const year = Number(slashMatch[3]);
     if (year !== selectedYear) {
-      throw new Error(`Data fuori anno selezionato (${selectedYear}): ${v}`);
+      throw new Error(`${label}Data fuori anno selezionato (${selectedYear}): ${v}`);
     }
-    return `${year}-${month}-${day}`;
+    if (!isValidDate(year, month, day)) {
+      throw new Error(`${label}Data non valida: ${v}`);
+    }
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
+
   const shortMatch = v.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
   if (shortMatch) {
-    const day = shortMatch[1].padStart(2, '0');
-    const month = shortMatch[2].padStart(2, '0');
-    return `${selectedYear}-${month}-${day}`;
+    const day = Number(shortMatch[1]);
+    const month = Number(shortMatch[2]);
+    if (!isValidDate(selectedYear, month, day)) {
+      throw new Error(`${label}Data non valida: ${v}`);
+    }
+    return `${selectedYear}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
-  throw new Error(`Formato data non riconosciuto: "${value}"`);
+
+  throw new Error(`${label}Formato data non riconosciuto: "${value}"`);
 };
 
 const detectDelimiter = (line: string): string => {
@@ -149,8 +170,8 @@ const defaultEntry = (year: number): FiscalEntry => ({
 });
 
 export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYear, lodge }) => {
-  const [data, setData] = useState<RendicontoFiscale | null>(null);
-  const dataRef = useRef<RendicontoFiscale | null>(null);
+  const [data, setData] = useState<RendicontoFiscaleData | null>(null);
+  const dataRef = useRef<RendicontoFiscaleData | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('CONTO_1');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -246,16 +267,20 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           accountByEntryId.set(entry.id, accountName);
         });
       });
-      const normalized: RendicontoFiscale = {
+      const normalized: RendicontoFiscaleData = {
         ...current,
         accounts: current.accounts.map((account, index) => ({
           ...account,
           entries: account.entries.map(entry => {
-            if (!entry.cashTransfer) return entry;
+            const normalizedDate = normalizeDateStrict(entry.date, current.year, `Data non valida (${entry.id})`);
+            if (!entry.cashTransfer) {
+              return { ...entry, date: normalizedDate };
+            }
             const accountName = getAccountLabel(account.name, `Conto ${index + 1}`);
             const description = getAccountTransferDescription(accountName, entry.cashTransfer);
             return {
               ...entry,
+              date: normalizedDate,
               description,
               categoryId: undefined,
               categoryLabel: '',
@@ -266,13 +291,17 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         cash: {
           ...current.cash,
           entries: current.cash.entries.map(entry => {
-            if (!entry.cashTransfer) return entry;
+            const normalizedDate = normalizeDateStrict(entry.date, current.year, `Data non valida (${entry.id})`);
+            if (!entry.cashTransfer) {
+              return { ...entry, date: normalizedDate };
+            }
             const accountName = entry.linkedAccountEntryId
               ? accountByEntryId.get(entry.linkedAccountEntryId) || 'Conto'
               : 'Conto';
             const description = getCashTransferDescription(accountName, entry.cashTransfer);
             return {
               ...entry,
+              date: normalizedDate,
               description,
               categoryId: undefined,
               categoryLabel: '',
@@ -360,11 +389,11 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     }, 0);
   };
 
-  const updateAccount = (accountId: string, updater: (draft: RendicontoFiscale) => RendicontoFiscale) => {
+  const updateAccount = (accountId: string, updater: (draft: RendicontoFiscaleData) => RendicontoFiscaleData) => {
     setData(prev => (prev ? updater(prev) : prev));
   };
 
-  const updateCash = (updater: (draft: RendicontoFiscale) => RendicontoFiscale) => {
+  const updateCash = (updater: (draft: RendicontoFiscaleData) => RendicontoFiscaleData) => {
     setData(prev => (prev ? updater(prev) : prev));
   };
 
@@ -514,7 +543,8 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
   };
 
   const dateKey = (value: string) => {
-    const parts = value.split('-');
+    const base = value.split(/[T\s]/)[0].trim();
+    const parts = base.split('-');
     if (parts.length !== 3) return Number.MAX_SAFE_INTEGER;
     const [y, m, d] = parts.map(n => Number(n));
     if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return Number.MAX_SAFE_INTEGER;
@@ -658,7 +688,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           return idx >= 0 ? row[idx] || '' : '';
         };
         const parseOptionalAmount = (value: string) => (value.trim() ? parseAmount(value) : 0);
-        const dateValue = parseDate(find(importMap.date), selectedYear);
+        const dateValue = normalizeDateStrict(find(importMap.date), selectedYear, `Riga ${index + 2}`);
         const description = find(importMap.description);
         if (!description) {
           throw new Error(`Descrizione mancante alla riga ${index + 2}`);
@@ -891,11 +921,28 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     </div>
   );
 
-  const renderMovimentiTable = (entries: FiscalEntry[], label: string, initialBalance: number, accountByEntryId: Map<string, string>) => (
-    <div className="print-page-break-before print-page-break-avoid">
-      {renderPrintHeader()}
-      <h2 className="text-lg font-semibold text-slate-900 mb-2">{label}</h2>
-      <table className="w-full text-xs border border-slate-200">
+  const renderMovimentiTable = (
+    entries: FiscalEntry[],
+    label: string,
+    initialBalance: number,
+    accountByEntryId: Map<string, string>,
+    isCashSection = false
+  ) => {
+    const orderedEntries = sortEntriesByDate(entries);
+    const finalBalance = orderedEntries.reduce((sum, entry) => {
+      const delta = entry.type === 'ENTRATA' ? entry.amount : -entry.amount;
+      return sum + delta;
+    }, initialBalance || 0);
+
+    return (
+      <div className="print-page-break-before print-page-break-avoid">
+        {renderPrintHeader()}
+        <h2 className="text-lg font-semibold text-slate-900 mb-2">{label}</h2>
+        <div className="text-xs text-slate-700 mb-2 flex items-center justify-between">
+          <div>Saldo iniziale: <span className="font-semibold">{formatEuro(initialBalance || 0)}</span></div>
+          <div>Saldo finale: <span className="font-semibold">{formatEuro(finalBalance)}</span></div>
+        </div>
+        <table className="w-full text-xs border border-slate-200">
         <thead className="bg-slate-50">
           <tr>
             <th className="px-2 py-1 text-left">Data</th>
@@ -909,12 +956,14 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
         <tbody>
           {(() => {
             let running = initialBalance || 0;
-            return sortEntriesByDate(entries).map(entry => {
-            const typeLabel = entry.cashTransfer
-              ? entry.cashTransfer === 'OUT'
-                ? PRINT_TYPE_LABELS.USCITA_CASSA
-                : PRINT_TYPE_LABELS.ENTRATA_CASSA
-              : PRINT_TYPE_LABELS[entry.type] || entry.type;
+            return orderedEntries.map(entry => {
+              const typeLabel = isCashSection
+                ? PRINT_TYPE_LABELS[entry.type] || entry.type
+                : entry.cashTransfer
+                  ? entry.cashTransfer === 'OUT'
+                    ? PRINT_TYPE_LABELS.USCITA_CASSA
+                    : PRINT_TYPE_LABELS.ENTRATA_CASSA
+                  : PRINT_TYPE_LABELS[entry.type] || entry.type;
               const accountName = entry.linkedAccountEntryId
                 ? accountByEntryId.get(entry.linkedAccountEntryId) || 'Conto'
                 : 'Conto';
@@ -939,8 +988,9 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           })()}
         </tbody>
       </table>
-    </div>
-  );
+      </div>
+    );
+  };
 
   if (loading) {
     return <div className="text-center py-12">Caricamento rendiconto fiscale...</div>;
@@ -1497,7 +1547,7 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
               .filter(account => account.entries.length > 0)
               .map(account => renderMovimentiTable(account.entries, account.label, account.initialBalance, accountByEntryId))}
                   {data.cash.entries.length > 0
-                    ? renderMovimentiTable(data.cash.entries, 'Movimenti Cassa', data.cash.initialBalance || 0, accountByEntryId)
+                    ? renderMovimentiTable(data.cash.entries, 'Movimenti Cassa', data.cash.initialBalance || 0, accountByEntryId, true)
                     : null}
                 </>
               );
