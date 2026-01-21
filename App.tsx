@@ -282,18 +282,6 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
   const handleLoginSuccess = (lodge: PublicLodgeConfig, session?: AuthSession) => {
     const hydrateSession = async () => {
       try {
-        const reloadKey = `gadu_login_cache_reload_${lodge.glriNumber}`;
-        if (typeof window !== 'undefined') {
-          const alreadyReloaded = sessionStorage.getItem(reloadKey);
-          if (!alreadyReloaded) {
-            sessionStorage.setItem(reloadKey, '1');
-            localStorage.clear();
-            window.location.reload();
-            return;
-          }
-          sessionStorage.removeItem(reloadKey);
-        }
-
         const latestConfig = await lodgeRegistry.getLodgeConfig(lodge.glriNumber);
         if (!latestConfig) {
           throw new Error(`Loggia ${lodge.glriNumber} non trovata nel registry`);
