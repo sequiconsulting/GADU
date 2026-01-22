@@ -261,6 +261,15 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
     return totals;
   }, [allEntries, categoryById]);
 
+  const accountNameById = useMemo(() => {
+    if (!data) return new Map<string, string>();
+    const map = new Map<string, string>();
+    data.accounts.forEach((account, index) => {
+      map.set(account.id, getAccountLabel(account.name, `Conto ${index + 1}`));
+    });
+    return map;
+  }, [data]);
+
   const initialTotal = useMemo(() => {
     if (!data) return 0;
     const accountsInit = data.accounts.reduce((sum, a) => sum + (a.initialBalance || 0), 0);
@@ -731,6 +740,104 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
       .map(item => item.entry);
   };
 
+  type CategoryDetailRow = {
+    entryId: string;
+    date: string;
+    description: string;
+    amount: number;
+    type: FiscalEntryType;
+    source: string;
+  };
+
+  type SectionDetail = {
+    section: FiscalSection;
+    categories: Array<{
+      key: string;
+      label: string;
+      rows: CategoryDetailRow[];
+    }>;
+  };
+
+  const detailedCategorySections = useMemo<SectionDetail[]>(() => {
+    if (!data) return [];
+
+    const sectionMap = new Map<FiscalSection, Map<string, { label: string; rows: CategoryDetailRow[] }>>();
+
+    const pushRow = (
+      section: FiscalSection,
+      key: string,
+      label: string,
+      row: CategoryDetailRow
+    ) => {
+      if (!sectionMap.has(section)) {
+        sectionMap.set(section, new Map());
+      }
+      const catMap = sectionMap.get(section)!;
+      const bucket = catMap.get(key) || { label, rows: [] };
+      bucket.rows.push(row);
+      catMap.set(key, bucket);
+    };
+
+    data.accounts.forEach(account => {
+      const accountName = accountNameById.get(account.id) || 'Conto';
+      account.entries.forEach(entry => {
+        if (entry.cashTransfer) return;
+        const category = entry.categoryId ? categoryById.get(entry.categoryId) : null;
+        const section = category?.section || entry.section;
+        const label = entry.categoryLabel || category?.label || 'Senza categoria';
+        const key = entry.categoryId || label;
+        pushRow(section, key, label, {
+          entryId: entry.id,
+          date: entry.date,
+          description: entry.description,
+          amount: entry.amount,
+          type: entry.type,
+          source: accountName,
+        });
+      });
+    });
+
+    data.cash.entries.forEach(entry => {
+      if (entry.cashTransfer) return;
+      const category = entry.categoryId ? categoryById.get(entry.categoryId) : null;
+      const section = category?.section || entry.section;
+      const label = entry.categoryLabel || category?.label || 'Senza categoria';
+      const key = entry.categoryId || label;
+      pushRow(section, key, label, {
+        entryId: entry.id,
+        date: entry.date,
+        description: entry.description,
+        amount: entry.amount,
+        type: entry.type,
+        source: 'Cassa',
+      });
+    });
+
+    const sectionOrder: FiscalSection[] = ['A', 'B', 'C', 'D', 'E'];
+    return sectionOrder
+      .map(section => {
+        const catMap = sectionMap.get(section);
+        if (!catMap) return null;
+        const categories = Array.from(catMap.values())
+          .map(cat => ({
+            key: `${section}-${cat.label}`,
+            label: cat.label,
+            rows: cat.rows
+              .slice()
+              .sort((a, b) => {
+                const dateCompare = dateKey(a.date) - dateKey(b.date);
+                if (dateCompare !== 0) return dateCompare;
+                return a.description.localeCompare(b.description);
+              }),
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+
+        if (!categories.length) return null;
+        return { section, categories } as SectionDetail;
+      })
+      .filter((v): v is SectionDetail => Boolean(v));
+  }, [data, categoryById, accountNameById]);
+
   const handleCategoryChange = (tab: ActiveTab, entryId: string, categoryId: string) => {
     const category = RENDICONTO_CATEGORIES.find(c => c.id === categoryId);
     if (!category) {
@@ -1161,6 +1268,59 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
           )}
         </tfoot>
       </table>
+    );
+  };
+
+  const renderSottovociDetailReport = () => {
+    if (!detailedCategorySections.length) return null;
+
+    const cell = 'px-2 py-1 print:px-1 print:py-0.5 text-xs leading-tight';
+    const headerCell = `${cell} bg-slate-50 font-semibold text-slate-700`;
+
+    return (
+      <div className="print-page-break-after print-page-break-avoid">
+        {renderPrintHeader()}
+        <h2 className="text-lg font-semibold text-slate-900 mb-2">Dettaglio sottovoci rendiconto</h2>
+        {detailedCategorySections.map(section => (
+          <div key={section.section} className="mb-3 last:mb-0">
+            <div className="text-xs font-semibold text-slate-700 mb-1">
+              {section.section} · {RENDICONTO_SECTION_LABELS[section.section]}
+            </div>
+            {section.categories.map(category => (
+              <div key={category.key} className="mb-3 last:mb-0">
+                <div className="text-xs font-medium text-slate-800 mb-1 pl-0">{category.label}</div>
+                <table className="w-full border border-slate-200 print:table-fixed">
+                  <thead>
+                    <tr>
+                      <th className={`${headerCell} text-left w-[82px]`}>Data</th>
+                      <th className={`${headerCell} text-left`}>Descrizione</th>
+                      <th className={`${headerCell} text-right w-[110px]`}>Importo</th>
+                      <th className={`${headerCell} text-left w-[140px]`}>Conto / Cassa</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {category.rows.map(row => {
+                      const isEntrata = row.type === 'ENTRATA';
+                      const signedAmount = isEntrata ? row.amount : -row.amount;
+                      const amountClass = signedAmount >= 0 ? 'text-emerald-700' : 'text-red-600';
+                      return (
+                        <tr key={row.entryId} className="border-b border-slate-100 last:border-0">
+                          <td className={cell}>{row.date}</td>
+                          <td className={`${cell} print:whitespace-normal print:break-words`}>{row.description || '-'}</td>
+                          <td className={`${cell} text-right ${amountClass} font-semibold`}>
+                            {formatEuro(signedAmount)}
+                          </td>
+                          <td className={cell}>{row.source}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     );
   };
 
@@ -1733,6 +1893,8 @@ export const RendicontoFiscale: React.FC<RendicontoFiscaleProps> = ({ selectedYe
                 </div>
               </div>
             </div>
+
+            {renderSottovociDetailReport()}
 
             {(() => {
               const accountByEntryId = new Map<string, string>();
