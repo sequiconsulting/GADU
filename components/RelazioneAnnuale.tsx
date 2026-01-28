@@ -130,6 +130,7 @@ const sortByName = (items: MemberBranchContext[]) => {
 
 const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYear, settings, onUpdate }) => {
   const [activeBranch, setActiveBranch] = useState<BranchType>('CRAFT');
+  const [showChapterView, setShowChapterView] = useState(true); // true = mostra Capitolo unificato, false = mostra MARK e ARCH separati
   const [savingMemberIds, setSavingMemberIds] = useState<Set<string>>(new Set());
 
   const getCapitazioneForYear = (branchData: MasonicBranchData, year: number): { value: string; error?: string } => {
@@ -355,9 +356,60 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
 
       return acc;
     }, {} as Record<BranchType, BranchReport>);
-  }, [members, selectedYear]);
+  }, [members, selectedYear, showChapterView]);
 
-  const currentReport = branchReports[activeBranch];
+  // Combina MARK e ARCH quando showChapterView è true
+  const getDisplayReport = (): BranchReport | null => {
+    if (activeBranch === 'MARK' && showChapterView) {
+      const markReport = branchReports['MARK'];
+      const archReport = branchReports['ARCH'];
+      
+      if (!markReport || !archReport) return markReport || null;
+      
+      // Combina gli array di membri, eliminando duplicati per ID
+      const mergeContexts = (mark: MemberBranchContext[], arch: MemberBranchContext[]): MemberBranchContext[] => {
+        const seen = new Set<string>();
+        const result: MemberBranchContext[] = [];
+        const all = [...mark, ...arch];
+        for (const ctx of all) {
+          if (!seen.has(ctx.member.id)) {
+            seen.add(ctx.member.id);
+            result.push(ctx);
+          }
+        }
+        return result;
+      };
+      
+      return {
+        branch: markReport.branch,
+        config: { 
+          ...markReport.config, 
+          introLabel: 'Capitolo (Marchio & Arco Reale)'
+        },
+        activeAtStart: mergeContexts(markReport.activeAtStart, archReport.activeAtStart),
+        activeAtEnd: mergeContexts(markReport.activeAtEnd, archReport.activeAtEnd),
+        activeAtJan31: mergeContexts(markReport.activeAtJan31, archReport.activeAtJan31),
+        events: [...markReport.events, ...archReport.events].sort((a, b) => {
+          const last = a.member.lastName.localeCompare(b.member.lastName);
+          if (last !== 0) return last;
+          return a.member.firstName.localeCompare(b.member.firstName);
+        }),
+        primaryActivations: mergeContexts(markReport.primaryActivations, archReport.primaryActivations),
+        reAdmissions: mergeContexts(markReport.reAdmissions, archReport.reAdmissions),
+        transfersIn: mergeContexts(markReport.transfersIn, archReport.transfersIn),
+        transfersForeign: mergeContexts(markReport.transfersForeign, archReport.transfersForeign),
+        doubleAffiliations: mergeContexts(markReport.doubleAffiliations, archReport.doubleAffiliations),
+        resignations: mergeContexts(markReport.resignations, archReport.resignations),
+        deaths: mergeContexts(markReport.deaths, archReport.deaths),
+        deletions: mergeContexts(markReport.deletions, archReport.deletions),
+        transfersOut: mergeContexts(markReport.transfersOut, archReport.transfersOut),
+      };
+    }
+    
+    return branchReports[activeBranch] || null;
+  };
+
+  const currentReport = getDisplayReport();
 
   const renderMembersTable = (title: string, rows: MemberBranchContext[], options?: { showCapitazione?: boolean; showQuota?: boolean; quotaGLGCOnly?: boolean; showQuotaTotal?: boolean; editableCapitazione?: boolean }) => {
     // Deduplicate by member ID
@@ -902,21 +954,49 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
         </div>
       </div>
 
+      {/* Toggle visualizzazione */}
+      <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200 print:hidden">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showChapterView}
+            onChange={(e) => {
+              setShowChapterView(e.target.checked);
+              // Quando passo da separata a unificata, cambio tab a MARK (Capitolo)
+              if (e.target.checked && (activeBranch === 'ARCH')) {
+                setActiveBranch('MARK');
+              }
+            }}
+            className="w-4 h-4 rounded"
+          />
+          <span className="text-sm font-medium text-slate-700">Visualizza Capitolo unificato (Marchio + Arco Reale)</span>
+        </label>
+      </div>
+
       <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto rounded-t-lg scrollbar-hide print:hidden">
-        {BRANCHES.map(b => (
-          <button
-            key={b.type}
-            onClick={() => setActiveBranch(b.type)}
-            className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 flex items-center gap-2 flex-shrink-0 ${
-              activeBranch === b.type
-                ? `${b.color.replace('bg-', 'border-')} ${b.color.replace('bg-', 'text-')} bg-white`
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <div className={`w-2 h-2 rounded-full ${b.color}`} />
-            {b.label}
-          </button>
-        ))}
+        {BRANCHES.map(b => {
+          // In modalità unificata, nascondi ARCH e mostra MARK come "Capitolo"
+          if (showChapterView && b.type === 'ARCH') return null;
+          
+          const displayBranch = showChapterView && b.type === 'MARK' 
+            ? { ...b, label: 'Capitolo (Marchio & Arco Reale)' }
+            : b;
+          
+          return (
+            <button
+              key={b.type}
+              onClick={() => setActiveBranch(b.type)}
+              className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 flex items-center gap-2 flex-shrink-0 ${
+                activeBranch === b.type
+                  ? `${b.color.replace('bg-', 'border-')} ${b.color.replace('bg-', 'text-')} bg-white`
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <div className={`w-2 h-2 rounded-full ${b.color}`} />
+              {displayBranch.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="bg-white border border-slate-200 border-t-0 shadow-sm p-6 space-y-3">

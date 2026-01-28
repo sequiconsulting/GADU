@@ -18,7 +18,7 @@ type ConvocazioneRow = { id: string; branch_type: BranchType; year_start: number
 type RendicontoRow = { year_start: number; data: RendicontoFiscale };
 
 class DataService {
-  public APP_VERSION = '0.237';
+  public APP_VERSION = '0.238';
   public DB_VERSION = 21;
 
   private supabase: SupabaseClient | null = null;

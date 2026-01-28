@@ -34,6 +34,7 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
   };
 
   const [activeBranch, setActiveBranch] = useState<BranchType>('CRAFT');
+  const [showChapterView, setShowChapterView] = useState(true); // true = mostra Capitolo unificato, false = mostra MARK e ARCH separati
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [memberCapitazioni, setMemberCapitazioni] = useState<Map<string, CapitazioneEvent | undefined>>(new Map());
@@ -78,8 +79,16 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
         setIsLoading(true);
         setError(null);
         
+        // Determina il branch da usare per il caricamento
+        // In modalità Chapter: se attivo è MARK o ARCH, carica sempre da MARK (unificato)
+        // In modalità separata: carica dal branch attivo
+        let branchForLoad = activeBranch;
+        if (showChapterView && (activeBranch === 'MARK' || activeBranch === 'ARCH')) {
+          branchForLoad = 'MARK'; // Le quote di MARK contengono i dati unificati
+        }
+        
         // Carica le quote (che verranno seed dal dataService se non esistono)
-        const loaded = await dataService.getCapitazioniQuotes(selectedYear, activeBranch);
+        const loaded = await dataService.getCapitazioniQuotes(selectedYear, branchForLoad);
         
         // Aggiorna solo se il component è ancora montato
         if (isMounted) {
@@ -100,14 +109,20 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [selectedYear, activeBranch]);
+  }, [selectedYear, activeBranch, showChapterView]);
 
   const scheduleSaveQuotes = (
     year: number,
     branch: BranchType,
     nextQuotes: Record<CapitazioneTipo, { quota_gl: number; quota_regionale: number; quota_loggia: number }>
   ) => {
-    const key = `${year}:${branch}`;
+    // In modalità Chapter: se branch è MARK o ARCH, salva sempre su MARK
+    let branchForSave = branch;
+    if (showChapterView && (branch === 'MARK' || branch === 'ARCH')) {
+      branchForSave = 'MARK';
+    }
+    
+    const key = `${year}:${branchForSave}`;
     pendingQuotesRef.current.set(key, nextQuotes);
 
     const existingTimer = quoteSaveTimersRef.current.get(key);
@@ -122,7 +137,7 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
       if (!payload) return;
 
       try {
-        await dataService.saveCapitazioniQuotes(year, branch, { byTipo: payload });
+        await dataService.saveCapitazioniQuotes(year, branchForSave, { byTipo: payload });
         if (isMountedRef.current) setError(null);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Errore salvataggio quote';
@@ -137,27 +152,36 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
   // Salva capitazione di un singolo membro al volo
   const saveMemberCapitazione = async (member: Member, branch: BranchType, cap: CapitazioneEvent) => {
     try {
-      const branchKey = branch.toLowerCase() as keyof Member;
-      const branchData = member[branchKey] as any;
+      const branchesToUpdate: BranchType[] = branch === 'MARK' && showChapterView ? ['MARK', 'ARCH'] : [branch];
       
-      // Trova o crea l'entry nella lista capitazioni
-      const existingIdx = branchData.capitazioni?.findIndex(c => c.year === selectedYear) ?? -1;
-      const updatedCapitazioni = branchData.capitazioni ? [...branchData.capitazioni] : [];
+      let updatedMember = { ...member };
       
-      if (existingIdx >= 0) {
-        updatedCapitazioni[existingIdx] = cap;
-      } else {
-        updatedCapitazioni.push(cap);
+      // Se in modalità Chapter su MARK, salva su entrambi
+      for (const br of branchesToUpdate) {
+        const branchKey = br.toLowerCase() as keyof Member;
+        const branchData = updatedMember[branchKey] as any;
+        
+        // Trova o crea l'entry nella lista capitazioni
+        const existingIdx = branchData.capitazioni?.findIndex(c => c.year === selectedYear) ?? -1;
+        const updatedCapitazioni = branchData.capitazioni ? [...branchData.capitazioni] : [];
+        
+        if (existingIdx >= 0) {
+          updatedCapitazioni[existingIdx] = cap;
+        } else {
+          updatedCapitazioni.push(cap);
+        }
+        
+        updatedMember = {
+          ...updatedMember,
+          [branchKey]: {
+            ...branchData,
+            capitazioni: updatedCapitazioni
+          }
+        };
       }
       
       // Salva il membro
-      await dataService.saveMember({
-        ...member,
-        [branchKey]: {
-          ...branchData,
-          capitazioni: updatedCapitazioni
-        }
-      });
+      await dataService.saveMember(updatedMember);
       
       if (onUpdate) await onUpdate();
     } catch (err) {
@@ -209,6 +233,13 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
   // Determina se un membro è attivo in questo ramo per l'anno
   const getActiveMembersForBranch = () => {
     return members.filter(m => {
+      // In modalità Chapter e su MARK, filtra per attivi in MARK o ARCH
+      if (showChapterView && activeBranch === 'MARK') {
+        const markActive = isMemberActiveInYear(m.mark, selectedYear);
+        const archActive = isMemberActiveInYear(m.arch, selectedYear);
+        return markActive || archActive;
+      }
+      
       const branchKey = activeBranch.toLowerCase() as keyof Member;
       const branchData = m[branchKey] as MasonicBranchData;
       
@@ -237,19 +268,29 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
 
   // Legge la capitazione di un membro
   const getCapitazioneMembro = (member: Member): CapitazioneEvent | undefined => {
+    // In modalità Chapter su MARK, prova ARCH prima (ha priorità), poi MARK
+    if (showChapterView && activeBranch === 'MARK') {
+      const archCap = member.arch.capitazioni?.find(c => c.year === selectedYear);
+      if (archCap) return archCap;
+      return member.mark.capitazioni?.find(c => c.year === selectedYear);
+    }
+    
     const branchKey = activeBranch.toLowerCase() as keyof Member;
     const branchData = member[branchKey] as any;
     return branchData.capitazioni?.find(c => c.year === selectedYear);
   };
 
-  // Logica di dimming: MARK e ARCH pagano insieme
+  // Logica di dimming: solo in modalità separata
   const shouldDimBranch = (member: Member): boolean => {
+    // In modalità Chapter non applica dimming
+    if (showChapterView) return false;
+    
     if (activeBranch === 'MARK') {
-      const archCap = getCapitazioneMembro({ ...member, arch: member.arch });
+      const archCap = member.arch.capitazioni?.find(c => c.year === selectedYear);
       if (getPaidAmount(archCap) > 0) return true; // Se ARCH ha pagamento registrato, MARK è dimmed
     }
     if (activeBranch === 'ARCH') {
-      const markCap = getCapitazioneMembro({ ...member, mark: member.mark });
+      const markCap = member.mark.capitazioni?.find(c => c.year === selectedYear);
       if (getPaidAmount(markCap) > 0) return true; // Se MARK ha pagamento registrato, ARCH è dimmed
     }
     return false;
@@ -281,26 +322,54 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
         </div>
       )}
 
+      {/* Toggle visualizzazione */}
+      <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showChapterView}
+            onChange={(e) => {
+              setShowChapterView(e.target.checked);
+              // Quando passo da separata a unificata, cambio tab a MARK (Capitolo)
+              if (e.target.checked && (activeBranch === 'ARCH')) {
+                setActiveBranch('MARK');
+              }
+            }}
+            className="w-4 h-4 rounded"
+          />
+          <span className="text-sm font-medium text-slate-700">Visualizza Capitolo unificato (Marchio + Arco Reale)</span>
+        </label>
+      </div>
+
       {/* Tab per ramo */}
       <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto rounded-t-lg scrollbar-hide">
-        {BRANCHES.map(branch => (
-          <button
-            key={branch.type}
-            onClick={() => setActiveBranch(branch.type)}
-            className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
-              activeBranch === branch.type
-                ? 'border-masonic-gold text-masonic-gold bg-white'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            {branch.label}
-          </button>
-        ))}
+        {BRANCHES.map(branch => {
+          // In modalità unificata, nascondi ARCH e mostra MARK come "Capitolo"
+          if (showChapterView && branch.type === 'ARCH') return null;
+          
+          const displayBranch = showChapterView && branch.type === 'MARK' 
+            ? { ...branch, label: 'Capitolo (Marchio & Arco Reale)' }
+            : branch;
+          
+          return (
+            <button
+              key={branch.type}
+              onClick={() => setActiveBranch(branch.type)}
+              className={`px-6 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
+                activeBranch === branch.type
+                  ? 'border-masonic-gold text-masonic-gold bg-white'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              {displayBranch.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tabella Quote */}
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3">
-        <h3 className="text-xs font-semibold text-slate-800 mb-2">Quote {activeBranchData?.label}</h3>
+        <h3 className="text-xs font-semibold text-slate-800 mb-2">Quote {activeBranch === 'MARK' && showChapterView ? 'Capitolo (Marchio & Arco Reale)' : activeBranchData?.label}</h3>
         
         {isLoading ? (
           <div className="text-center py-3 text-slate-500 text-xs">Caricamento...</div>
