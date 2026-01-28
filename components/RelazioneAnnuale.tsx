@@ -130,7 +130,6 @@ const sortByName = (items: MemberBranchContext[]) => {
 
 const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYear, settings, onUpdate }) => {
   const [activeBranch, setActiveBranch] = useState<BranchType>('CRAFT');
-  const [showChapterView, setShowChapterView] = useState(true); // true = mostra Capitolo unificato, false = mostra MARK e ARCH separati
   const [savingMemberIds, setSavingMemberIds] = useState<Set<string>>(new Set());
 
   const getCapitazioneForYear = (branchData: MasonicBranchData, year: number): { value: string; error?: string } => {
@@ -356,11 +355,11 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
 
       return acc;
     }, {} as Record<BranchType, BranchReport>);
-  }, [members, selectedYear, showChapterView]);
+  }, [members, selectedYear]);
 
-  // Combina MARK e ARCH quando showChapterView è true
+  // Combina MARK e ARCH
   const getDisplayReport = (): BranchReport | null => {
-    if (activeBranch === 'MARK' && showChapterView) {
+    if (activeBranch === 'MARK') {
       const markReport = branchReports['MARK'];
       const archReport = branchReports['ARCH'];
       
@@ -954,31 +953,12 @@ const RelazioneAnnuale: React.FC<RelazioneAnnualeProps> = ({ members, selectedYe
         </div>
       </div>
 
-      {/* Toggle visualizzazione */}
-      <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200 print:hidden">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showChapterView}
-            onChange={(e) => {
-              setShowChapterView(e.target.checked);
-              // Quando passo da separata a unificata, cambio tab a MARK (Capitolo)
-              if (e.target.checked && (activeBranch === 'ARCH')) {
-                setActiveBranch('MARK');
-              }
-            }}
-            className="w-4 h-4 rounded"
-          />
-          <span className="text-sm font-medium text-slate-700">Visualizza Capitolo unificato (Marchio + Arco Reale)</span>
-        </label>
-      </div>
-
       <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto rounded-t-lg scrollbar-hide print:hidden">
         {BRANCHES.map(b => {
-          // In modalità unificata, nascondi ARCH e mostra MARK come "Capitolo"
-          if (showChapterView && b.type === 'ARCH') return null;
+          // Nascondi ARCH e mostra MARK come "Capitolo"
+          if (b.type === 'ARCH') return null;
           
-          const displayBranch = showChapterView && b.type === 'MARK' 
+          const displayBranch = b.type === 'MARK' 
             ? { ...b, label: 'Capitolo (Marchio & Arco Reale)' }
             : b;
           

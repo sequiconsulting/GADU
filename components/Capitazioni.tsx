@@ -34,7 +34,6 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
   };
 
   const [activeBranch, setActiveBranch] = useState<BranchType>('CRAFT');
-  const [showChapterView, setShowChapterView] = useState(true); // true = mostra Capitolo unificato, false = mostra MARK e ARCH separati
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [memberCapitazioni, setMemberCapitazioni] = useState<Map<string, CapitazioneEvent | undefined>>(new Map());
@@ -79,11 +78,9 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
         setIsLoading(true);
         setError(null);
         
-        // Determina il branch da usare per il caricamento
-        // In modalità Chapter: se attivo è MARK o ARCH, carica sempre da MARK (unificato)
-        // In modalità separata: carica dal branch attivo
+        // Se attivo è MARK o ARCH, carica sempre da MARK (unificato)
         let branchForLoad = activeBranch;
-        if (showChapterView && (activeBranch === 'MARK' || activeBranch === 'ARCH')) {
+        if (activeBranch === 'MARK' || activeBranch === 'ARCH') {
           branchForLoad = 'MARK'; // Le quote di MARK contengono i dati unificati
         }
         
@@ -109,16 +106,16 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [selectedYear, activeBranch, showChapterView]);
+  }, [selectedYear, activeBranch]);
 
   const scheduleSaveQuotes = (
     year: number,
     branch: BranchType,
     nextQuotes: Record<CapitazioneTipo, { quota_gl: number; quota_regionale: number; quota_loggia: number }>
   ) => {
-    // In modalità Chapter: se branch è MARK o ARCH, salva sempre su MARK
+    // Se branch è MARK o ARCH, salva sempre su MARK
     let branchForSave = branch;
-    if (showChapterView && (branch === 'MARK' || branch === 'ARCH')) {
+    if (branch === 'MARK' || branch === 'ARCH') {
       branchForSave = 'MARK';
     }
     
@@ -152,11 +149,11 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
   // Salva capitazione di un singolo membro al volo
   const saveMemberCapitazione = async (member: Member, branch: BranchType, cap: CapitazioneEvent) => {
     try {
-      const branchesToUpdate: BranchType[] = branch === 'MARK' && showChapterView ? ['MARK', 'ARCH'] : [branch];
+      // Se MARK, salva su entrambi MARK e ARCH (unificati)
+      const branchesToUpdate: BranchType[] = branch === 'MARK' ? ['MARK', 'ARCH'] : [branch];
       
       let updatedMember = { ...member };
       
-      // Se in modalità Chapter su MARK, salva su entrambi
       for (const br of branchesToUpdate) {
         const branchKey = br.toLowerCase() as keyof Member;
         const branchData = updatedMember[branchKey] as any;
@@ -233,8 +230,8 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
   // Determina se un membro è attivo in questo ramo per l'anno
   const getActiveMembersForBranch = () => {
     return members.filter(m => {
-      // In modalità Chapter e su MARK, filtra per attivi in MARK o ARCH
-      if (showChapterView && activeBranch === 'MARK') {
+      // Se MARK, filtra per attivi in MARK o ARCH (unificati)
+      if (activeBranch === 'MARK') {
         const markActive = isMemberActiveInYear(m.mark, selectedYear);
         const archActive = isMemberActiveInYear(m.arch, selectedYear);
         return markActive || archActive;
@@ -268,8 +265,8 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
 
   // Legge la capitazione di un membro
   const getCapitazioneMembro = (member: Member): CapitazioneEvent | undefined => {
-    // In modalità Chapter su MARK, prova ARCH prima (ha priorità), poi MARK
-    if (showChapterView && activeBranch === 'MARK') {
+    // Se MARK, prova ARCH prima (ha priorità), poi MARK
+    if (activeBranch === 'MARK') {
       const archCap = member.arch.capitazioni?.find(c => c.year === selectedYear);
       if (archCap) return archCap;
       return member.mark.capitazioni?.find(c => c.year === selectedYear);
@@ -280,15 +277,11 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
     return branchData.capitazioni?.find(c => c.year === selectedYear);
   };
 
-  // Logica di dimming: solo in modalità separata
+  // Logica di dimming: non applicare in Capitolo unificato
   const shouldDimBranch = (member: Member): boolean => {
-    // In modalità Chapter non applica dimming
-    if (showChapterView) return false;
+    // Capitolo unificato non applica dimming
+    if (activeBranch === 'MARK') return false;
     
-    if (activeBranch === 'MARK') {
-      const archCap = member.arch.capitazioni?.find(c => c.year === selectedYear);
-      if (getPaidAmount(archCap) > 0) return true; // Se ARCH ha pagamento registrato, MARK è dimmed
-    }
     if (activeBranch === 'ARCH') {
       const markCap = member.mark.capitazioni?.find(c => c.year === selectedYear);
       if (getPaidAmount(markCap) > 0) return true; // Se MARK ha pagamento registrato, ARCH è dimmed
@@ -322,32 +315,13 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
         </div>
       )}
 
-      {/* Toggle visualizzazione */}
-      <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showChapterView}
-            onChange={(e) => {
-              setShowChapterView(e.target.checked);
-              // Quando passo da separata a unificata, cambio tab a MARK (Capitolo)
-              if (e.target.checked && (activeBranch === 'ARCH')) {
-                setActiveBranch('MARK');
-              }
-            }}
-            className="w-4 h-4 rounded"
-          />
-          <span className="text-sm font-medium text-slate-700">Visualizza Capitolo unificato (Marchio + Arco Reale)</span>
-        </label>
-      </div>
-
       {/* Tab per ramo */}
       <div className="flex border-b border-slate-200 bg-slate-50 overflow-x-auto rounded-t-lg scrollbar-hide">
         {BRANCHES.map(branch => {
-          // In modalità unificata, nascondi ARCH e mostra MARK come "Capitolo"
-          if (showChapterView && branch.type === 'ARCH') return null;
+          // Nascondi ARCH e mostra MARK come "Capitolo"
+          if (branch.type === 'ARCH') return null;
           
-          const displayBranch = showChapterView && branch.type === 'MARK' 
+          const displayBranch = branch.type === 'MARK' 
             ? { ...branch, label: 'Capitolo (Marchio & Arco Reale)' }
             : branch;
           
@@ -369,7 +343,7 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
 
       {/* Tabella Quote */}
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-3">
-        <h3 className="text-xs font-semibold text-slate-800 mb-2">Quote {activeBranch === 'MARK' && showChapterView ? 'Capitolo (Marchio & Arco Reale)' : activeBranchData?.label}</h3>
+        <h3 className="text-xs font-semibold text-slate-800 mb-2">Quote {activeBranch === 'MARK' ? 'Capitolo (Marchio & Arco Reale)' : activeBranchData?.label}</h3>
         
         {isLoading ? (
           <div className="text-center py-3 text-slate-500 text-xs">Caricamento...</div>
@@ -473,7 +447,7 @@ export const Capitazioni: React.FC<CapitazioniProps> = ({
 
       {/* Tabella Soci Attivi */}
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <h3 className="text-base font-semibold text-slate-800 p-6 pb-4">Soci Attivi - {activeBranchData?.label}</h3>
+        <h3 className="text-base font-semibold text-slate-800 p-6 pb-4">Soci Attivi - {activeBranch === 'MARK' ? 'Capitolo (Marchio & Arco Reale)' : activeBranchData?.label}</h3>
         
         {activeMembers.length === 0 ? (
           <div className="text-center py-8 text-slate-500">
