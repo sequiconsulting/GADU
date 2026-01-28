@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
-import { Layout, Users, LayoutDashboard, PlusCircle, Search, LogOut, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, UserX, Settings, FileText, DollarSign, ClipboardList, Crown, Star, Key, User } from 'lucide-react';
+import { Layout, Users, LayoutDashboard, PlusCircle, Search, Shield, Calendar, UserCog, BookOpen, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, List, Menu, X, Printer, Hash, MapPin, Settings, FileText, DollarSign, ClipboardList, Crown, Star, Key, User, LogOut } from 'lucide-react';
 import { Member, AppSettings } from './types';
 import { PublicLodgeConfig } from './types/lodge';
 import { dataService } from './services/dataService';
