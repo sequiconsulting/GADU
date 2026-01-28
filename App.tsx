@@ -546,7 +546,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
             {isMembersMenuOpen && (
                 <div className="ml-8 mt-1 space-y-1 border-l border-slate-700 pl-2">
                     <button onClick={() => handleViewChange('MEMBERS')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'MEMBERS' || (currentView === 'MEMBER_DETAIL' && returnView === 'MEMBERS') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
-                        <List size={16} /> Registro Fratelli
+                        <List size={16} /> Elenco Associati
                     </button>
                     <button onClick={() => handleViewChange('PIEDILISTA')} className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-all ${currentView === 'PIEDILISTA' || (currentView === 'MEMBER_DETAIL' && returnView === 'PIEDILISTA') ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}>
                         <BookOpen size={16} /> Piedilista
@@ -814,7 +814,7 @@ const AppWithLodge: React.FC<AppWithLodgeProps> = ({ glriNumber }) => {
               <div className="hidden print:block text-center mb-6">
                 <h1 className="text-3xl font-serif font-bold">G.A.D.U.</h1>
                 <h2 className="text-xl font-bold mt-1">{currentLodge?.lodgeName} N. {currentLodge?.glriNumber}</h2>
-                <h3 className="text-lg mt-2 font-serif text-slate-700">Registro Fratelli</h3>
+                <h3 className="text-lg mt-2 font-serif text-slate-700">Elenco Associati</h3>
                 <p className="text-sm text-slate-500">Anno {selectedYear}</p>
               </div>
 
